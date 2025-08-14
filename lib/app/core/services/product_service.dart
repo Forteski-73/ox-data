@@ -109,6 +109,26 @@ class ProductService with ChangeNotifier {
     }
   }
 
+  /// Isso prepara a lista para que a UI seja atualizada instantaneamente.
+  void addProductImageLocal(String finalidade, String base64Image) {
+    if (_productComplete == null) return;
+
+    // Cria o objeto ImageBase64 com os dados da nova imagem
+    final newImage = ImageBase64(
+      // Você pode gerar um ID temporário ou usar a lógica que preferir
+      imagePath: 'temp_path_${const Uuid().v4()}', 
+      imagesBase64: base64Image,
+      finalidade: finalidade,
+    );
+    
+    // Inicializa a lista de imagens se ela for nula
+    _productComplete!.images ??= []; 
+    _productComplete!.images!.add(newImage);
+
+    // Notifica os listeners para que a UI seja reconstruída
+    notifyListeners();
+  }
+
   Future<bool> deleteProductImage(
       String productId, String imagePath, String finalidade) async {
     // TODO: Chamar o repositório para excluir a imagem na API

@@ -95,6 +95,15 @@ class ApiClient {
         debugPrint('***********************************************************');
       }
 
+
+    // --- IMPRIME TUDO ---
+    print('###################################################################################');
+    print('======================= REQUEST ========================');
+    print('URL: $url');
+    print('Headers: $headers');
+    print('Body (JSON): ${json.encode(body)}');
+    print('===================');
+    print('###################################################################################');
       // Usa o cliente com o interceptor para adicionar o token.
       final response = await _authenticatedClient.post(
         url,

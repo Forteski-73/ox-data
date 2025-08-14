@@ -6,15 +6,15 @@ import 'package:oxdata/app/core/services/product_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:archive/archive_io.dart';
 import 'package:marquee/marquee.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path;
-import 'package:uuid/uuid.dart';
 import 'package:oxdata/app/core/utils/image_base.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:oxdata/app/core/utils/logger.dart';
+import 'package:archive/archive.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:archive/archive.dart';
+import 'package:image/image.dart' as img;
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -253,34 +253,6 @@ Widget _buildTagChip(Tag tag) {
     ),
   );
 }
-/*
-  Widget _buildTagRow(Tag tag) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Tag:',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tag.valueTag,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            color: Colors.red,
-            onPressed: () => _deleteSingleTag(tag),
-          ),
-        ],
-      ),
-    );
-  }
-*/
   // Funções existentes (mantidas para contexto)
   Widget _buildImageCarouselCard({
     required String title,
@@ -587,41 +559,6 @@ Widget _buildTagChip(Tag tag) {
     );
   }
 
-  Future<void> _handleImageReorder(
-    List<ImageBase64> newOrder,
-    String finalidade,
-  ) async {
-    final productService = context.read<ProductService>();
-    final loadingService = context.read<LoadingService>();
-
-    loadingService.show();
-
-    try {
-      // 1. Converte a lista de ImageBase64 diretamente para XFile em memória
-      final List<XFile> xFiles = [];
-      
-      for (int i = 0; i < newOrder.length; i++) {
-        final image = newOrder[i];
-        if (image.imagesBase64 != null) {
-          final bytes = base64Decode(image.imagesBase64!);
-          xFiles.add(XFile.fromData(bytes, mimeType: 'image/jpeg'));
-        }
-      }
-
-      // upload
-      await productService.uploadProductImages(
-        widget.productId,
-        finalidade,
-        xFiles,
-      );
-
-      } on Exception catch (e) {
-        debugPrint('Erro ao reordenar e enviar imagens: $e');
-      } finally {
-        loadingService.hide();
-      }
-  }
-
 Future<void> _handleImageReorderBase64(
     List<ImageBase64> newOrder,
     String finalidade,
@@ -708,7 +645,6 @@ Future<void> _handleImageReorderBase64(
   }
 
   Future<void> _addImagesFromSource(String finalidade, [ImageSource? source]) async {
-    // ... Código existente
     try {
       if (source == null) {
         source = await showDialog<ImageSource>(
@@ -732,28 +668,200 @@ Future<void> _handleImageReorderBase64(
         if (source == null) return;
       }
 
-      final List<XFile> pickedFiles =
-          (source == ImageSource.camera) ? [(await ImagePicker().pickImage(source: source))!].whereType<XFile>().toList() : await ImagePicker().pickMultiImage();
+      final ImagePicker picker = ImagePicker();
 
-      if (pickedFiles.isEmpty) {
-        return;
+      if (source == ImageSource.camera) {
+        final XFile? pickedFile = await picker.pickImage(source: source);
+        if (pickedFile != null) {
+          // Usa o novo método para exibir a imagem no carrossel
+          await _addNewImageToCarousel(pickedFile, finalidade);
+        }
+      } else { // ImageSource.gallery
+        final List<XFile> pickedFiles = await picker.pickMultiImage();
+        if (pickedFiles.isNotEmpty) {
+          for (var file in pickedFiles) {
+            // Itera sobre as imagens selecionadas e as adiciona ao carrossel
+            await _addNewImageToCarousel(file, finalidade);
+          }
+        }
       }
 
-      _handleImageUpload(pickedFiles, finalidade);
     } catch (e) {
       debugPrint('Erro ao adicionar imagem: $e');
     }
   }
 
-  Future<void> _handleImageUpload(List<XFile> files, String finalidade) async {
-    // ... Código existente
+  Future<void> _addNewImageToCarousel(XFile file, String finalidade) async {
     final productService = context.read<ProductService>();
     final loadingService = context.read<LoadingService>();
 
-    logger.d('*********************   uploadProductImages   *********************');
-    loadingService.show();
-    //await productService.uploadProductImages(widget.productId, finalidade, files);
-    loadingService.hide();
+    final existingImagesForFinality = productService.productComplete?.images
+        ?.where((img) => img.finalidade == finalidade)
+        .toList() ?? [];
+
+    try {
+      loadingService.show();
+
+      final List<String> allImagesInOriginalFormat = [];
+
+      for (final img in existingImagesForFinality) {
+        final b64 = img.imagesBase64;
+        if (b64 != null && b64.isNotEmpty) {
+          allImagesInOriginalFormat.add(b64);
+        }
+      }
+
+      final _FormatHint hint = _detectFormatHint(allImagesInOriginalFormat);
+
+      // --- Nova lógica de redimensionamento aqui ---
+
+      // 4) Lê os bytes originais da nova imagem.
+      final Uint8List originalBytes = await file.readAsBytes();
+      
+      // Decodifica os bytes para um objeto Image.
+      final img.Image? decodedImage = img.decodeImage(originalBytes);
+
+      if (decodedImage == null) {
+        throw Exception('Não foi possível decodificar a imagem para redimensionar.');
+      }
+
+      // Redimensiona para caber dentro de 300x300, mantendo a proporção.
+      final img.Image resizedImage = img.copyResize(
+        decodedImage,
+        width: 300,
+        height: 300,
+        // Mantém a proporção e preenche o espaço extra, se necessário.
+        // Você pode ajustar o método de interpolação se desejar.
+        interpolation: img.Interpolation.linear,
+      );
+
+      // Converte a imagem redimensionada de volta para bytes.
+      // Usamos encodeJpg para garantir um formato e qualidade consistentes.
+      final Uint8List resizedBytes = Uint8List.fromList(img.encodeJpg(resizedImage, quality: 85));
+
+      // --- Fim da nova lógica de redimensionamento ---
+
+      // 5) Converte a imagem redimensionada para o mesmo padrão da API.
+      final String newImageEncoded = await _encodeMatchingExistingFormat(resizedBytes, hint);
+
+      // 6) Adiciona a nova imagem na lista final.
+      allImagesInOriginalFormat.add(newImageEncoded);
+
+      // 7) Envia para a API.
+      await productService.uploadProductImagesBase64(
+        widget.productId,
+        finalidade,
+        allImagesInOriginalFormat,
+      );
+    } catch (e) {
+      debugPrint('Erro ao adicionar nova imagem ao carrossel: $e');
+    } finally {
+      loadingService.hide();
+    }
+  }
+
+  /*
+  Future<void> _addNewImageToCarousel(XFile file, String finalidade) async {
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+
+    // 1) Coleta as imagens existentes da mesma finalidade (sem mexer no conteúdo).
+    final existingImagesForFinality = productService.productComplete?.images
+            ?.where((img) => img.finalidade == finalidade)
+            .toList() ??
+        [];
+
+    try {
+      loadingService.show();
+
+      // 2) Lista final no EXATO formato que a API já aceitou antes (mantém headers).
+      final List<String> allImagesInOriginalFormat = [];
+
+      // 2.1) Copia as existentes "como estão".
+      for (final img in existingImagesForFinality) {
+        final b64 = img.imagesBase64;
+        if (b64 != null && b64.isNotEmpty) {
+          allImagesInOriginalFormat.add(b64);
+        }
+      }
+
+      // 3) Descobre o padrão esperado a partir de qualquer imagem existente válida.
+      final _FormatHint hint = _detectFormatHint(allImagesInOriginalFormat);
+
+      // 4) Lê os bytes da nova imagem.
+      final Uint8List newBytes = await file.readAsBytes();
+
+      // 5) Converte a nova imagem para o MESMO padrão (zip ou não, com ou sem header).
+      final String newImageEncoded =
+          await _encodeMatchingExistingFormat(newBytes, hint);
+
+      // 6) Adiciona a nova imagem na lista final.
+      allImagesInOriginalFormat.add(newImageEncoded);
+
+      // 7) Envia para a API exatamente no mesmo padrão aceito no reorder.
+      await productService.uploadProductImagesBase64(
+        widget.productId,
+        finalidade,
+        allImagesInOriginalFormat,
+      );
+    } catch (e) {
+      debugPrint('Erro ao adicionar nova imagem ao carrossel: $e');
+    } finally {
+      loadingService.hide();
+    }
+  }
+  */
+
+
+  /// Detecta, a partir das imagens existentes, se a API espera ZIP e se há header data:...,
+  /// para replicar o padrão na nova imagem.
+  _FormatHint _detectFormatHint(List<String> existing) {
+    if (existing.isEmpty) {
+      // Sem referência: default para "imagem sem header, não zipada".
+      return const _FormatHint(isZipped: false, dataHeader: null);
+    }
+
+    // Pega a primeira não vazia.
+    final sample = existing.firstWhere((s) => s.isNotEmpty, orElse: () => '');
+
+    // Se tiver header data:..., preserva.
+    String? header;
+    String payload = sample;
+    final commaIdx = sample.indexOf(',');
+    if (commaIdx > 0 && sample.startsWith('data:')) {
+      header = sample.substring(0, commaIdx + 1); // inclui a vírgula
+      payload = sample.substring(commaIdx + 1);
+    }
+
+    // Verifica se é ZIP (base64 de "PK" começa com "UEs").
+    final bool zipped = payload.startsWith('UEs');
+
+    return _FormatHint(isZipped: zipped, dataHeader: header);
+  }
+
+  /// Converte os bytes da nova imagem para o mesmo padrão das existentes.
+  /// - Se as existentes forem ZIP: cria um .zip com um único arquivo (image.bin) contendo os bytes.
+  /// - Se NÃO forem ZIP: apenas base64Encode dos bytes.
+  /// Em ambos os casos, aplica o mesmo header data:... se havia.
+  Future<String> _encodeMatchingExistingFormat(Uint8List bytes, _FormatHint hint) async {
+    String payloadB64;
+
+    if (hint.isZipped) {
+      // Cria um zip com um arquivo único (nome genérico, backend normalmente ignora o nome).
+      final archive = Archive()
+        ..addFile(ArchiveFile('image.bin', bytes.length, bytes));
+      final zipBytes = ZipEncoder().encode(archive)!;
+      payloadB64 = base64Encode(zipBytes);
+    } else {
+      // Apenas a imagem "crua" em base64.
+      payloadB64 = base64Encode(bytes);
+    }
+
+    // Se as existentes tinham header data:..., preserva o mesmo header.
+    if (hint.dataHeader != null) {
+      return '${hint.dataHeader}$payloadB64';
+    }
+    return payloadB64;
   }
 
   Future<void> _showAddImageOptions(String finalidade) async {
@@ -902,4 +1010,11 @@ class DecodedImage {
   final Uint8List bytes;
 
   DecodedImage({required this.originalImage, required this.bytes});
+}
+
+/// Indica como as imagens EXISTENTES estão formatadas.
+class _FormatHint {
+  final bool isZipped;          // se o conteúdo base64 é um ZIP (PK => "UEs...")
+  final String? dataHeader;     // "data:application/zip;base64," ou "data:image/jpeg;base64," etc (se houver)
+  const _FormatHint({required this.isZipped, required this.dataHeader});
 }

@@ -45,6 +45,7 @@ dependencies:
   flutter_spinkit: ^5.2.0
   marquee: ^2.2.1
   image_picker: ^1.1.2
+  image: ^4.0.17
   uuid: ^4.4.0
   mime: ^1.0.1
   logger: ^2.0.2+1
