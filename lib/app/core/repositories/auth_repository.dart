@@ -100,7 +100,7 @@ class AuthRepository {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
+        /*final data = json.decode(response.body);
         final token = data['token'] as String?;
         if (token != null) {
           // Após o registro, atualiza o token do cliente para autenticação futura.
@@ -111,7 +111,11 @@ class AuthRepository {
             success: false,
             message: 'Token não encontrado na resposta da API após o registro.',
           );
-        }
+        }*/
+          return ApiResponse(
+            success: true,
+            message: 'Seu cadastro foi feito com sucesso!',
+          );
       } else {
         // A API retornou um status de erro.
         return ApiResponse(

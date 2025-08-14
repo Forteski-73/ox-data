@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/interceptors/auth_interceptor.dart';
+import 'package:oxdata/app/core/utils/logger.dart';
+import 'package:flutter/foundation.dart'; 
 
 /// Classe responsável por fazer todas as requisições HTTP da API.
 /// Usa o Interceptor para centralizar a lógica de cabeçalhos e tokens.
@@ -53,28 +55,6 @@ class ApiClient {
     }
   }
 
-  /// Método para requisições POST com autenticação.
-  Future<http.Response> postAuth(
-    String endpoint, {
-    Map<String, dynamic>? body,
-    Map<String, String>? headers,
-  }) async {
-    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
-
-    try {
-      // Usa o cliente com o interceptor para adicionar o token.
-      final response = await _authenticatedClient.post(
-        url,
-        headers: headers,
-        body: body != null ? json.encode(body) : null,
-      );
-      
-      return response;
-    } on Exception catch (e) {
-      throw Exception('Erro de rede: $e');
-    }
-  }
-  
   /// Método para requisições GET com autenticação.
   Future<http.Response> getAuth(
     String endpoint, {
@@ -93,6 +73,69 @@ class ApiClient {
       return response;
     } on Exception catch (e) {
       throw Exception('Erro de rede: $e');
+    }
+  }
+
+  /// Método para requisições POST com autenticação.
+  Future<http.Response> postAuth(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  }) async {
+    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+    try {
+
+      // Adiciona uma condição de depuração para imprimir o corpo da requisição
+      if (kDebugMode && body != null) {
+        debugPrint('**** REQUISIÇÃO POST - BODY ****');
+        debugPrint('Endpoint: $url');
+        // Imprime o corpo formatado como uma string JSON
+        debugPrint('Corpo da Requisição: ${json.encode(body)}'); 
+        debugPrint('***********************************************************');
+      }
+
+      // Usa o cliente com o interceptor para adicionar o token.
+      final response = await _authenticatedClient.post(
+        url,
+        headers: headers,
+        body: body != null ? json.encode(body) : null,
+      );
+      
+      return response;
+    } on Exception catch (e) {
+      throw Exception('Erro de rede: $e');
+    }
+  }
+
+  /// Método para requisições POST com autenticação e multipart/form-data
+  Future<http.Response> postAuthMultipart(
+    String endpoint, {
+    Map<String, String>? headers,
+    List<http.MultipartFile>? files,
+    Map<String, String>? fields,
+  }) async {
+    final uri = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+    try {
+      final request = http.MultipartRequest('POST', uri);
+
+      // Adiciona headers extras, se houver
+      if (headers != null) request.headers.addAll(headers);
+
+      // Adiciona campos extras
+      if (fields != null) request.fields.addAll(fields);
+
+      // Adiciona arquivos
+      if (files != null) request.files.addAll(files);
+
+      // Envia usando o _authenticatedClient para passar pelo interceptor
+      final streamedResponse = await _authenticatedClient.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return response;
+    } on Exception catch (e) {
+      throw Exception('Erro de rede (multipart com interceptor): $e');
     }
   }
 

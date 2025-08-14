@@ -1,6 +1,7 @@
 // -----------------------------------------------------------
 // app/views/login/registration_page.dart
 // -----------------------------------------------------------
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
@@ -26,6 +27,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   final StorageService _storageService = StorageService();
 
+  // Variáveis de estado para controlar a visibilidade das senhas
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +45,28 @@ class _RegistrationPageState extends State<RegistrationPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String _extractMessageFromJson(String? jsonString) {
+    if (jsonString == null || jsonString.isEmpty) {
+      return 'Ocorreu um erro desconhecido.';
+    }
+
+    const prefix = "Falha no registro: ";
+    String jsonPart = jsonString;
+
+    if (jsonString.startsWith(prefix)) {
+      jsonPart = jsonString.substring(prefix.length);
+    }
+
+    try {
+      final Map<String, dynamic> data = json.decode(jsonPart);
+      return data['message'] ?? 'Ocorreu um erro desconhecido.';
+    } on FormatException {
+      return jsonString; // Retorna a string original se não for um JSON válido
+    } catch (e) {
+      return 'Ocorreu um erro desconhecido.';
+    }
   }
 
   @override
@@ -94,18 +121,35 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 ),
 
                 const SizedBox(height: 32),
-
                 // Campo de Nome
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
                     labelText: 'Nome',
                     prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                     filled: true,
                     fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF333333),
+                        width: 1.0,
+                      ),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -124,11 +168,29 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   decoration: InputDecoration(
                     labelText: 'E-mail',
                     prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                     filled: true,
                     fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF333333),
+                        width: 1.0,
+                      ),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -146,15 +208,45 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 // Campo de Senha
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
                     labelText: 'Senha',
                     prefixIcon: const Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                     filled: true,
                     fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF333333),
+                        width: 1.0,
+                      ),
+                    ),
+                    // Adiciona o ícone de olho e a lógica de toggle
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.black54,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -172,15 +264,45 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 // Campo de Confirmar Senha
                 TextFormField(
                   controller: _confirmPasswordController,
-                  obscureText: true,
+                  obscureText: !_isConfirmPasswordVisible,
                   decoration: InputDecoration(
                     labelText: 'Confirmar Senha',
                     prefixIcon: const Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                     filled: true,
                     fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.grey,
+                        width: 1.0,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF333333),
+                        width: 1.0,
+                      ),
+                    ),
+                    // Adiciona o ícone de olho e a lógica de toggle
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.black54,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -197,23 +319,69 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
                 // Botão de Cadastrar
                 ElevatedButton(
-                  onPressed: loadingService.isLoading
-                      ? null
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            loadingService.show();
-                            final name = _nameController.text;
-                            final password = _passwordController.text;
-                            final email = _emailController.text;
+                  onPressed: loadingService.isLoading ? null : () async {
+                  FocusScope.of(context).unfocus();
+                  if (_formKey.currentState!.validate()) {
+                    loadingService.show();
+                    final name = _nameController.text;
+                    final password = _passwordController.text;
+                    final email = _emailController.text;
 
-                            await authService.userRegister(name, password, email);
+                    final response = await authService.userRegister(name, password, email);
 
-                            if (mounted) {
-                              loadingService.hide();
-                              Navigator.of(context).pop();
-                            }
-                          }
-                        },
+                    if (mounted) {
+                      loadingService.hide();
+                      if (response.success) {
+                        // Se o registro for bem-sucedido, exibe o AlertDialog
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              title:  Text('${response.message}'), 
+                              content:Text(
+                                'Bem-vindo, $name!',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                ),
+                              ),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('OK'),
+                                  onPressed: () {
+                                    // Fecha o diálogo
+                                    Navigator.of(dialogContext).pop();
+                                    // Volta para a tela anterior (login)
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      } else {
+                        // Adicionado: Mostra um AlertDialog com a mensagem de erro
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              title: const Text('Erro'),
+                              content: Text(_extractMessageFromJson(response.message)),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('OK'),
+                                  onPressed: () {
+                                    Navigator.of(dialogContext).pop();
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      }
+                    }
+                  }
+                },
                   child: const Text(
                     'Cadastrar',
                     style: TextStyle(fontSize: 18),

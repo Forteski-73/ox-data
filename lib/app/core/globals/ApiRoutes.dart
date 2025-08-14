@@ -7,4 +7,6 @@ class ApiRoutes {
   static String productsSearch          = 'Product/AppSearch';
   static String appProduct              = 'Product/AppProduct';
   static String productImage            = 'Image/ProductImage';
+  static String productImageUpdate      = 'Image/ReplaceProductImages';
+  static String productImageUpdateBase64 = 'Image/ReplaceProductImages/Base64';
 }

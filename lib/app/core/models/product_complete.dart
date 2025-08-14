@@ -211,52 +211,58 @@ class InventDim {
 /// Representa a entidade TaxInformation do C#.
 class TaxInformation {
   String? productId;
-  String? ncm;
-  String? cest;
-  String? itemType;
-  String? origin;
-  String? taxGroup;
-  String? salesTaxCode;
-  String? purchaseTaxCode;
-  String? returnTaxCode;
+  String? taxationOrigin;
+  String? taxFiscalClassification;
+  String? productType;
+  String? cestCode;
+  String? fiscalGroupId;
+  double? approxTaxValueFederal;
+  double? approxTaxValueState;
+  double? approxTaxValueCity;
 
   TaxInformation({
     this.productId,
-    this.ncm,
-    this.cest,
-    this.itemType,
-    this.origin,
-    this.taxGroup,
-    this.salesTaxCode,
-    this.purchaseTaxCode,
-    this.returnTaxCode,
+    this.taxationOrigin,
+    this.taxFiscalClassification,
+    this.productType,
+    this.cestCode,
+    this.fiscalGroupId,
+    this.approxTaxValueFederal,
+    this.approxTaxValueState,
+    this.approxTaxValueCity,
   });
 
   factory TaxInformation.fromJson(Map<String, dynamic> json) {
     return TaxInformation(
       productId: json['productId'] as String?,
-      ncm: json['ncm'] as String?,
-      cest: json['cest'] as String?,
-      itemType: json['itemType'] as String?,
-      origin: json['origin'] as String?,
-      taxGroup: json['taxGroup'] as String?,
-      salesTaxCode: json['salesTaxCode'] as String?,
-      purchaseTaxCode: json['purchaseTaxCode'] as String?,
-      returnTaxCode: json['returnTaxCode'] as String?,
+      taxationOrigin: json['taxationOrigin'] as String?,
+      taxFiscalClassification: json['taxFiscalClassification'] as String?,
+      productType: json['productType'] as String?,
+      cestCode: json['cestCode'] as String?,
+      fiscalGroupId: json['fiscalGroupId'] as String?,
+      approxTaxValueFederal: json['approxTaxValueFederal'] is int
+          ? (json['approxTaxValueFederal'] as int).toDouble()
+          : json['approxTaxValueFederal'] as double?,
+      approxTaxValueState: json['approxTaxValueState'] is int
+          ? (json['approxTaxValueState'] as int).toDouble()
+          : json['approxTaxValueState'] as double?,
+      approxTaxValueCity: json['approxTaxValueCity'] is int
+          ? (json['approxTaxValueCity'] as int).toDouble()
+          : json['approxTaxValueCity'] as double?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'productId': productId,
-      'ncm': ncm,
-      'cest': cest,
-      'itemType': itemType,
-      'origin': origin,
-      'taxGroup': taxGroup,
-      'salesTaxCode': salesTaxCode,
-      'purchaseTaxCode': purchaseTaxCode,
-      'returnTaxCode': returnTaxCode,
+      'taxationOrigin': taxationOrigin,
+      'taxFiscalClassification': taxFiscalClassification,
+      'productType': productType,
+      'cestCode': cestCode,
+      'fiscalGroupId': fiscalGroupId,
+      'approxTaxValueFederal': approxTaxValueFederal,
+      'approxTaxValueState': approxTaxValueState,
+      'approxTaxValueCity': approxTaxValueCity,
     };
   }
 }
@@ -302,6 +308,35 @@ class ImageBase64 {
   }
 }
 
+/// Representa a entidade Tag do C#.
+class Tag {
+  int? id;
+  String valueTag;
+  String productId;
+
+  Tag({
+    this.id,
+    required this.valueTag,
+    required this.productId,
+  });
+
+  factory Tag.fromJson(Map<String, dynamic> json) {
+    return Tag(
+      id: json['id'] as int?,
+      valueTag: json['valueTag'] as String,
+      productId: json['productId'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'valueTag': valueTag,
+      'productId': productId,
+    };
+  }
+}
+
 // --- Classe Principal ProductComplete ---
 
 /// Modelo completo de produto para o aplicativo, incluindo todas as informações relacionadas.
@@ -309,9 +344,10 @@ class ProductComplete {
   Product? product;
   Oxford? oxford;
   Invent? invent;
-  InventDim? location; // Mapeado de InventDim no C#
+  InventDim? location;
   TaxInformation? taxInformation;
   List<ImageBase64>? images;
+  List<Tag>? tags;
 
   ProductComplete({
     this.product,
@@ -320,6 +356,7 @@ class ProductComplete {
     this.location,
     this.taxInformation,
     this.images,
+    this.tags,
   });
 
   factory ProductComplete.fromJson(Map<String, dynamic> json) {
@@ -342,6 +379,9 @@ class ProductComplete {
       images: (json['images'] as List<dynamic>?)
           ?.map((e) => ImageBase64.fromJson(e as Map<String, dynamic>))
           .toList(),
+      tags: (json['tags'] as List<dynamic>?)
+          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -353,6 +393,7 @@ class ProductComplete {
       'location': location?.toJson(),
       'taxInformation': taxInformation?.toJson(),
       'images': images?.map((e) => e.toJson()).toList(),
+      'tags': tags?.map((e) => e.toJson()).toList(),
     };
   }
 }

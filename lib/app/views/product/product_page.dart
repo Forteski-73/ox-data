@@ -11,6 +11,10 @@ import 'package:marquee/marquee.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
+import 'package:oxdata/app/core/utils/image_base.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:oxdata/app/core/utils/logger.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -22,80 +26,29 @@ class ProductPage extends StatefulWidget {
 }
 
 class _ProductPageState extends State<ProductPage> {
-  // PageController para o carrossel de imagens
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  List<ImageBase64>? _reorderableImages; // A lista que será reordenada
-  final ImagePicker _picker = ImagePicker();
-
-  // Função para decodificar e extrair imagens de um ZIP Base64
-  String _getContentType(String fileName) {
-    if (fileName.endsWith('.png')) {
-      return 'image/png';
-    } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-      return 'image/jpeg';
-    } else if (fileName.endsWith('.gif')) {
-      return 'image/gif';
-    }
-    return 'application/octet-stream';
-  }
-
-  Future<String?> _decodeAndExtractSingleImage(String? imageZipBase64) async {
-    if (imageZipBase64 == null || imageZipBase64.isEmpty) {
-      debugPrint('imageZipBase64 é nulo ou vazio, não há imagem para decodificar.');
-      return null;
-    }
-
-    try {
-      final Uint8List zipBytes = base64Decode(imageZipBase64);
-      final Archive archive = ZipDecoder().decodeBytes(zipBytes);
-
-      final file = archive.firstWhere((f) =>
-          f.isFile &&
-          (f.name.endsWith('.png') ||
-              f.name.endsWith('.jpg') ||
-              f.name.endsWith('.jpeg')));
-
-      final Uint8List imageBytes = Uint8List.fromList(file.content as List<int>);
-      final String base64Image = base64Encode(imageBytes);
-      final String contentType = _getContentType(file.name);
-      final String dataUri = 'data:$contentType;base64,$base64Image';
-      return dataUri;
-    } on FormatException catch (e) {
-      debugPrint('Erro de formato ao decodificar Base64 ou ZIP: $e');
-      return null;
-    } on StateError {
-      debugPrint('Nenhuma imagem válida encontrada no ZIP.');
-      return null;
-    } on Exception catch (e) {
-      debugPrint('Erro inesperado ao decodificar ou extrair imagem do ZIP: $e');
-      return null;
-    }
-  }
+  final TextEditingController _tagController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final productService = context.read<ProductService>();
       await context.read<ProductService>().fetchProductComplete(widget.productId);
-      // Inicializa a lista de imagens reordenável
-      setState(() {
-        _reorderableImages = productService.productComplete?.images;
-      });
     });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final loadingService = context.read<LoadingService>();
-    
+
     return Scaffold(
       appBar: const AppBarCustom(title: 'Detalhes do Produto'),
       body: Consumer<ProductService>(
@@ -108,221 +61,115 @@ class _ProductPageState extends State<ProductPage> {
           } else {
             loadingService.hide();
 
+            final productImages = productComplete.images?.where((img) => img.finalidade == 'PRODUTO').toList() ?? [];
+            final packagingImages = productComplete.images?.where((img) => img.finalidade == 'EMBALAGEM').toList() ?? [];
+            final palletizationImages = productComplete.images?.where((img) => img.finalidade == 'PALETIZACAO').toList() ?? [];
+
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Título do Produto
                   Container(
                     height: 34,
                     color: Colors.grey[200],
                     child: Marquee(
-                      text: ' ${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 
-                        'Nome do Produto Não Disponível'}',
-                      style: const TextStyle(
-                        fontSize: 24, 
-                        fontWeight: FontWeight.bold
-                      ),
-                      blankSpace: 40.0, // Espaço entre o final do texto e o início do próximo ciclo
-                      velocity: 50.0, // Velocidade de rolagem (quanto maior, mais rápido)
-                      pauseAfterRound: const Duration(seconds: 1), // Pausa entre os ciclos
-                      startPadding: 16.0, // Espaçamento inicial
-                      fadingEdgeStartFraction: 0.1, // Efeito de fade no início da rolagem
-                      fadingEdgeEndFraction: 0.1, // Efeito de fade no final da rolagem
+                      text:
+                          ' ${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto Não Disponível'}',
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      blankSpace: 40.0,
+                      velocity: 50.0,
+                      pauseAfterRound: const Duration(seconds: 1),
+                      startPadding: 16.0,
+                      fadingEdgeStartFraction: 0.1,
+                      fadingEdgeEndFraction: 0.1,
                     ),
                   ),
                   const SizedBox(height: 0),
 
-                  _buildExpansionImg(
+                  _buildImageCarouselCard(
                     title: 'PRODUTO',
-                    children: [
-                      if (productComplete.images != null && productComplete.images!.isNotEmpty)
-
-                        Column(
-                          children: [
-                            const Divider(
-                              color: Colors.black12, // Cor cinza clara, quase transparente
-                              height: 1,          // Espaço total que a divisória ocupa verticalmente
-                              thickness: 1,        // Espessura da linha
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround, // Distribui o espaço entre os ícones
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.sync_alt_outlined,),
-                                  color: Colors.indigo,
-                                  onPressed: () {
-                                    // TODO: Lógica para reordenar as imagens
-                                    _showReorderImagesDialog();
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add_a_photo),
-                                  color: Colors.indigo,
-                                  onPressed: () {
-                                    _showAddImageOptions();
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_forever),
-                                  color: Colors.indigo,
-                                  onPressed: () {
-                                    // TODO: Lógica para excluir a imagem atual
-                                  },
-                                ),
-                              ],
-                            ),
-                            // Use o Stack para sobrepor a imagem e os pontos
-                            Stack(
-                              alignment: Alignment.bottomCenter, // Alinha os filhos na parte inferior central
-                              children: [
-                                SizedBox(
-                                  height: 500,
-                                  child: PageView.builder(
-                                    controller: _pageController,
-                                    itemCount: productComplete.images!.length,
-                                    onPageChanged: (index) {
-                                      setState(() {
-                                        _currentPage = index;
-                                      });
-                                    },
-                                    itemBuilder: (context, index) {
-                                      final imageBase64Data = productComplete.images![index];
-                                      return FutureBuilder<String?>(
-                                        future: _decodeAndExtractSingleImage(imageBase64Data.imagesBase64),
-                                        builder: (context, imageSnapshot) {
-                                          if (imageSnapshot.connectionState == ConnectionState.waiting) {
-                                            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                                          } else if (imageSnapshot.hasData && imageSnapshot.data != null) {
-                                            final String dataUri = imageSnapshot.data!;
-                                            final String base64Image = dataUri.split(',').last;
-                                            return Image.memory(
-                                              base64Decode(base64Image),
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 150),
-                                            );
-                                          } else {
-                                            return const Icon(Icons.image_not_supported, size: 150, color: Colors.grey);
-                                          }
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-
-                                // Indicador de Linha (Barra de Progresso)
-                                Positioned (
-                                  bottom: 0, // Encosta no fundo do carrossel
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    height: 3, // Altura da barra
-                                    margin: const EdgeInsets.symmetric(horizontal: 0),
-                                    child: Row(
-                                      children: List.generate(
-                                        productComplete.images!.length,
-                                        (index) => Expanded(
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 300),
-                                            margin: const EdgeInsets.symmetric(horizontal: 1),
-                                            height: 3,
-                                            color: _currentPage >= index ? Colors.blueAccent : Colors.grey.withOpacity(0.5),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            // Remove o SizedBox(height: 8) e SizedBox(height: 0) que estavam fora
-                            // e o SizedBox(height: 16) da sua implementação anterior.
-                          ],
-                        )
-                      else
-                        const Center(child: Text('Nenhuma imagem disponível.', style: TextStyle(fontStyle: FontStyle.italic))),
-                    ],
+                    images: productImages,
+                    finalidade: 'PRODUTO',
                   ),
-                  
-                  // Seções Expansíveis
-                  _buildExpansionTile(
+
+                  _buildImageCarouselCard(
                     title: 'EMBALAGEM',
-                    children: [
-                      const Text('Não foram encontradas imagens de embalagem.', style: TextStyle(fontStyle: FontStyle.italic)),
-                    ],
+                    images: packagingImages,
+                    finalidade: 'EMBALAGEM',
                   ),
-                  _buildExpansionTile(
+
+                  _buildImageCarouselCard(
                     title: 'PALETIZAÇÃO',
-                    children: [
-                      const Text('Não foram encontradas imagens de paletização.', style: TextStyle(fontStyle: FontStyle.italic)),
-                    ],
+                    images: palletizationImages,
+                    finalidade: 'PALETIZACAO',
                   ),
+
                   _buildExpansionTile(
                     title: 'INFORMAÇÕES DO PRODUTO',
                     children: [
-                      _buildDetailRow('Cód. Barras:',    productComplete.product?.barcode),
-                      _buildDetailRow('Código:',         productComplete.product?.productId),
-                      _buildDetailRow('Status:',         productComplete.product?.status == true ? 'Ativo' : 'Inativo'),
-                      _buildDetailRow('Nome:',           productComplete.product?.productName),
-                      _buildDetailRow('Preço:',          productComplete.location?.price?.toStringAsFixed(2)),
-                      _buildDetailRow('Quantidade:',     productComplete.location?.quantity?.toStringAsFixed(0)),
+                      _buildDetailRow('Cód. Barras:', productComplete.product?.barcode),
+                      _buildDetailRow('Código:', productComplete.product?.productId),
+                      _buildDetailRow('Status:', productComplete.product?.status == true ? 'Ativo' : 'Inativo'),
+                      _buildDetailRow('Nome:', productComplete.product?.productName),
+                      _buildDetailRow('Preço:', productComplete.location?.price?.toStringAsFixed(2)),
+                      _buildDetailRow('Quantidade:', productComplete.location?.quantity?.toStringAsFixed(0)),
                       _buildDetailRow('ID Localização:', productComplete.location?.locationId),
                     ],
                   ),
                   _buildExpansionTile(
                     title: 'DIMENSÕES',
                     children: [
-                      _buildDetailRow('Peso Líquido:',       productComplete.invent?.netWeight?.toStringAsFixed(2)),
-                      _buildDetailRow('Tara:',               productComplete.invent?.taraWeight?.toStringAsFixed(2)),
-                      _buildDetailRow('Peso Bruto:',         productComplete.invent?.grossWeight?.toStringAsFixed(2)),
+                      _buildDetailRow('Peso Líquido:', productComplete.invent?.netWeight?.toStringAsFixed(2)),
+                      _buildDetailRow('Tara:', productComplete.invent?.taraWeight?.toStringAsFixed(2)),
+                      _buildDetailRow('Peso Bruto:', productComplete.invent?.grossWeight?.toStringAsFixed(2)),
                       _buildDetailRow('Profundidade Bruta:', productComplete.invent?.grossDepth?.toStringAsFixed(2)),
-                      _buildDetailRow('Largura Bruta:',      productComplete.invent?.grossWidth?.toStringAsFixed(2)),
-                      _buildDetailRow('Altura Bruta:',       productComplete.invent?.grossHeight?.toStringAsFixed(2)),
-                      _buildDetailRow('Volume Unitário:',    productComplete.invent?.unitVolume?.toStringAsFixed(2)),
+                      _buildDetailRow('Largura Bruta:', productComplete.invent?.grossWidth?.toStringAsFixed(2)),
+                      _buildDetailRow('Altura Bruta:', productComplete.invent?.grossHeight?.toStringAsFixed(2)),
+                      _buildDetailRow('Volume Unitário:', productComplete.invent?.unitVolume?.toStringAsFixed(2)),
                       _buildDetailRow('Volume Unitário ML:', productComplete.invent?.unitVolumeML?.toStringAsFixed(2)),
-                      _buildDetailRow('Número de Itens:',    productComplete.invent?.nrOfItems?.toString()),
-                      _buildDetailRow('Unidade:',            productComplete.invent?.unitId),
+                      _buildDetailRow('Número de Itens:', productComplete.invent?.nrOfItems?.toString()),
+                      _buildDetailRow('Unidade:', productComplete.invent?.unitId),
                     ],
                   ),
                   _buildExpansionTile(
                     title: 'INFORMAÇÕES FISCAIS',
                     children: [
-                      _buildDetailRow('NCM:',           productComplete.taxInformation?.ncm),
-                      _buildDetailRow('CEST:',          productComplete.taxInformation?.cest),
-                      _buildDetailRow('Tipo de Item:',  productComplete.taxInformation?.itemType),
-                      _buildDetailRow('Origem:',        productComplete.taxInformation?.origin),
-                      _buildDetailRow('Grupo de Imposto:',       productComplete.taxInformation?.taxGroup),
-                      _buildDetailRow('Cód. Imposto Venda:',     productComplete.taxInformation?.salesTaxCode),
-                      _buildDetailRow('Cód. Imposto Compra:',    productComplete.taxInformation?.purchaseTaxCode),
-                      _buildDetailRow('Cód. Imposto Devolução:', productComplete.taxInformation?.returnTaxCode),
+                      _buildDetailRow('Origem da Tributação:', productComplete.taxInformation?.taxationOrigin),
+                      _buildDetailRow('Classificação Fiscal:', productComplete.taxInformation?.taxFiscalClassification),
+                      _buildDetailRow('Tipo do Produto:', productComplete.taxInformation?.productType),
+                      _buildDetailRow('CEST:', productComplete.taxInformation?.cestCode),
+                      _buildDetailRow('Grupo Fiscal:', productComplete.taxInformation?.fiscalGroupId),
+                      _buildDetailRow('Imposto Federal:', productComplete.taxInformation?.approxTaxValueFederal?.toStringAsFixed(2)),
+                      _buildDetailRow('Imposto Estadual:', productComplete.taxInformation?.approxTaxValueState?.toStringAsFixed(2)),
+                      _buildDetailRow('Imposto Municipal:', productComplete.taxInformation?.approxTaxValueCity?.toStringAsFixed(2)),
                     ],
                   ),
                   _buildExpansionTile(
-                    title: 'OXFORD', // Se houver outros detalhes específicos de Oxford não cobertos
+                    title: 'OXFORD',
                     children: [
-                      _buildDetailRow('Marca:',     productComplete.oxford?.brandId),
-                      _buildDetailRow('Linha:',     productComplete.oxford?.lineId),
+                      _buildDetailRow('Marca:', productComplete.oxford?.brandId),
+                      _buildDetailRow('Linha:', productComplete.oxford?.lineId),
                       _buildDetailRow('Decoração:', productComplete.oxford?.decorationId),
-                      _buildDetailRow('Tipo:',      productComplete.oxford?.typeId),
-                      _buildDetailRow('Processo:',  productComplete.oxford?.processId),
-                      _buildDetailRow('Situação:',  productComplete.oxford?.situationId),
+                      _buildDetailRow('Tipo:', productComplete.oxford?.typeId),
+                      _buildDetailRow('Processo:', productComplete.oxford?.processId),
+                      _buildDetailRow('Situação:', productComplete.oxford?.situationId),
                       _buildDetailRow('Qualidade:', productComplete.oxford?.qualityId),
-                      _buildDetailRow('Produto Base:',     productComplete.oxford?.baseProductId),
+                      _buildDetailRow('Produto Base:', productComplete.oxford?.baseProductId),
                       _buildDetailRow('Grupo de Produto:', productComplete.oxford?.productGroupId),
-
-                      _buildDetailRow('Marca:',     productComplete.oxford?.brandDescription),
-                      _buildDetailRow('Linha:',     productComplete.oxford?.lineDescription),
+                      _buildDetailRow('Marca:', productComplete.oxford?.brandDescription),
+                      _buildDetailRow('Linha:', productComplete.oxford?.lineDescription),
                       _buildDetailRow('Decoração:', productComplete.oxford?.decorationDescription),
-                      _buildDetailRow('Família:',   productComplete.oxford?.familyDescription),
+                      _buildDetailRow('Família:', productComplete.oxford?.familyDescription),
                       _buildDetailRow('Descrição Base:', productComplete.oxford?.baseProductDescription),
                     ],
                   ),
+                  _buildTagsSection(productComplete),
                   _buildExpansionTile(
-                    title: 'BOM', // Bill of Materials - Adicione aqui se tiver dados de BOM
+                    title: 'BOM',
                     children: [
-                      const Text('Informações de BOM não disponíveis neste momento.', style: TextStyle(fontStyle: FontStyle.italic)),
+                      const Text('Informações de BOM não disponíveis neste momento.',
+                          style: TextStyle(fontStyle: FontStyle.italic)),
                     ],
                   ),
                 ],
@@ -334,62 +181,117 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-  // Widget auxiliar para criar os ExpansionTile
-  Widget _buildExpansionTile({required String title, required List<Widget> children}) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        dividerColor: Colors.transparent, // sem linha divisória
-        iconTheme: const IconThemeData(size: 36), // aumenta tamanho do ícone da seta
+  // Novo widget para a seção de Tags
+Widget _buildTagsSection(ProductComplete productComplete) {
+  return Theme(
+    data: Theme.of(context).copyWith(
+      dividerColor: Colors.transparent,
+      iconTheme: const IconThemeData(size: 36),
+    ),
+    child: Card(
+      margin: const EdgeInsets.symmetric(vertical: 5.0),
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(0),
+        side: BorderSide.none,
       ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 5.0),
-        elevation: 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide.none,
+      child: ExpansionTile(
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        iconColor: Colors.blueGrey,
+        collapsedIconColor: Colors.indigo,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+        title: const Text(
+          'TAGS',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: ExpansionTile(
-          backgroundColor: Colors.transparent,
-          collapsedBackgroundColor: Colors.transparent,
-          iconColor: Colors.blueGrey, // cor seta expandido (opcional)
-          collapsedIconColor: Colors.indigo, // cor seta recolhido (opcional)
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+        childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        children: [
+          const Divider(color: Colors.black12, height: 1, thickness: 1),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                color: Colors.indigo,
+                onPressed: () => _showAddTagDialog(productComplete),
+              ),
+            ],
           ),
-          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        children: children.isNotEmpty
-            ? [
-                const Divider(
-                  color: Colors.black12, // Cor cinza clara, quase transparente
-                  height: 1,
-                  thickness: 1,
-                ),
-                ...children, // Operador spread para adicionar o restante dos children
-              ]
-            : const [
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    'Nenhuma informação disponível.',
-                    style: TextStyle(fontStyle: FontStyle.italic),
-                  ),
-                ),
-              ],
-        ),
+          if (productComplete.tags != null && productComplete.tags!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Wrap(
+                spacing: 8.0, // Espaçamento horizontal entre os chips
+                runSpacing: 4.0, // Espaçamento vertical entre as linhas de chips
+                children: productComplete.tags!.map((tag) => _buildTagChip(tag)).toList(),
+              ),
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'Informações de TAGS não disponíveis neste momento.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Adicione este novo widget na sua classe _ProductPageState
+Widget _buildTagChip(Tag tag) {
+  return Chip(
+    label: Text(tag.valueTag),
+    deleteIcon: const Icon(Icons.close, size: 18),
+    onDeleted: () => _deleteSingleTag(tag),
+    backgroundColor: Colors.blueGrey[50],
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+    ),
+  );
+}
+/*
+  Widget _buildTagRow(Tag tag) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tag:',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tag.valueTag,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            color: Colors.red,
+            onPressed: () => _deleteSingleTag(tag),
+          ),
+        ],
       ),
     );
-
   }
-
-  
-  // Widget auxiliar para criar os ExpansionTile img
-  Widget _buildExpansionImg({required String title, required List<Widget> children}) {
+*/
+  // Funções existentes (mantidas para contexto)
+  Widget _buildImageCarouselCard({
+    required String title,
+    required List<ImageBase64> images,
+    required String finalidade,
+  }) {
+    // ... Código existente
     return Theme(
       data: Theme.of(context).copyWith(
-        dividerColor: Colors.transparent, // tira a linha do ExpansionTile
-        iconTheme: const IconThemeData(size: 36), // aumenta o tamanho da flecha
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
       ),
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 5.0),
@@ -401,18 +303,154 @@ class _ProductPageState extends State<ProductPage> {
         child: ExpansionTile(
           backgroundColor: Colors.transparent,
           collapsedBackgroundColor: Colors.transparent,
-          iconColor: Colors.blueGrey, // cor quando expandido
-          collapsedIconColor: Colors.indigo, // cor quando fechado
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
           tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
           title: Text(
             title,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           childrenPadding: EdgeInsets.zero,
-          children: children.isNotEmpty
-              ? children
+          children: images.isNotEmpty
+              ? [
+                  const Divider(
+                    color: Colors.black12,
+                    height: 1,
+                    thickness: 1,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.sync_alt_outlined),
+                        color: Colors.indigo,
+                        onPressed: () => _showReorderImagesDialog(images, finalidade),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_a_photo),
+                        color: Colors.indigo,
+                        onPressed: () => _showAddImageOptions(finalidade),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_forever),
+                        color: Colors.indigo,
+                        onPressed: () => _deleteImageConfirm(images, finalidade),
+                      ),
+                    ],
+                  ),
+                  Stack(
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      SizedBox(
+                        height: 500,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: images.length,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentPage = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final imageBase64Data = images[index];
+                            return FutureBuilder<String?>(
+                              future: ImageBase.decodeAndExtractSingleImage(
+                                  imageBase64Data.imagesBase64),
+                              builder: (context, imageSnapshot) {
+                                if (imageSnapshot.connectionState == ConnectionState.waiting) {
+                                  return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                                } else if (imageSnapshot.hasData && imageSnapshot.data != null) {
+                                  final String dataUri = imageSnapshot.data!;
+                                  final String base64Image = dataUri.split(',').last;
+                                  return Image.memory(
+                                    base64Decode(base64Image),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(Icons.broken_image, size: 150),
+                                  );
+                                } else {
+                                  return const Icon(Icons.image_not_supported, size: 150, color: Colors.grey);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 3,
+                          margin: const EdgeInsets.symmetric(horizontal: 0),
+                          child: Row(
+                            children: List.generate(
+                              images.length,
+                              (index) => Expanded(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  height: 3,
+                                  color: _currentPage >= index ? Colors.blueAccent : Colors.grey.withOpacity(0.5),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ]
               : [
                   const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Nenhuma imagem disponível.',
+                      style: TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpansionTile({required String title, required List<Widget> children}) {
+    // ... Código existente
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 5.0),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide.none,
+        ),
+        child: ExpansionTile(
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          children: children.isNotEmpty
+              ? [
+                  const Divider(
+                    color: Colors.black12,
+                    height: 1,
+                    thickness: 1,
+                  ),
+                  ...children,
+                ]
+              : const [
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
                       'Nenhuma informação disponível.',
@@ -425,8 +463,8 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-  // Widget auxiliar para criar linhas de detalhe
   Widget _buildDetailRow(String label, String? value) {
+    // ... Código existente
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -448,16 +486,16 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-  Future<void> _showReorderImagesDialog() async {
-    if (_reorderableImages == null || _reorderableImages!.isEmpty) {
+  Future<void> _showReorderImagesDialog(List<ImageBase64> currentImages, String finalidade) async {
+    // ... Código existente
+    if (currentImages.isEmpty) {
       return;
     }
 
-    // Pré-decodifique todas as imagens
     List<DecodedImage> tempImages = [];
-    for (var imageBase64 in _reorderableImages!) {
+    for (var imageBase64 in currentImages) {
       final imageData = imageBase64.imagesBase64;
-      final dataUri = await _decodeAndExtractSingleImage(imageData);
+      final dataUri = await ImageBase.decodeAndExtractSingleImage(imageData);
       if (dataUri != null) {
         final base64Image = dataUri.split(',').last;
         tempImages.add(DecodedImage(
@@ -473,7 +511,7 @@ class _ProductPageState extends State<ProductPage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return AlertDialog(
-              title: const Text('Reordenar Imagens'),
+              title: Text('Reordenar Imagens de $finalidade'),
               contentPadding: EdgeInsets.zero,
               insetPadding: const EdgeInsets.all(20),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
@@ -497,17 +535,17 @@ class _ProductPageState extends State<ProductPage> {
                       key: ValueKey(tempImages[index].originalImage.imagePath),
                       padding: const EdgeInsets.symmetric(vertical: 4.0),
                       child: Card(
-                        elevation: 4.0, // Adiciona uma sombra para o efeito de "cartão"
+                        elevation: 4.0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.0), // Cantos mais arredondados
+                          borderRadius: BorderRadius.circular(10.0),
                         ),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                           leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0), // Cantos arredondados na imagem
+                            borderRadius: BorderRadius.circular(8.0),
                             child: Image.memory(
                               tempImages[index].bytes,
-                              width: 60, // Aumenta o tamanho da imagem para melhor visualização
+                              width: 60,
                               height: 60,
                               fit: BoxFit.cover,
                             ),
@@ -518,10 +556,8 @@ class _ProductPageState extends State<ProductPage> {
                           ),
                           trailing: const Icon(
                             Icons.drag_handle,
-                            color: Colors.grey, // Cor suave para o ícone
+                            color: Colors.grey,
                           ),
-                          // Você pode adicionar um subtítulo aqui se quiser mais informações
-                          // subtitle: Text('Posição original: ${tempImages[index].originalImage.sequence}'),
                         ),
                       ),
                     );
@@ -532,16 +568,15 @@ class _ProductPageState extends State<ProductPage> {
                 TextButton(
                   child: const Text('Cancelar'),
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(dialogContext).pop();
                   },
                 ),
                 ElevatedButton(
                   child: const Text('Salvar'),
                   onPressed: () {
-                    setState(() {
-                      _reorderableImages = tempImages.map((e) => e.originalImage).toList();
-                    });
-                    Navigator.of(context).pop();
+                    final newOrder = tempImages.map((e) => e.originalImage).toList();
+                    _handleImageReorderBase64(newOrder, finalidade);
+                    Navigator.of(dialogContext).pop();
                   },
                 ),
               ],
@@ -552,74 +587,194 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-  Future<void> _addImagesFromSource(ImageSource source) async {
+  Future<void> _handleImageReorder(
+    List<ImageBase64> newOrder,
+    String finalidade,
+  ) async {
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+
+    loadingService.show();
+
     try {
-      List<XFile> pickedFiles = [];
-      if (source == ImageSource.camera) {
-        final XFile? file = await _picker.pickImage(source: source);
-        if (file != null) {
-          pickedFiles.add(file);
+      // 1. Converte a lista de ImageBase64 diretamente para XFile em memória
+      final List<XFile> xFiles = [];
+      
+      for (int i = 0; i < newOrder.length; i++) {
+        final image = newOrder[i];
+        if (image.imagesBase64 != null) {
+          final bytes = base64Decode(image.imagesBase64!);
+          xFiles.add(XFile.fromData(bytes, mimeType: 'image/jpeg'));
         }
-      } else { // galeria
-        pickedFiles = await _picker.pickMultiImage();
       }
+
+      // upload
+      await productService.uploadProductImages(
+        widget.productId,
+        finalidade,
+        xFiles,
+      );
+
+      } on Exception catch (e) {
+        debugPrint('Erro ao reordenar e enviar imagens: $e');
+      } finally {
+        loadingService.hide();
+      }
+  }
+
+Future<void> _handleImageReorderBase64(
+    List<ImageBase64> newOrder,
+    String finalidade,
+) async {
+  final productService = context.read<ProductService>();
+  final loadingService = context.read<LoadingService>();
+
+  loadingService.show();
+
+  try {
+    // 1. Converte a lista de ImageBase64 em uma lista de strings Base64
+    final List<String> base64Images = newOrder
+        .map((image) => image.imagesBase64!)
+        .where((base64String) => base64String.isNotEmpty)
+        .toList();
+
+    // 2. Chama o método de upload com a lista de strings Base64
+    await productService.uploadProductImagesBase64(
+      widget.productId,
+      finalidade,
+      base64Images, // Passando a lista de Base64 extraída
+    );
+
+  } on Exception catch (e) {
+    debugPrint('Erro ao reordenar e enviar imagens: $e');
+  } finally {
+    loadingService.hide();
+  }
+}
+
+
+  Future<void> _deleteImageConfirm(List<ImageBase64> images, String finalidade) async {
+    // ... Código existente
+    if (images.isEmpty) {
+      return;
+    }
+    
+    final imageToDelete = images[_currentPage];
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Excluir Imagem de $finalidade'),
+          content: const Text('Tem certeza de que deseja excluir a imagem selecionada?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                _handleImageDelete(finalidade, imageToDelete.imagePath!);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleImageDelete(String finalidade, String imagePath) async {
+    // ... Código existente
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+
+    loadingService.show();
+    await productService.deleteProductImage(widget.productId, imagePath, finalidade);
+    loadingService.hide();
+
+    final images = productService.productComplete?.images?.where((img) => img.finalidade == finalidade).toList() ?? [];
+    if (images.isNotEmpty) {
+      final newIndex = _currentPage > 0 ? _currentPage - 1 : 0;
+      _pageController.jumpToPage(newIndex);
+    } else {
+      setState(() {
+        _currentPage = 0;
+      });
+    }
+  }
+
+  Future<void> _addImagesFromSource(String finalidade, [ImageSource? source]) async {
+    // ... Código existente
+    try {
+      if (source == null) {
+        source = await showDialog<ImageSource>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return SimpleDialog(
+              title: const Text('Adicionar Imagem'),
+              children: <Widget>[
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(dialogContext, ImageSource.camera),
+                  child: const Text('Tirar foto com a Câmera'),
+                ),
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(dialogContext, ImageSource.gallery),
+                  child: const Text('Escolher da Galeria'),
+                ),
+              ],
+            );
+          },
+        );
+        if (source == null) return;
+      }
+
+      final List<XFile> pickedFiles =
+          (source == ImageSource.camera) ? [(await ImagePicker().pickImage(source: source))!].whereType<XFile>().toList() : await ImagePicker().pickMultiImage();
 
       if (pickedFiles.isEmpty) {
         return;
       }
 
-      final List<ImageBase64> newImages = [];
-      final uuid = Uuid();
-
-      for (var file in pickedFiles) {
-        final bytes = await file.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        final uniqueFileName = uuid.v4();
-        final fileExtension = path.extension(file.path);
-        
-        // Cria uma nova instância de ImageBase64 (seu modelo)
-        final newImage = ImageBase64(
-          imagePath: uniqueFileName + fileExtension, // Use um nome de arquivo único
-          imagesBase64: base64Image,
-          // Sequência será definida após a inserção na lista
-          sequence: 0, 
-        );
-        newImages.add(newImage);
-      }
-      
-      // Atualiza a lista principal com as novas imagens
-      setState(() {
-        if (_reorderableImages == null) {
-          _reorderableImages = [];
-        }
-        _reorderableImages!.addAll(newImages);
-        // Aqui você pode reordenar as sequências se necessário
-        _reorderableImages!.asMap().forEach((index, img) => img.sequence = index + 1);
-      });
-
+      _handleImageUpload(pickedFiles, finalidade);
     } catch (e) {
       debugPrint('Erro ao adicionar imagem: $e');
     }
   }
 
-  Future<void> _showAddImageOptions() async {
+  Future<void> _handleImageUpload(List<XFile> files, String finalidade) async {
+    // ... Código existente
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+
+    logger.d('*********************   uploadProductImages   *********************');
+    loadingService.show();
+    //await productService.uploadProductImages(widget.productId, finalidade, files);
+    loadingService.hide();
+  }
+
+  Future<void> _showAddImageOptions(String finalidade) async {
+    // ... Código existente
     return showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return SimpleDialog(
-          title: const Text('Adicionar Imagem'),
+          title: Text('Adicionar Imagem ($finalidade)'),
           children: <Widget>[
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                _addImagesFromSource(ImageSource.camera);
+                _addImagesFromSource(finalidade, ImageSource.camera);
               },
               child: const Text('Tirar foto com a Câmera'),
             ),
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                _addImagesFromSource(ImageSource.gallery);
+                _addImagesFromSource(finalidade, ImageSource.gallery);
               },
               child: const Text('Escolher da Galeria'),
             ),
@@ -629,9 +784,119 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
+  // Novos métodos para Tags
+  void _showAddTagDialog(ProductComplete productComplete) {
+    _tagController.clear();
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Adicionar Nova Tag'),
+          content: TextField(
+            controller: _tagController,
+            decoration: const InputDecoration(hintText: "Digite a tag"),
+            autofocus: true,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Adicionar'),
+              onPressed: () {
+                if (_tagController.text.isNotEmpty) {
+                  _handleAddTag(productComplete.product!.productId!, _tagController.text);
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleAddTag(String productId, String valueTag) async {
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+    loadingService.show();
+    await productService.addTag(productId, valueTag);
+    loadingService.hide();
+  }
+
+  void _showDeleteTagDialog(List<Tag> tags) {
+    if (tags.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Excluir Tag'),
+          content: DropdownButtonFormField<Tag>(
+            decoration: const InputDecoration(labelText: 'Selecione a tag'),
+            items: tags.map<DropdownMenuItem<Tag>>((Tag tag) {
+              return DropdownMenuItem<Tag>(
+                value: tag,
+                child: Text(tag.valueTag),
+              );
+            }).toList(),
+            onChanged: (Tag? newTag) {
+              // Ações ao selecionar uma tag.
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            // Note: O botão de excluir é removido daqui e a exclusão é feita por item na lista
+          ],
+        );
+      },
+    );
+  }
+  
+  void _deleteSingleTag(Tag tag) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirmar Exclusão'),
+          content: Text('Tem certeza de que deseja excluir a tag "${tag.valueTag}"?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                _handleDeleteTag(tag);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDeleteTag(Tag tag) async {
+    final productService = context.read<ProductService>();
+    final loadingService = context.read<LoadingService>();
+    loadingService.show();
+    await productService.deleteTag(tag.productId, tag.id!);
+    loadingService.hide();
+  }
 }
 
-// Adicione essa classe para armazenar os dados decodificados
 class DecodedImage {
   final ImageBase64 originalImage;
   final Uint8List bytes;

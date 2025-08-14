@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/product_service.dart';
 import 'package:oxdata/app/core/models/product_model.dart';
+import 'package:oxdata/app/views/pages/filter_options_page.dart';
 import 'package:flutter/services.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:http/http.dart' as http;
@@ -42,6 +43,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     'lineId': 'LINHA',
     'familyId': 'FAMÍLIA',
     'decorationId': 'DECORAÇÃO',
+    'tag': 'TAGS',
   };
 
   // Função para adicionar um filtro
@@ -71,6 +73,27 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     }*/
   }
 
+  // Adicione esta função para navegar para a nova página
+  void _navigateToFilterOptionsPage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) {
+          return FilterOptionsPage(
+            filterDisplayNames: _filterDisplayNames, // Passe seu mapa de nomes
+            currentFilterType: _currentFilterType, // Passe o filtro atual
+            onFilterSelected: (selectedFilter) {
+              // Este é o callback que a nova página irá chamar
+              setState(() {
+                _currentFilterType = selectedFilter;
+              });
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /*
   // Diálogo para seleção do filtro
   void _showFilterOptions(BuildContext context) {
     showDialog(
@@ -109,6 +132,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
       },
     );
   }
+  */
 
   /// Retorna o tipo de conteúdo (MIME type) com base na extensão do arquivo.
   String _getContentType(String fileName) {
@@ -198,8 +222,9 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     setState(() {
       _activeFilters = {};
       _searchController.clear();
+      _currentFilterType = 'productId';
     });
-    // Opcional: Limpar os resultados da pesquisa no ProductService
+    // Limpa os resultados da pesquisa no ProductService
     context.read<ProductService>().clearResults();
   }
   
@@ -251,8 +276,8 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                                       builder: (context, snapshot) {
                                         if (snapshot.connectionState == ConnectionState.waiting) {
                                           return const SizedBox(
-                                            width: 60,
-                                            height: 60,
+                                            width: 85,
+                                            height: 85,
                                             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                                           );
                                         } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
@@ -266,7 +291,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                                             errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
                                           );
                                         } else {
-                                          return const Icon(Icons.broken_image, size: 60);
+                                          return const Icon(Icons.broken_image, size: 85);
                                         }
                                       },
                                     ),
@@ -336,7 +361,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                       child: IconButton(
                         icon: const Icon(Icons.filter_list, size: 28),
                         color: Colors.indigo,
-                        onPressed: () => _showFilterOptions(context),
+                        onPressed: () => _navigateToFilterOptionsPage(context),
                       ),
                     ),
                     Expanded(

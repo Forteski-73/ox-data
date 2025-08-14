@@ -2,11 +2,13 @@
 // app/core/services/auth_service.dart (Lógica de Autenticação)
 // -----------------------------------------------------------
 import 'package:flutter/foundation.dart';
-import 'package:oxdata/app/core/repositories/auth_repository.dart'; // Importa o repositório
+import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; 
 
 class AuthService with ChangeNotifier {
   // A dependência do AuthRepository é injetada no construtor.
   final AuthRepository _authRepository;
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Estado de autenticação do usuário
   bool _isAuthenticated = false;
@@ -72,6 +74,8 @@ class AuthService with ChangeNotifier {
   Future<void> logout() async {
     _isAuthenticated = false;
     _authToken = null;
+    // Implementação para limpar o token diretamente aqui, como solicitado.
+    await _storage.delete(key: 'jwt_token');
     // Notifica os listeners sobre a mudança.
     notifyListeners();
   }

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
+import 'package:oxdata/app/core/widgets/app_footer.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,6 +22,9 @@ class _LoginPageState extends State<LoginPage> {
   
   // Estado para o checkbox "Lembrar-me"
   bool _rememberMe = false;
+
+  // Variável para controlar a visibilidade da senha
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -61,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 32),
 
               const Text(
-                'Bem-vindo de volta!',
+                'Bem-vindo!',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -81,35 +85,88 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 32),
 
-              // Campo de e-mail
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'Usuário',
                   prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   filled: true,
                   fillColor: Colors.grey[100],
+                  // Borda para o estado padrão
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.grey,
+                      width: 1.0,
+                    ),
+                  ),
+                  // Borda para o estado habilitado
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.grey,
+                      width: 1.0,
+                    ),
+                  ),
+                  // Borda para o estado focado
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF333333),
+                      width: 1.0,
+                    ),
+                  ),
                 ),
               ),
-
+                                
               const SizedBox(height: 16),
 
               // Campo de senha
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: !_isPasswordVisible, // Controla a visibilidade com base no estado
                 decoration: InputDecoration(
                   labelText: 'Senha',
                   prefixIcon: const Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   filled: true,
                   fillColor: Colors.grey[100],
+                  // Borda para o estado padrão
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.grey,
+                      width: 1.0,
+                    ),
+                  ),
+                  // Borda para o estado habilitado
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Colors.grey,
+                      width: 1.0,
+                    ),
+                  ),
+                  // Borda para o estado focado
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF333333), // Cor da borda quando focado
+                      width: 1.0,
+                    ),
+                  ),
+                  // Adiciona o ícone de olho no canto direito
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.black54,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
               ),
 
@@ -146,22 +203,21 @@ class _LoginPageState extends State<LoginPage> {
 
               // Botão de Entrar
               ElevatedButton(
-                // O botão agora só precisa ser desabilitado se estiver carregando
                 onPressed: loadingService.isLoading ? null : () async {
-                  loadingService.show(); // Mostra o overlay de carregamento
+                  FocusScope.of(context).unfocus();
+                  loadingService.show();
                   final email = _emailController.text;
                   final password = _passwordController.text;
 
                   await authService.login(email, password, _rememberMe);
 
                   if (mounted) {
-                    loadingService.hide(); // Esconde o overlay após a operação
+                    loadingService.hide();
                     if (authService.isAuthenticated) {
                       Navigator.of(context).pushReplacementNamed(RouteGenerator.homePage);
                     }
                   }
                 },
-                // O child do botão agora é fixo
                 child: const Text(
                   'Entrar',
                   style: TextStyle(fontSize: 18),
@@ -177,7 +233,6 @@ class _LoginPageState extends State<LoginPage> {
                   const Text("Não tem uma conta?"),
                   TextButton(
                     onPressed: () {
-                      // Navegação para a tela de cadastro
                       Navigator.of(context).pushNamed(RouteGenerator.loginReg);
                     },
                     child: const Text('Cadastre-se'),
@@ -188,6 +243,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+      bottomNavigationBar: const AppFooter(),
     );
   }
 }

@@ -6,28 +6,23 @@ import 'package:oxdata/app/core/models/product_model.dart';
 import 'package:oxdata/app/core/models/product_complete.dart';
 import 'package:oxdata/app/core/repositories/product_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import 'package:path/path.dart' as path;
+import 'package:oxdata/app/core/utils/logger.dart';
 
-/// Ele usa ChangeNotifier para notificar a UI sobre as mudanças.
 class ProductService with ChangeNotifier {
-  final ProductRepository productRepository; // Adiciona a dependência do repositório
+  final ProductRepository productRepository;
 
-  // Construtor que recebe o repositório
   ProductService({required this.productRepository});
 
-  // Lista para armazenar os resultados da pesquisa da API
   List<ProductModel> _searchResults = [];
-
-  // Variável para armazenar os detalhes completos de um único produto
   ProductComplete? _productComplete;
 
-  // Getter para acessar a lista de resultados de forma segura e pública
   List<ProductModel> get searchResults => _searchResults;
-
-  // Getter para acessar os detalhes completos do produto de forma segura e pública
   ProductComplete? get productComplete => _productComplete;
 
-  // A função de busca agora usa o repositório
-  // Ajuste a assinatura para Map<String, dynamic>
   Future<void> performSearch(Map<String, dynamic> activeFilters) async {
     final ApiResponse<List<ProductModel>> response =
         await productRepository.searchProducts(activeFilters);
@@ -39,40 +34,121 @@ class ProductService with ChangeNotifier {
       if (kDebugMode) {
         print('Erro no ProductService: ${response.message}');
       }
-      // Em um app real, você pode mostrar um SnackBar ou outro feedback ao usuário
     }
-    // Notifica todos os widgets que estão "escutando" as mudanças
     notifyListeners();
   }
 
-  /// Busca os detalhes completos de um produto específico e os armazena no serviço.
-  /// Notifica os listeners após a conclusão.
   Future<void> fetchProductComplete(String productId) async {
-    // Chama o método getAppProduct no repositório
     final ApiResponse<List<ProductComplete>> response =
-        await productRepository.getAppProduct(productId); 
+        await productRepository.getAppProduct(productId);
 
     if (response.success && response.data != null && response.data!.isNotEmpty) {
-      _productComplete = response.data!.first; // Armazena o produto completo
+      _productComplete = response.data!.first;
     } else {
-      _productComplete = null; // Limpa se não encontrado ou houver erro
+      _productComplete = null;
       if (kDebugMode) {
         print('Erro ao buscar detalhes completos do produto $productId: ${response.message}');
       }
     }
-    // Notifica todos os widgets que estão "escutando" as mudanças
     notifyListeners();
   }
 
-  // Método para limpar os resultados
+
+  Future<bool> uploadProductImages(
+      String productId, String finalidade, List<XFile> files) async {
+    if (files.isEmpty) return false;
+
+    // Chama o repositório para enviar as imagens
+    final ApiResponse<bool> response = await productRepository.updateProductImages(
+      productId: productId,
+      finalidade: finalidade,
+      images: files,
+    );
+
+    if (response.success && response.data == true) {
+      // Atualiza os detalhes do produto após o upload
+      await fetchProductComplete(productId);
+      return true;
+    } else {
+      if (kDebugMode) {
+        print('Falha ao enviar imagens do produto $productId: ${response.message}');
+      }
+      return false;
+    }
+  }
+
+  Future<bool> uploadProductImagesBase64(
+      String productId, String finalidade, List<String> base64Images) async {
+    
+    if (base64Images.isEmpty) return false;
+
+    try {
+      // A lista de Base64 já está pronta, então podemos passá-la diretamente
+      final ApiResponse<bool> response = await productRepository.updateProductImagesBase64(
+        productId: productId,
+        finalidade: finalidade,
+        base64Images: base64Images,
+      );
+
+      // Trata a resposta da API
+      if (response.success && response.data == true) {
+        // Atualiza os detalhes do produto após o upload
+        await fetchProductComplete(productId);
+        return true;
+      } else {
+        if (kDebugMode) {
+          print('Falha ao enviar imagens do produto $productId: ${response.message}');
+        }
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erro ao processar e enviar imagens: $e');
+      }
+      return false;
+    }
+  }
+
+  Future<bool> deleteProductImage(
+      String productId, String imagePath, String finalidade) async {
+    // TODO: Chamar o repositório para excluir a imagem na API
+    // Exemplo:
+    // final response = await productRepository.deleteImage(productId, imagePath, finalidade);
+    // if (response.success) {
+    //   await fetchProductComplete(productId);
+    //   return true;
+    // }
+    // return false;
+
+    // Lógica simulada:
+    if (_productComplete != null) {
+      _productComplete!.images!.removeWhere((img) => img.imagePath == imagePath);
+      _productComplete!.images!.asMap().forEach((index, img) => img.sequence = index + 1);
+      notifyListeners();
+    }
+    await Future.delayed(const Duration(seconds: 1));
+    return true;
+  }
+
   void clearResults() {
     _searchResults = [];
     notifyListeners();
   }
 
-  /// Método para limpar os detalhes do produto completo
   void clearProductCompleteDetails() {
     _productComplete = null;
     notifyListeners();
   }
+
+  Future<void> addTag(String productId, String valueTag) async {
+    await fetchProductComplete(productId);
+  }
+
+  Future<void> deleteTag(String productId, int tagId) async {
+    await fetchProductComplete(productId);
+  }
+}
+
+extension on List<int> {
+  int? get lastOption => isNotEmpty ? last : null;
 }

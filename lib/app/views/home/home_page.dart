@@ -7,6 +7,7 @@ import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/widgets/app_footer.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -31,7 +32,7 @@ class HomePage extends StatelessWidget {
     final loadingService = context.read<LoadingService>();
     
     return Scaffold(
-      appBar: const AppBarCustom(title: 'Aplicativo de Consulta de Consulta de Estrutura de Produtos - ACEP'),
+      appBar: const AppBarCustom(title: 'ACEP'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -94,32 +95,7 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Inicia com a primeira opção (home) selecionada
-        onTap: (index) async {
-          // Lida com o toque nos ícones do rodapé
-          if (index == 1) { // 1 é o índice do botão de "Sair"
-            // Se o botão de sair for clicado, executa a lógica de logout
-            loadingService.show();
-            await authService.logout();
-            if (context.mounted) {
-              loadingService.hide();
-              Navigator.of(context).pushReplacementNamed(RouteGenerator.loginPage);
-            }
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-            
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.logout),
-            label: 'Sair',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const AppFooter(),
     );
   }
 }

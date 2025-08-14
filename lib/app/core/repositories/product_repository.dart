@@ -3,12 +3,18 @@
 // -----------------------------------------------------------
 import 'dart:convert';
 import 'dart:typed_data'; // Importe para Uint8List
+import 'package:mime/mime.dart';
+import 'package:http/http.dart' as http;
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_model.dart';
 import 'package:oxdata/app/core/models/product_complete.dart';
 import 'package:oxdata/app/core/models/product_image_model.dart';
+import 'package:oxdata/app/core/models/product_image_base64.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:oxdata/app/core/utils/logger.dart';
+import 'package:http_parser/http_parser.dart';
 
 /// Repositório responsável pela comunicação com a API de produtos.
 class ProductRepository {
@@ -119,4 +125,101 @@ class ProductRepository {
       );
     }
   }
+
+  /// Envia novas imagens para um produto específico, substituindo as existentes.
+  /// `finalidade` deve ser uma string que representa a enum `Finalidade` no backend.
+  /// `images` é uma lista de XFile (do ImagePicker).
+  Future<ApiResponse<bool>> updateProductImages({
+    required String productId,
+    required String finalidade,
+    required List<XFile> images,
+  }) async {
+    if (images.isEmpty) {
+      return ApiResponse(success: false, message: 'Nenhuma imagem selecionada.');
+    }
+
+    try {
+      // 1. Converte os XFile em MultipartFile, definindo nomes e tipos corretos
+      final multipartFiles = <http.MultipartFile>[];
+
+      for (int i = 0; i < images.length; i++) {
+        final xFile = images[i];
+        final bytes = await xFile.readAsBytes();
+
+        // Nome fixo no formato 0001.jpg, 0002.jpg, ...
+        final fileName = '${(i + 1).toString().padLeft(4, '0')}.jpg';
+
+        multipartFiles.add(http.MultipartFile.fromBytes(
+          'files', // campo esperado pelo backend
+          bytes,
+          filename: fileName,
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      }
+
+      // 2. Envia para o backend usando o ApiClient com autenticação
+      final response = await apiClient.postAuthMultipart(
+        '${ApiRoutes.productImageUpdate}/$productId/$finalidade',
+        files: multipartFiles,
+      );
+
+      // 3. Verifica resposta do servidor
+      if (response.statusCode == 200) {
+        return ApiResponse(success: true, data: true);
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao enviar imagens: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha ao enviar imagens: $e',
+      );
+    }
+  }
+
+  // Seu método no serviço
+  Future<ApiResponse<bool>> updateProductImagesBase64({
+    required String productId,
+    required String finalidade,
+    required List<String> base64Images,
+  }) async {
+    if (base64Images.isEmpty) {
+      return ApiResponse(success: false, message: 'Nenhuma imagem selecionada.');
+    }
+
+    try {
+      // Cria o objeto de requisição com os dados necessários
+      final requestBody = {
+        'productId': productId,
+        'finalidade': finalidade,
+        'base64Images': base64Images,
+      };
+
+      // Envia a requisição JSON para o novo endpoint
+      // Remova o jsonEncode aqui, a função apiClient.postAuth já faz isso.
+      final response = await apiClient.postAuth(
+        ApiRoutes.productImageUpdateBase64,
+        body: requestBody, // Passa o mapa diretamente
+      );
+
+      // Verifica a resposta do servidor
+      if (response.statusCode == 200) {
+        return ApiResponse(success: true, data: true);
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao enviar imagens: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha ao enviar imagens: $e',
+      );
+    }
+  }
+
 }
