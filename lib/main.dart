@@ -14,8 +14,8 @@ void main() {
   
   // Configura a injeção de dependências do projeto.
   // Embora esta chamada não seja estritamente necessária no
-  // seu modelo atual com o `MultiProvider`, é uma boa prática
-  // manter caso você use outro método de injeção, como get_it.
+  // modelo atual com o 'MultiProvider', é uma boa prática
+  // manter caso use outro método de injeção, como get_it.
   Injector.configureDependencies();
   
   // Configurações de localização
@@ -23,11 +23,11 @@ void main() {
   initializeDateFormatting('pt-BR', null);
 
   // Define a orientação da tela para portrait
-  SystemChrome.setPreferredOrientations(
+  /*SystemChrome.setPreferredOrientations(
     [
       DeviceOrientation.portraitUp,
     ],
-  );
+  );*/
 
   // Inicia o aplicativo.
   // Não é mais necessário envolver o MyApp com o AuthService,

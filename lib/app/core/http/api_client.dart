@@ -6,8 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/interceptors/auth_interceptor.dart';
-import 'package:oxdata/app/core/utils/logger.dart';
-import 'package:flutter/foundation.dart'; 
 
 /// Classe responsável por fazer todas as requisições HTTP da API.
 /// Usa o Interceptor para centralizar a lógica de cabeçalhos e tokens.
@@ -85,25 +83,6 @@ class ApiClient {
     final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
 
     try {
-
-      // Adiciona uma condição de depuração para imprimir o corpo da requisição
-      if (kDebugMode && body != null) {
-        debugPrint('**** REQUISIÇÃO POST - BODY ****');
-        debugPrint('Endpoint: $url');
-        // Imprime o corpo formatado como uma string JSON
-        debugPrint('Corpo da Requisição: ${json.encode(body)}'); 
-        debugPrint('***********************************************************');
-      }
-
-
-    // --- IMPRIME TUDO ---
-    print('###################################################################################');
-    print('======================= REQUEST ========================');
-    print('URL: $url');
-    print('Headers: $headers');
-    print('Body (JSON): ${json.encode(body)}');
-    print('===================');
-    print('###################################################################################');
       // Usa o cliente com o interceptor para adicionar o token.
       final response = await _authenticatedClient.post(
         url,
@@ -117,7 +96,34 @@ class ApiClient {
     }
   }
 
+  /// Método para requisições POST com autenticação.
+  /// body aceita Map, List
+  Future<http.Response> postAuth1(
+  String endpoint, {
+  dynamic body, // <-- aceita Map, List ou null
+  Map<String, String>? headers,
+}) async {
+  final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+  try {
+    final response = await _authenticatedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        ...?headers,
+      },
+      body: body != null ? json.encode(body) : null,
+    );
+
+    return response;
+  } on Exception catch (e) {
+    throw Exception('Erro de rede: $e');
+  }
+}
+
+
   /// Método para requisições POST com autenticação e multipart/form-data
+  /*
   Future<http.Response> postAuthMultipart(
     String endpoint, {
     Map<String, String>? headers,
@@ -147,6 +153,31 @@ class ApiClient {
       throw Exception('Erro de rede (multipart com interceptor): $e');
     }
   }
+  */
+
+  /// Método para requisições DELETE com autenticação.
+  Future<http.Response> deleteAuth(
+    String endpoint, {
+    Map<String, String>? headers,
+  }) async {
+    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+    try {
+      // Usa o cliente autenticado (com interceptor)
+      final response = await _authenticatedClient.delete(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          ...?headers,
+        },
+      );
+
+      return response;
+    } on Exception catch (e) {
+      throw Exception('Erro de rede: $e');
+    }
+  }
+
 
   /// Método para atualizar o token JWT dinâmico no interceptor após o login.
   void updateToken(String token) {

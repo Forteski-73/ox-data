@@ -122,10 +122,9 @@ class _LoginPageState extends State<LoginPage> {
                                 
               const SizedBox(height: 16),
 
-              // Campo de senha
               TextFormField(
                 controller: _passwordController,
-                obscureText: !_isPasswordVisible, // Controla a visibilidade com base no estado
+                obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
                   labelText: 'Senha',
                   prefixIcon: const Icon(Icons.lock_outline),
@@ -169,10 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
-
-              // Checkbox e link para "Esqueceu a senha?"
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -191,8 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Implementar navegação para a tela de recuperação de senha
-                      print('Esqueceu a senha?');
+                      // Implementar navegação para a tela de recuperação de senha
                     },
                     child: const Text('Esqueceu a senha?'),
                   ),

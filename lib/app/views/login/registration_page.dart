@@ -34,8 +34,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
   @override
   void initState() {
     super.initState();
-    // Limpa o token salvo no storage ao entrar na página de cadastro
     _storageService.clearAuthToken();
+    _storageService.clearCredentials();
   }
 
   @override
@@ -387,10 +387,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     style: TextStyle(fontSize: 18),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                // Link para "Já tem uma conta?"
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

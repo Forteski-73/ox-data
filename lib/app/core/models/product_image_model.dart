@@ -2,9 +2,9 @@
 // app/core/models/product_image_model.dart
 // -----------------------------------------------------------
 import 'dart:convert';
-import 'dart:typed_data'; // Importe para Uint8List
+import 'dart:typed_data';
 
-/// Modelo para a resposta da API de imagem de produto, que retorna bytes de um ZIP.
+/// Modelo para a resposta da API de imagem de produto, retorna bytes de um ZIP.
 class ProductImageModel {
   final Uint8List zipBytes; // Alterado para armazenar bytes brutos do ZIP
 

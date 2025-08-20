@@ -36,6 +36,7 @@ dependencies:
   intl: ^0.20.2
   cupertino_icons: ^1.0.8
   http: ^1.1.0
+  http_parser: ^4.0.2
   http_interceptor: ^2.0.0
   flutter_secure_storage: ^9.0.0
   archive: ^3.5.1
@@ -46,10 +47,9 @@ dependencies:
   marquee: ^2.2.1
   image_picker: ^1.1.2
   image: ^4.0.17
-  uuid: ^4.4.0
   mime: ^1.0.1
   logger: ^2.0.2+1
-  dio: ^5.4.3+1
+  #dio: ^5.4.3+1
 
 
 dev_dependencies:
@@ -81,6 +81,7 @@ flutter:
     - assets/images/ic_launcher.png
     - assets/images/invent.png
     - assets/images/product.png
+    - assets/images/tag.png
     - assets/images/oxford-background.png
     - assets/images/oxford-background1.jpg
   # To add assets to your application, add an assets section, like this:

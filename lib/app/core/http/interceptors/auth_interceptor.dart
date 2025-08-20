@@ -6,6 +6,10 @@ import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:flutter/foundation.dart';
+import 'package:oxdata/app/core/globals/ApiRoutes.dart';
+import 'package:oxdata/app/core/http/api_client.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
+import 'dart:convert';
 
 /// Interceptor que gerencia o token de autenticação.
 /// O token fixo é usado para obter o token JWT dinâmico.
@@ -74,6 +78,45 @@ class AuthInterceptor implements InterceptorContract {
 
   @override
   FutureOr<BaseResponse> interceptResponse({required BaseResponse response}) async {
+
+    if (response.statusCode == 401) {
+      try {
+        // Obter uma nova instância da requisição original
+        final originalRequest = response.request;
+        if (originalRequest != null) {
+          // Obtém o novo token da API de login
+          final newToken = await _getNewToken();
+          
+          if (newToken != null) {
+            // Atualiza o token dinâmico no interceptor
+            setDynamicToken(newToken);
+
+            // Cria uma nova requisição com o token atualizado
+            final newRequest = http.Request(originalRequest.method, originalRequest.url);
+            newRequest.headers.addAll(originalRequest.headers);
+            newRequest.headers['Authorization'] = 'Bearer $newToken';
+            
+            // Repete a requisição original com o novo token
+            final client = http.Client();
+            final newResponse = await client.send(newRequest);
+
+            // Reconstroi a resposta para que o interceptor retorne a nova
+            final http.Response finalResponse = await http.Response.fromStream(newResponse);
+            
+            if (kDebugMode) {
+              log('Token renovado e requisição repetida com sucesso! Novo status: ${finalResponse.statusCode}');
+            }
+            return finalResponse;
+
+          } 
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          log('Erro ao tentar renovar o token: $e');
+        }
+      }
+    }
+
     if (kDebugMode) {
       if (response is http.Response) {
         // Requisições "normais"
@@ -100,5 +143,40 @@ class AuthInterceptor implements InterceptorContract {
       }
     }
     return response;
+  }
+
+  Future<String?> _getNewToken() async {
+    try {
+      final storage = StorageService();
+      final client = http.Client();
+      
+      final creds = await storage.readCredentials();
+
+      final response = await client.post(
+        Uri.parse('${ApiRoutes.baseUrl}${ApiRoutes.login}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_fixedToken',
+        },
+        body: jsonEncode({
+          'user'    : creds['username'],
+          'password': creds['password'],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final token = data['token'] as String?;
+        if (token != null) {
+          setDynamicToken(token);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        log('Erro ao buscar novo token: $e');
+      }
+    }
+    return null;
+  
   }
 }

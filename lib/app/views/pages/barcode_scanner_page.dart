@@ -8,7 +8,15 @@ class BarcodeScannerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     bool read = false;
     return Scaffold(
-      appBar: AppBar(title: const Text('Mobile Scanner')),
+      appBar: AppBar(
+        title: const Row(
+          children: [
+            Text('Scanner'),
+            SizedBox(width: 8),
+            Icon(Icons.qr_code_scanner),
+          ],
+        ),
+      ),
       body: MobileScanner(
         onDetect: (capture) {
           final List<Barcode> barcodes = capture.barcodes;

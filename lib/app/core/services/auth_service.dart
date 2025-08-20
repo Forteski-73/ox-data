@@ -17,11 +17,11 @@ class AuthService with ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   String? get authToken => _authToken;
 
-  // O construtor agora exige uma instância de AuthRepository.
+  // O construtor exige uma instância de AuthRepository.
   // Essa dependência é fornecida pelo Provider no injector.dart.
   AuthService(this._authRepository);
 
-  // O método de login usa o repositório para fazer a requisição.
+  // O login usa o repositório para fazer a requisição.
   Future<ApiResponse<String>> login(String username, String password, bool rememberMe) async {
     final response = await _authRepository.login(
       username: username,
@@ -32,21 +32,17 @@ class AuthService with ChangeNotifier {
     if (response.success && response.data != null) {
       _authToken = response.data;
       _isAuthenticated = true;
+
     } else {
       _isAuthenticated = false;
       _authToken = null;
     }
-
-    // Notifica os listeners sobre a mudança no estado de autenticação.
     notifyListeners();
+
     return response;
   }
 
-  // ---------------------------------------------
-  // NOVO MÉTODO: userRegister
-  // ---------------------------------------------
-  /// Método para realizar o cadastro de um novo usuário.
-  /// Ele utiliza o AuthRepository para enviar os dados para a API
+  /// cadastro de usuário utiliza o AuthRepository para enviar os dados para a API
   /// e atualiza o estado de autenticação do aplicativo.
   Future<ApiResponse<String>> userRegister(String name, String password, String email) async {
     // Chama o método de registro do repositório
@@ -56,7 +52,6 @@ class AuthService with ChangeNotifier {
       email: email,
     );
 
-    // Verifica se a resposta foi bem-sucedida e atualiza o estado
     if (response.success && response.data != null) {
       _authToken = response.data;
       _isAuthenticated = true;
@@ -64,19 +59,20 @@ class AuthService with ChangeNotifier {
       _isAuthenticated = false;
       _authToken = null;
     }
-    
-    // Notifica os widgets que estão ouvindo as mudanças no estado
+
     notifyListeners();
+
     return response;
   }
 
-  // O processo de logout é simples, pois não envolve uma requisição de API.
   Future<void> logout() async {
     _isAuthenticated = false;
     _authToken = null;
-    // Implementação para limpar o token diretamente aqui, como solicitado.
+    
     await _storage.delete(key: 'jwt_token');
-    // Notifica os listeners sobre a mudança.
+    await _storage.delete(key: 'username');
+    await _storage.delete(key: 'password');
+
     notifyListeners();
   }
 }

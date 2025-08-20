@@ -2,7 +2,6 @@
 // app/core/utils/image_base.dart
 // -----------------------------------------------------------
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 
@@ -20,42 +19,34 @@ class ImageBase {
 
   static Future<String?> decodeAndExtractSingleImage(String? imageZipBase64) async {
     if (imageZipBase64 == null || imageZipBase64.isEmpty) {
-      if (kDebugMode) {
-        print('imageZipBase64 é nulo ou vazio, não há imagem para decodificar.');
-      }
-      return null;
+      throw Exception('O arquivo da imagem está corrompido ou não existe.');
     }
 
     try {
+      
       final Uint8List zipBytes = base64Decode(imageZipBase64);
       final Archive archive = ZipDecoder().decodeBytes(zipBytes);
 
       final file = archive.firstWhere((f) =>
           f.isFile &&
-          (f.name.endsWith('.png') ||
-              f.name.endsWith('.jpg') ||
-              f.name.endsWith('.jpeg')));
+          ( f.name.endsWith('.png') ||
+            f.name.endsWith('.jpg') ||
+            f.name.endsWith('.jpeg')
+          ));
 
       final Uint8List imageBytes = Uint8List.fromList(file.content as List<int>);
       final String base64Image = base64Encode(imageBytes);
       final String contentType = _getContentType(file.name);
       final String dataUri = 'data:$contentType;base64,$base64Image';
       return dataUri;
+
     } on FormatException catch (e) {
-      if (kDebugMode) {
-        print('Erro de formato ao decodificar Base64 ou ZIP: $e');
-      }
-      return null;
+        throw Exception('Erro de formato ao decodificar a imagem: $e');
     } on StateError {
-      if (kDebugMode) {
-        print('Nenhuma imagem válida encontrada no ZIP.');
-      }
-      return null;
+        throw Exception('Nenhuma imagem válida encontrada.');
     } on Exception catch (e) {
-      if (kDebugMode) {
-        print('Erro inesperado ao decodificar ou extrair imagem do ZIP: $e');
-      }
-      return null;
+        throw Exception('Erro inesperado ao processar a imagem: $e');
     }
   }
+
 }

@@ -3,20 +3,19 @@
 // -----------------------------------------------------------
 import 'package:flutter/material.dart';
 
-// Este serviço gerencia o estado global de carregamento.
-// Ele estende ChangeNotifier para que os widgets possam "escutar"
-// as mudanças no estado de carregamento e reagir a elas.
+// Serviço que gerencia o estado global de carregamento.
+// Estende ChangeNotifier para que os widgets possam "escutar" as mudanças no estado de carregamento e reagir a elas.
 class LoadingService with ChangeNotifier {
   bool _isLoading = false;
 
-  // Retorna o estado atual de carregamento
+  // Estado atual de carregamento
   bool get isLoading => _isLoading;
 
   // Mostra o overlay de carregamento.
   void show() {
     if (!_isLoading) {
       _isLoading = true;
-      notifyListeners(); // Notifica os widgets que estão escutando
+      notifyListeners();
     }
   }
 
@@ -24,7 +23,8 @@ class LoadingService with ChangeNotifier {
   void hide() {
     if (_isLoading) {
       _isLoading = false;
-      notifyListeners(); // Notifica os widgets que estão escutando
+      notifyListeners();
     }
   }
+  
 }

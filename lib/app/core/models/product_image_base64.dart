@@ -1,8 +1,7 @@
-
 class ProductImageBase64Request {
-  final String productId;
-  final String finalidade;
-  final List<String> base64Images;
+  final String        productId;
+  final String        finalidade;
+  final List<String>  base64Images;
 
   ProductImageBase64Request({
     required this.productId,
@@ -12,8 +11,8 @@ class ProductImageBase64Request {
 
   Map<String, dynamic> toJson() {
     return {
-      'productId': productId,
-      'finalidade': finalidade,
+      'productId':    productId,
+      'finalidade':   finalidade,
       'base64Images': base64Images,
     };
   }

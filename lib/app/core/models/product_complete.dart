@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:oxdata/app/core/models/product_tag_model.dart';
 
 /// Representa a entidade Product do C#.
 class Product {
@@ -308,35 +308,6 @@ class ImageBase64 {
   }
 }
 
-/// Representa a entidade Tag do C#.
-class Tag {
-  int? id;
-  String valueTag;
-  String productId;
-
-  Tag({
-    this.id,
-    required this.valueTag,
-    required this.productId,
-  });
-
-  factory Tag.fromJson(Map<String, dynamic> json) {
-    return Tag(
-      id: json['id'] as int?,
-      valueTag: json['valueTag'] as String,
-      productId: json['productId'] as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'valueTag': valueTag,
-      'productId': productId,
-    };
-  }
-}
-
 // --- Classe Principal ProductComplete ---
 
 /// Modelo completo de produto para o aplicativo, incluindo todas as informações relacionadas.
@@ -347,7 +318,7 @@ class ProductComplete {
   InventDim? location;
   TaxInformation? taxInformation;
   List<ImageBase64>? images;
-  List<Tag>? tags;
+  List<ProductTagModel>? tags;
 
   ProductComplete({
     this.product,
@@ -380,20 +351,20 @@ class ProductComplete {
           ?.map((e) => ImageBase64.fromJson(e as Map<String, dynamic>))
           .toList(),
       tags: (json['tags'] as List<dynamic>?)
-          ?.map((e) => Tag.fromJson(e as Map<String, dynamic>))
+          ?.map((e) => ProductTagModel.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
-
+  
   Map<String, dynamic> toJson() {
     return {
-      'product': product?.toJson(),
-      'oxford': oxford?.toJson(),
-      'invent': invent?.toJson(),
-      'location': location?.toJson(),
+      'product'       : product?.toJson(),
+      'oxford'        : oxford?.toJson(),
+      'invent'        : invent?.toJson(),
+      'location'      : location?.toJson(),
       'taxInformation': taxInformation?.toJson(),
-      'images': images?.map((e) => e.toJson()).toList(),
-      'tags': tags?.map((e) => e.toJson()).toList(),
+      'images'        : images?.map((e) => e.toJson()).toList(),
+      'tags'          : tags?.map((e) => e.toJson()).toList(),
     };
   }
 }

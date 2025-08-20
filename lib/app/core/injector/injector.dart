@@ -47,6 +47,6 @@ class Injector {
 
   static void configureDependencies() {
     // Esta função é chamada no main para envolver o app com os providers.
-    // É uma prática comum para centralizar a configuração de dependências.
+    // Serve para centralizar a configuração de dependências.
   }
 }

@@ -2,6 +2,7 @@
 // app/views/products/search_products_page.dart (Página de Pesquisa de Produtos)
 // -----------------------------------------------------------
 import 'package:flutter/material.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/product_service.dart';
@@ -9,14 +10,13 @@ import 'package:oxdata/app/core/models/product_model.dart';
 import 'package:oxdata/app/views/pages/filter_options_page.dart';
 import 'package:flutter/services.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/utils/call_action.dart';
 
 class SearchProductsPage extends StatefulWidget {
   const SearchProductsPage({super.key});
@@ -37,26 +37,36 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
 
   // Mapeia chaves de filtro para nomes de exibição
   final Map<String, String> _filterDisplayNames = {
-    'productId': 'CÓDIGO',
-    'name': 'DESCRIÇÃO',
-    'brandId': 'MARCA',
-    'lineId': 'LINHA',
-    'familyId': 'FAMÍLIA',
+    'productId'   : 'CÓDIGO',
+    'name'        : 'DESCRIÇÃO',
+    'brandId'     : 'MARCA',
+    'lineId'      : 'LINHA',
+    'familyId'    : 'FAMÍLIA',
     'decorationId': 'DECORAÇÃO',
-    'tag': 'TAGS',
+    'tag'         : 'TAGS',
+    'noImage'     : 'SEM IMAGEM',
   };
 
-  // Função para adicionar um filtro
   void _addFilter() {
     if (_searchController.text.isNotEmpty) {
       setState(() {
+        final inputValue = _searchController.text;
+
         if (_currentFilterType == 'name') {
-          // Se o filtro atual for 'name', atribua a string diretamente
-          _activeFilters[_currentFilterType] = _searchController.text;
+          // Se o filtro for 'name', atribui a string diretamente.
+          _activeFilters[_currentFilterType] = inputValue;
+        } else if (_currentFilterType == 'tag') {
+          // Se o filtro for 'tag', adicione à lista existente.
+          if (_activeFilters.containsKey('tag')) {
+            _activeFilters['tag'].add(inputValue);
+          } else {
+            _activeFilters['tag'] = [inputValue];
+          }
         } else {
-          // Para os outros filtros, continue atribuindo como uma lista
-          _activeFilters[_currentFilterType] = [_searchController.text];
+          // Para os outros filtros de lista
+          _activeFilters[_currentFilterType] = [inputValue];
         }
+        
         _searchController.clear();
       });
     }
@@ -67,72 +77,34 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     setState(() {
       _activeFilters.remove(filterType);
     });
-    // Limpa os resultados no ProductService se não houver mais filtros
-    /*if (_activeFilters.isEmpty) {
-      context.read<ProductService>().clearResults();
-    }*/
   }
 
-  // Adicione esta função para navegar para a nova página
   void _navigateToFilterOptionsPage(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) {
           return FilterOptionsPage(
-            filterDisplayNames: _filterDisplayNames, // Passe seu mapa de nomes
-            currentFilterType: _currentFilterType, // Passe o filtro atual
+            filterDisplayNames: _filterDisplayNames, // mapa de nomes
+            currentFilterType: _currentFilterType, // filtro atual
             onFilterSelected: (selectedFilter) {
-              // Este é o callback que a nova página irá chamar
-              setState(() {
-                _currentFilterType = selectedFilter;
-              });
+              if(selectedFilter == "noImage") // tratamento para o filtro de produtos sem imagem
+              {
+                setState(() {
+                  _activeFilters[selectedFilter] = "SIM";
+                });
+              }
+              else
+              {
+                setState(() {
+                  _currentFilterType = selectedFilter;
+                });
+              }
             },
           );
         },
       ),
     );
   }
-
-  /*
-  // Diálogo para seleção do filtro
-  void _showFilterOptions(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: const Text('FILTRAR POR:'),
-          children: _filterDisplayNames.keys.map((key) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _currentFilterType = key;
-                  });
-                  Navigator.of(context).pop();
-                },
-                icon: const Icon(Icons.filter_alt),
-                label: Text(
-                  _filterDisplayNames[key] ?? key,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: TextButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.blueAccent,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-  */
 
   /// Retorna o tipo de conteúdo (MIME type) com base na extensão do arquivo.
   String _getContentType(String fileName) {
@@ -147,11 +119,9 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
   }
 
   /// Função para buscar a imagem do produto, decodificar o ZIP e extrair as imagens como Data URIs.
-  /// Agora recebe o productId e chama o ProductRepository.
   Future<List<String>?> _decodeAndExtractImage(String? imageZipBase64) async {
     // Verifica se a string Base64 é nula ou vazia
     if (imageZipBase64 == null || imageZipBase64.isEmpty) {
-      debugPrint('imageZipBase64 é nulo ou vazio, não há imagem para decodificar.');
       return null;
     }
 
@@ -163,7 +133,6 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
       final Archive archive = ZipDecoder().decodeBytes(zipBytes);
       final List<String> imagesDataUris = [];
 
-      // Itera sobre os arquivos no ZIP
       for (final file in archive) {
         // Verifica se é um arquivo e se é uma imagem suportada
         if (file.isFile && (file.name.endsWith('.png') || file.name.endsWith('.jpg') || file.name.endsWith('.jpeg'))) {
@@ -177,10 +146,10 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
       // Retorna a lista de Data URIs ou null se nenhuma imagem foi encontrada
       return imagesDataUris.isNotEmpty ? imagesDataUris : null;
     } on FormatException catch (e) {
-      debugPrint('Erro de formato ao decodificar Base64 ou ZIP: $e');
+      MessageService.showError('Erro ao carregar imagens: $e');
       return null;
     } on Exception catch (e) {
-      debugPrint('Erro inesperado ao decodificar ou extrair imagem do ZIP: $e');
+      MessageService.showError('Erro ao carregar imagens: $e');
       return null;
     }
   }
@@ -190,13 +159,11 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     var status = await Permission.camera.request();
     
     if (status.isDenied) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permissão da câmera negada.')),
-      );
+      MessageService.showWarning('Permissão da câmera negada.');
       return;
     }
 
-    // Navega para a tela do scanner, esperando que ela retorne um objeto Barcode
+    // Navega para a tela do scanner
     final barcodeResult = await Navigator.of(context).push<Barcode?>(
       MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
     );
@@ -204,27 +171,20 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     // Se o resultado não for nulo e o valor do código de barras existir
     if (barcodeResult != null && barcodeResult.rawValue != null) {
       String barcodeScanRes = barcodeResult.rawValue!;
-      // 1. Atribui o valor do código de barras ao controlador
       _searchController.text = barcodeScanRes;
-      // 2. Define o tipo de filtro como 'barcode'
-      _currentFilterType = 'barcode';
-
+      _currentFilterType = 'barcode'; // Define o tipo de filtro como 'barcode'
     } else {
-      // Caso nenhum código de barras seja lido (usuário voltou ou erro)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhum código de barras lido.')),
-      );
+        MessageService.showInfo('Nenhum código de barras lido.');
     }
   }
 
-  // Função para limpar todos os filtros e os resultados da pesquisa
+  // Limpa todos os filtros e os resultados da pesquisa
   void _clearFilters() {
     setState(() {
       _activeFilters = {};
       _searchController.clear();
       _currentFilterType = 'productId';
     });
-    // Limpa os resultados da pesquisa no ProductService
     context.read<ProductService>().clearResults();
   }
   
@@ -237,101 +197,107 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
       appBar: const AppBarCustom(title: 'Pesquisar Produtos'),
       body: Stack(
         children: [
-          // 1. O conteúdo principal da página (lista de resultados)
           Padding(
-            // Adiciona um padding no topo para o conteúdo não ficar atrás da barra de pesquisa
-            padding: const EdgeInsets.only(top: 136.0, left: 10.0, right: 10.0),
+            padding: const EdgeInsets.only(top: 136.0, left: 10.0, right: 10.0), // Para não ficar atrás da barra de pesquisa
             child: Consumer<ProductService>(
               builder: (context, productService, child) {
                 final searchResults = productService.searchResults;
                 return searchResults.isEmpty
-                    ? Center(child: Text(_activeFilters.isEmpty ? 'Use a barra de pesquisa.' : 'Nenhum produto encontrado com os filtros ativos.'))
-                    : ListView.builder(
-                        itemCount: searchResults.length,
-                        itemBuilder: (context, index) {
-                          final ProductModel productData = searchResults[index];
-                          return Card(
-                            color: Colors.white,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(0),
-                            ),
-                            margin: const EdgeInsets.only(bottom: 2.0),
-                            child: GestureDetector(
-                              onTap: () async {
-                                loadingService.show();
-                                await productService.fetchProductComplete(productData.productId);
-                                loadingService.hide();
-                                Navigator.of(context).pushNamed(
-                                  RouteGenerator.productPage,
-                                  arguments: productData.productId,
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(0),
-                                child: Row(
-                                  children: [
-                                    FutureBuilder<List<String>?>(
-                                      future: _decodeAndExtractImage(productData.imageZipBase64),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState == ConnectionState.waiting) {
-                                          return const SizedBox(
-                                            width: 85,
-                                            height: 85,
-                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                          );
-                                        } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
-                                          final String dataUri = snapshot.data!.first;
-                                          final String base64Image = dataUri.split(',').last;
-                                          return Image.memory(
-                                            base64Decode(base64Image),
-                                            width: 85,
-                                            height: 85,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
-                                          );
-                                        } else {
-                                          return const Icon(Icons.broken_image, size: 85);
-                                        }
-                                      },
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: Text(
-                                              productData.name,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                              softWrap: false, // Impede a quebra de linha
-                                            ),
+                  ? Center(child: Text(_activeFilters.isEmpty ? 'Use a barra de pesquisa.' : 'Nenhum produto encontrado com os filtros ativos.'))
+                  : ListView.builder(
+                      itemCount: searchResults.length,
+                      itemBuilder: (context, index) {
+                        final ProductModel productData = searchResults[index];
+                        return Card(
+                          color: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(0),
+                          ),
+                          margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
+                          child: InkWell(
+                            onTap: () async {
+                              await CallAction.run(
+                                action: () async {
+                                  loadingService.show();
+
+                                  await productService.fetchProductComplete(productData.productId);
+
+                                  Navigator.of(context).pushNamed(
+                                    RouteGenerator.productPage,
+                                    arguments: productData.productId,
+                                  );
+                                },
+                                onFinally: () {
+                                  loadingService.hide();
+                                },
+                              );
+                            },
+                            splashColor: const Color.fromARGB(255, 65, 65, 65).withAlpha((255 * 0.2).round()),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              child: Row(
+                                children: [
+                                  FutureBuilder<List<String>?>(
+                                    future: _decodeAndExtractImage(productData.imageZipBase64),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                        return const SizedBox(
+                                          width: 85,
+                                          height: 85,
+                                          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                        );
+                                      } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                                        final String dataUri = snapshot.data!.first;
+                                        final String base64Image = dataUri.split(',').last;
+                                        return Image.memory(
+                                          base64Decode(base64Image),
+                                          width: 85,
+                                          height: 85,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
+                                        );
+                                      } else {
+                                        return const Icon(Icons.broken_image, size: 85);
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            productData.name,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                            softWrap: false, // Impede a quebra de linha
                                           ),
-                                          const SizedBox(height: 8),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Cód. Barras: ${productData.barcode}'),
-                                              const SizedBox(height: 4),
-                                              Text('Código: ${productData.productId}'),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Cód. Barras: ${productData.barcode}'),
+                                            const SizedBox(height: 4),
+                                            Text('Código: ${productData.productId}'),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
-                          );
-                        },
-                      );
+                          ),
+                        );
+                      },
+                    );
               },
             ),
           ),
-
-          // 2. A barra de pesquisa e filtros, fixada no topo
+          // Barra de pesquisa e filtros, fixada no topo
           Positioned(
             top: 0,
             left: 0,
@@ -376,9 +342,17 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                         icon: const Icon(Icons.search, size: 30),
                         color: Colors.indigo,
                         onPressed: () async {
-                          loadingService.show();
-                          await productService.performSearch(_activeFilters);
-                          loadingService.hide();
+                          await CallAction.run(
+                            action: () async {
+                              loadingService.show();
+                              FocusScope.of(context).unfocus();
+
+                              await productService.performSearch(_activeFilters);
+                            },
+                            onFinally: () {
+                              loadingService.hide();
+                            },
+                          );
                         },
                       ),
                     ),
@@ -391,13 +365,20 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           labelText: 'Pesquisar por ${_filterDisplayNames[_currentFilterType] ?? _currentFilterType}',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          labelStyle: const TextStyle(fontSize: 15),
                         ),
                         onFieldSubmitted: (_) async {
-                          _addFilter();
-                          loadingService.show();
-                          await productService.performSearch(_activeFilters);
-                          loadingService.hide();
+                          await CallAction.run(
+                            action: () async {
+                              _addFilter();
+                              loadingService.show();
+
+                              await productService.performSearch(_activeFilters);
+                            },
+                            onFinally: () {
+                              loadingService.hide();
+                            },
+                          );
                         },
                       ),
                     ),

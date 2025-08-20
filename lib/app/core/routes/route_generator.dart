@@ -9,21 +9,16 @@ import 'package:oxdata/app/views/pages/splash_page.dart';
 import 'package:oxdata/app/views/product/search_products_page.dart';
 import 'package:oxdata/app/views/product/product_page.dart';
 
-// Importe as outras páginas necessárias
-// import 'package:oxdata/app/pages/collect_page.dart';
-// import 'package:oxdata/app/pages/expedir_page.dart';
-// ... e assim por diante.
-
 class RouteGenerator {
-  static const String splashPage = '/';
-  static const String loginPage = 'loginPage';
-  static const String loginReg = 'loginReg';
-  static const String homePage = 'homePage';
-  static const String productsPage = 'productsPage';
-  static const String productPage = 'productPage';
+  static const String splashPage      = '/';
+  static const String loginPage       = 'loginPage';
+  static const String loginReg        = 'loginReg';
+  static const String homePage        = 'homePage';
+  static const String productsPage    = 'productsPage';
+  static const String productPage     = 'productPage';
   static const String inventoriesPage = 'inventoriesPage';
+  static const String tagsPage        = 'inventoriesPage';
 
-  // ... adicionar as demais rotas aqui.
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -40,7 +35,6 @@ class RouteGenerator {
       case productsPage:
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
       case productPage: // Rota para a página de detalhes do produto
-        // Verifica se o argumento é do tipo esperado (String para productId)
         if (args is String) {
           return MaterialPageRoute(
             builder: (context) => ProductPage(
@@ -50,17 +44,8 @@ class RouteGenerator {
         }
         return _errorRoute(); // Se o argumento não for do tipo esperado, retorna uma rota de erro
 
-      case inventoriesPage:
+      case inventoriesPage: // *** Futura rota para inventário ***
         return MaterialPageRoute(builder: (context) => const HomePage());
-      // ... adicione os demais casos aqui
-      // case collectPage:
-      //   return MaterialPageRoute(builder: (context) => const CollectPage());
-      // case collectDetailPage:
-      //   return MaterialPageRoute(
-      //     builder: (context) => CollectDetailPage(
-      //       args: args as ResumoModel,
-      //     ),
-      //   );
       default:
         throw Exception('A rota ${settings.name} não existe!');
     }
