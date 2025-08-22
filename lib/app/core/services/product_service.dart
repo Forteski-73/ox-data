@@ -16,18 +16,22 @@ class ProductService with ChangeNotifier {
 
   List<ProductModel> _searchResults = [];
   ProductComplete? _productComplete;
+  int? _totalProducts = 0;
 
   List<ProductModel> get searchResults => _searchResults;
   ProductComplete? get productComplete => _productComplete;
+  int? get totalProducts => _totalProducts;
 
   Future<void> performSearch(Map<String, dynamic> activeFilters) async {
-    final ApiResponse<List<ProductModel>> response =
+    final ApiProductResponse<List<ProductModel>> response =
         await productRepository.searchProducts(activeFilters);
 
     if (response.success && response.data != null) {
       _searchResults = response.data!;
+      _totalProducts = response.totalCount;
     } else {
       _searchResults = [];
+      _totalProducts = 0;
     }
     notifyListeners();
   }

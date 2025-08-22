@@ -16,6 +16,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 
 class SearchProductsPage extends StatefulWidget {
@@ -35,6 +36,15 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
   // O filtro que está sendo editado no momento (ex: 'productId', 'brandId')
   String _currentFilterType = 'productId';
 
+  final FocusNode _searchFocusNode = FocusNode(); 
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   // Mapeia chaves de filtro para nomes de exibição
   final Map<String, String> _filterDisplayNames = {
     'productId'   : 'CÓDIGO',
@@ -45,6 +55,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     'decorationId': 'DECORAÇÃO',
     'tag'         : 'TAGS',
     'noImage'     : 'SEM IMAGEM',
+    'yesImage'    : 'COM IMAGEM',
   };
 
   void _addFilter() {
@@ -87,7 +98,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
             filterDisplayNames: _filterDisplayNames, // mapa de nomes
             currentFilterType: _currentFilterType, // filtro atual
             onFilterSelected: (selectedFilter) {
-              if(selectedFilter == "noImage") // tratamento para o filtro de produtos sem imagem
+              if(selectedFilter == "noImage" || selectedFilter == "yesImage") // tratamento para o filtro de produtos sem imagem
               {
                 setState(() {
                   _activeFilters[selectedFilter] = "SIM";
@@ -98,6 +109,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                 setState(() {
                   _currentFilterType = selectedFilter;
                 });
+                _searchFocusNode.requestFocus();
               }
             },
           );
@@ -194,7 +206,20 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     final productService = context.read<ProductService>();
     
     return Scaffold(
-      appBar: const AppBarCustom(title: 'Pesquisar Produtos'),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Consumer<ProductService>(
+          builder: (context, productService, child) {
+            final int currentCount = productService.searchResults.length;
+            final int totalCount = productService.totalProducts ?? 0;
+            final bool hasResults = currentCount > 0 || totalCount > 0;
+            final String title = hasResults
+                ? 'Produtos:  $currentCount de $totalCount'
+                : 'Produtos';
+            return AppBarCustom(title: title);
+          },
+        ),
+      ),
       body: Stack(
         children: [
           Padding(
@@ -258,7 +283,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                                           errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
                                         );
                                       } else {
-                                        return const Icon(Icons.broken_image, size: 85);
+                                        return const Icon(Icons.image_outlined, size: 85, color: Colors.grey,);
                                       }
                                     },
                                   ),
@@ -309,37 +334,37 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                 children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.filter_alt_off_outlined, size: 28),
-                        color: Colors.indigo,
-                        onPressed: _clearFilters,
-                      ),
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.filter_alt_off_outlined,
+                      color: Colors.indigo,
+                      onPressed: _clearFilters,
                     ),
+                  ),
                     Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.qr_code_scanner, size: 28),
+                      child: PulseIconButton(
+                        icon:  Icons.qr_code_scanner,
                         color: Colors.indigo,
                         onPressed: _scanBarcode,
                       ),
                     ),
                     Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.filter_list, size: 28),
+                      child: PulseIconButton(
+                        icon: Icons.filter_list,
                         color: Colors.indigo,
                         onPressed: () => _navigateToFilterOptionsPage(context),
                       ),
                     ),
                     Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.add, size: 28),
+                      child: PulseIconButton(
+                        icon: Icons.add,
                         color: Colors.indigo,
                         onPressed: _addFilter,
                       ),
                     ),
                     Expanded(
-                      child: IconButton(
-                        icon: const Icon(Icons.search, size: 30),
+                      child: PulseIconButton(
+                        icon: Icons.search,
                         color: Colors.indigo,
                         onPressed: () async {
                           await CallAction.run(
@@ -363,6 +388,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _searchController,
+                        focusNode: _searchFocusNode,
                         decoration: InputDecoration(
                           labelText: 'Pesquisar por ${_filterDisplayNames[_currentFilterType] ?? _currentFilterType}',
                           labelStyle: const TextStyle(fontSize: 15),

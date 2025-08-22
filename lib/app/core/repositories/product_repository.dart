@@ -20,7 +20,7 @@ class ProductRepository {
   ProductRepository({required this.apiClient});
 
   /// Busca produtos na API com base nos filtros fornecidos.
-  Future<ApiResponse<List<ProductModel>>> searchProducts(Map<String, dynamic> filters) async {
+  Future<ApiProductResponse<List<ProductModel>>> searchProducts(Map<String, dynamic> filters) async {
     final Map<String, dynamic> requestBody = {
       'productId'   : <String>[],
       'name'        : null,
@@ -29,6 +29,7 @@ class ProductRepository {
       'familyId'    : <String>[],
       'decorationId': <String>[],
       'tag'         : <String>[],
+      'YesNoImage'  : <String>[],
     };
 
     // Preenche o corpo da requisição com os filtros ativos
@@ -46,13 +47,24 @@ class ProductRepository {
       }
     });
 
+    // Lógica para o filtro de produto com/sem imagem
+    if (filters['yesImage'] != null && filters['yesImage'] != "") {
+      requestBody['YesNoImage'] = "yes";
+    } else if (filters['noImage'] != null && filters['noImage'] != "") {
+      requestBody['YesNoImage'] = "no";
+    }
+    else
+    {
+      requestBody['YesNoImage'] = null;
+    }
+
     try {
       final response = await apiClient.postAuth(
         ApiRoutes.productsSearch,
         body: requestBody,
       );
 
-      if (response.statusCode == 200) {
+      /*if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
         final List<ProductModel> products = jsonList
             .map((json) => ProductModel.fromMap(json as Map<String, dynamic>))
@@ -63,11 +75,43 @@ class ProductRepository {
           success: false,
           message: 'Erro ao buscar produtos: ${response.statusCode}',
         );
+      }*/
+
+      //---------------------------------------------------------------------------
+
+      if (response.statusCode == 200) {
+
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        // Acessa a lista de produtos a partir da chave 'products'
+        final List<dynamic> jsonList = jsonResponse['products'] ?? [];
+
+        // 3. Mapeia a lista de JSON para a lista de ProductModel
+        final List<ProductModel> products = jsonList
+            .map((json) => ProductModel.fromMap(json as Map<String, dynamic>))
+            .toList();
+            
+        // Total de produtos.
+        final int totalProducts = jsonResponse['totalProducts'] ?? 0;
+        // Você pode usar essa variável para atualizar a UI com a contagem total.
+
+        return ApiProductResponse(success: true, data: products, totalCount: totalProducts);
+        
+      } else {
+        return ApiProductResponse(
+          success: false,
+          message: 'Erro ao buscar produtos: ${response.statusCode}',
+          totalCount: 0,
+        );
       }
+
+      //---------------------------------------------------------------------------
+
+
     } on Exception catch (e) {
-      return ApiResponse(
+      return ApiProductResponse(
         success: false,
         message: 'Falha na requisição de produtos: $e',
+        totalCount: 0,
       );
     }
   }

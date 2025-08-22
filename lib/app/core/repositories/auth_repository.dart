@@ -19,6 +19,21 @@ class ApiResponse<T> {
   });
 }
 
+// Classe para o response dos produtos da API.
+class ApiProductResponse<T> {
+  final bool success;
+  final String? message;
+  final T? data;
+  final int? totalCount;
+
+  ApiProductResponse({
+    required this.success,
+    this.message,
+    this.data,
+    this.totalCount,
+  });
+}
+
 // O AuthRepository é responsável por toda a comunicação com a API de autenticação.
 class AuthRepository {
   final ApiClient apiClient;
