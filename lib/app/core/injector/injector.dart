@@ -31,7 +31,7 @@ class Injector {
 
     // 4. Registra o AuthService, que depende do AuthRepository.
     ChangeNotifierProvider<AuthService>(
-      create: (context) => AuthService(context.read<AuthRepository>()),
+      create: (context) => AuthService(context.read<AuthRepository>(), ApiClient()),
     ),
     
     // 5. Registra o LoadingService.

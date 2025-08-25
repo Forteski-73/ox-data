@@ -15,6 +15,7 @@ import 'package:archive/archive.dart';
 import 'package:image/image.dart' as img;
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -295,24 +296,24 @@ class _ProductPageState extends State<ProductPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.sync_alt_outlined),
+                PulseIconButton(
+                  icon: Icons.sync_alt_outlined, // Mude para IconData
                   color: Colors.indigo,
                   onPressed: images.isNotEmpty
                       ? () => _showReorderImagesDialog(images, finalidade)
-                      : null, // Desabilita se não houver imagens
+                      : () {}, // Desabilita se não houver imagens
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add_a_photo),
+                PulseIconButton(
+                  icon: Icons.add_a_photo,
                   color: Colors.indigo,
                   onPressed: () => _showAddImageOptions(finalidade), // Sempre habilitado
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_forever),
+                PulseIconButton(
+                  icon: Icons.delete_forever,
                   color: Colors.indigo,
                   onPressed: images.isNotEmpty
                       ? () => _deleteImageConfirm(images, finalidade)
-                      : null, // Desabilita se não houver imagens
+                      : () {}, // Desabilita se não houver imagens
                 ),
               ],
             ),
@@ -661,6 +662,14 @@ class _ProductPageState extends State<ProductPage> {
         finalidade,
         base64Images, // Passa a lista de Base64
       );
+
+      // Depois de salvar o reorder, chamar o método que atualiza a imagem na lista de pesquisa.
+      final updatedProduct = productService.productComplete;
+      if (updatedProduct != null) {
+        // Chama o método para atualizar a  na SearchProductsPage
+        productService.updateSingleProductModel(updatedProduct);
+      }
+
       MessageService.showSuccess("Operação concluída com sucesso!");
   }
 

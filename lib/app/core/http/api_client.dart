@@ -32,6 +32,9 @@ class ApiClient {
     return _instance;
   }
 
+  // Getter para expor a instância do AuthInterceptor
+  AuthInterceptor get authInterceptor => _authInterceptor;
+
   /// Método para requisições POST sem autenticação.
   Future<http.Response> post(
     String endpoint, {

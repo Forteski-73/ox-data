@@ -49,30 +49,20 @@ class ProductService with ChangeNotifier {
     notifyListeners();
   }
 
-  /*
-  Future<bool> uploadProductImages(
-      String productId, String finalidade, List<XFile> files) async {
-    if (files.isEmpty) return false;
-
-    // Chama o repositório para enviar as imagens
-    final ApiResponse<bool> response = await productRepository.updateProductImages(
-      productId: productId,
-      finalidade: finalidade,
-      images: files,
-    );
-
-    if (response.success && response.data == true) {
-      // Atualiza os detalhes do produto após o upload
-      await fetchProductComplete(productId);
-      return true;
-    } else {
-      if (kDebugMode) {
-        print('Falha ao enviar imagens do produto $productId: ${response.message}');
-      }
-      return false;
+  /// Atualiza a imagem no privider para que a imagem na pesquisa seja atualizada
+  void updateSingleProductModel(ProductComplete updatedProduct) {
+    final index = _searchResults.indexWhere((p) => p.productId == updatedProduct.product?.productId);
+    if (index != -1) {
+      // Atualize apenas os dados necessários, como o campo da imagem
+      _searchResults[index] = _searchResults[index].copyWith(
+        // O primeiro item da lista de imagens é a imagem principal
+        imageZipBase64: updatedProduct.images?.isNotEmpty == true
+            ? updatedProduct.images!.first.imagesBase64
+            : null,
+      );
+      notifyListeners();
     }
   }
-  */
 
   Future<bool> uploadProductImagesBase64(
       String productId, String finalidade, List<String> base64Images) async {

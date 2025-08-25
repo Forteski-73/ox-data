@@ -38,21 +38,59 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
           onPressed: () {
             showDialog(
               context: context,
-              builder: (BuildContext context) {
+              builder: (BuildContext dialogContext) {
                 return AlertDialog(
-                  title: const Text('Confirmação'),
-                  content: const Text('Deseja realmente sair do aplicativo?'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.exit_to_app_rounded, color: Colors.indigo, size: 28),
+                      SizedBox(width: 8),
+                      Text(
+                        'Confirmação de Saída',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: const Text(
+                    'Deseja realmente sair do aplicativo?',
+                    style: TextStyle(fontSize: 16),
+                  ),
                   actions: <Widget>[
-                    TextButton(
-                      child: const Text('Cancelar'),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.grey),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Cancelar', style: TextStyle(color: Colors.black87)),
                       onPressed: () {
-                        Navigator.of(context).pop();
+                        Navigator.of(dialogContext).pop();
                       },
                     ),
-                    TextButton(
-                      child: const Text('Sair'),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      child: const Text(
+                        'Sair',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       onPressed: () async {
-                        Navigator.of(context).pop();
+                        Navigator.of(dialogContext).pop();
                         loadingService.show();
                         await authService.logout();
                         if (context.mounted) {

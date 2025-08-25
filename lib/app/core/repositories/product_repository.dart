@@ -64,7 +64,8 @@ class ProductRepository {
         body: requestBody,
       );
 
-      /*if (response.statusCode == 200) {
+      /*
+      if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
         final List<ProductModel> products = jsonList
             .map((json) => ProductModel.fromMap(json as Map<String, dynamic>))
@@ -75,7 +76,8 @@ class ProductRepository {
           success: false,
           message: 'Erro ao buscar produtos: ${response.statusCode}',
         );
-      }*/
+      }
+      */
 
       //---------------------------------------------------------------------------
 

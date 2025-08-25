@@ -24,6 +24,7 @@ class ProductModel {
       'imageZipBase64': imageZipBase64,
     };
   }
+  
 
   /// Cria uma instância de ProductAppModel a partir de um mapa (Map<String, dynamic>).
   factory ProductModel.fromMap(Map<String, dynamic> map) {
@@ -45,5 +46,22 @@ class ProductModel {
   @override
   String toString() {
     return 'ProductAppModel(productId: $productId, barcode: $barcode, name: $name, imageZipBase64: ${imageZipBase64?.length ?? 0} bytes)';
+  }
+
+  /// Criar uma nova instância com valores atualizados
+  ProductModel copyWith({
+    String? productId,
+    String? barcode,
+    String? name,
+    // Adicione este parâmetro
+    String? imageZipBase64,
+  }) {
+    return ProductModel(
+      productId: productId ?? this.productId,
+      barcode: barcode ?? this.barcode,
+      name: name ?? this.name,
+      // Use o novo parâmetro
+      imageZipBase64: imageZipBase64 ?? this.imageZipBase64,
+    );
   }
 }

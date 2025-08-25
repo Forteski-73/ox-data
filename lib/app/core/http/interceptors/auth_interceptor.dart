@@ -35,8 +35,8 @@ class AuthInterceptor implements InterceptorContract {
     try {
       request.headers['Content-Type'] = 'application/json';
       
-      // Se tivermos o token JWT dinâmico, o usamos.
-      // Caso contrário, usamos o token fixo.
+      // Se tivermos o token JWT dinâmico, usa ele.
+      // Caso contrário, usa o token fixo.
       final tokenToUse = _dynamicToken ?? _fixedToken;
       request.headers['Authorization'] = 'Bearer $tokenToUse';
       
@@ -44,37 +44,17 @@ class AuthInterceptor implements InterceptorContract {
       if (kDebugMode) {
         log('Erro ao adicionar cabeçalhos: $e');
       }
-    }
-
-    // Adiciona logging detalhado da requisição em modo de depuração.
-    if (kDebugMode) {
-      // Verifica o tipo de requisição antes de tentar a conversão.
-      if (request is http.Request) {
-        log('REQUEST -> URL: ${request.url}\nMETHOD:${request.method}\nBODY: ${request.body}\nHEADERS: ${request.headers}');
-      } else if (request is http.MultipartRequest) {
-        // Para requisições multipart, não há um 'body' simples para ler.
-        // O log é adaptado para mostrar os detalhes do formulário.
-        log('REQUEST -> URL: ${request.url}\nMETHOD:${request.method}\nHEADERS: ${request.headers}\nFIELDS: ${request.fields}\nFILES: ${request.files.map((file) => file.filename)}');
-      } else {
-        // Para outros tipos de requisição
-        log('REQUEST -> URL: ${request.url}\nMETHOD:${request.method}\nHEADERS: ${request.headers}');
-      }
+      // Lança a exceção para que o código chamador possa tratar.
+      rethrow;
     }
 
     return request;
   }
 
-  /*
-  /// Intercepta a resposta e adiciona logging detalhado.
-  @override
-  FutureOr<BaseResponse> interceptResponse({required BaseResponse response}) {
-    if (kDebugMode) {
-      final httpResponse = response as http.Response;
-      log('RESPONSE -> STATUS CODE: ${httpResponse.statusCode}\nBODY: ${httpResponse.body}');
-    }
-    return response;
+  // Método para limpar o token dinâmico.
+  void clearDynamicToken() {
+    _dynamicToken = null;
   }
-  */
 
   @override
   FutureOr<BaseResponse> interceptResponse({required BaseResponse response}) async {
@@ -96,6 +76,13 @@ class AuthInterceptor implements InterceptorContract {
             newRequest.headers.addAll(originalRequest.headers);
             newRequest.headers['Authorization'] = 'Bearer $newToken';
             
+            // Copia o corpo da requisição original
+            if (originalRequest is http.Request) {
+              if (originalRequest.bodyBytes.isNotEmpty) {
+                newRequest.bodyBytes = originalRequest.bodyBytes;
+              }
+            }
+
             // Repete a requisição original com o novo token
             final client = http.Client();
             final newResponse = await client.send(newRequest);
@@ -111,22 +98,17 @@ class AuthInterceptor implements InterceptorContract {
           } 
         }
       } catch (e) {
-        if (kDebugMode) {
-          log('Erro ao tentar renovar o token: $e');
-        }
+        rethrow;
       }
     }
 
     if (kDebugMode) {
       if (response is http.Response) {
         // Requisições "normais"
-        log('RESPONSE -> STATUS CODE: ${response.statusCode}\nBODY: ${response.body}');
       } 
       else if (response is http.StreamedResponse) {
         // Requisições multipart
         final streamedBody = await response.stream.bytesToString();
-        log('RESPONSE -> STATUS CODE: ${response.statusCode}\nBODY: $streamedBody');
-        
         // Precisa reconstruir para não "consumir" o stream
         return http.Response(
           streamedBody,
@@ -138,14 +120,12 @@ class AuthInterceptor implements InterceptorContract {
           reasonPhrase: response.reasonPhrase,
         );
       } 
-      else {
-        log('RESPONSE -> STATUS CODE: ${response.statusCode} (tipo desconhecido: ${response.runtimeType})');
-      }
     }
     return response;
   }
 
   Future<String?> _getNewToken() async {
+    String? token;
     try {
       final storage = StorageService();
       final client = http.Client();
@@ -166,17 +146,15 @@ class AuthInterceptor implements InterceptorContract {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final token = data['token'] as String?;
+        token = data['token'] as String?;
         if (token != null) {
           setDynamicToken(token);
         }
       }
     } catch (e) {
-      if (kDebugMode) {
-        log('Erro ao buscar novo token: $e');
-      }
+      rethrow;
     }
-    return null;
-  
+    return token;
   }
+
 }
