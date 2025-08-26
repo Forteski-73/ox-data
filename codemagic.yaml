@@ -23,8 +23,13 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Flutter build ipa and automatic versioning
         script: |
-          buildVersionName=$(grep 'version:' pubspec.yaml | sed 's/version: \([0-9.]*\).*/\1/')
-          buildNumber=$(($(app-store-connect get-latest-testflight-build-number $APP_APPLE_ID) + 1))
+          buildVersionName=$(grep 'version:' pubspec.yaml | sed 's/version: \([0-9.]*\).*/\1/' | cut -d+ -f1)
+          latestBuild=$(app-store-connect get-latest-testflight-build-number $APP_APPLE_ID || echo "")
+          if [ -z "$latestBuild" ]; then
+            buildNumber=$(grep 'version:' pubspec.yaml | sed 's/.*+//')
+          else
+            buildNumber=$(($latestBuild + 1))
+          fi
           flutter build ipa --obfuscate --split-debug-info --release \
             --build-name=$buildVersionName \
             --build-number=$buildNumber \
