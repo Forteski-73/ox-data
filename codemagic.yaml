@@ -39,12 +39,12 @@ workflows:
         submit_to_testflight: true
         expire_build_submitted_for_review: true
         submit_to_app_store: false
-      # email:
-      #   recipients:
-      #     - email@gmail.com
-      #   notify:
-      #     success: true
-      #     failure: true
+        email:
+          recipients:
+            - dionesforteski@gmail.com
+          notify:
+            success: true
+            failure: true
     triggering:
       events:
         - push
