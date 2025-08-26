@@ -2,7 +2,7 @@ workflows:
   ios-workflow-ipa:
     name: iOS Workflow IPA
     integrations:
-      app_store_connect: AppOxDataCodeMagic
+      app_store_connect: AppReposicaoCodeMagic
     environment:
       ios_signing:
         distribution_type: app_store
