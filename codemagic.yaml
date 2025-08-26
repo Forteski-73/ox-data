@@ -9,7 +9,7 @@ workflows:
         bundle_identifier: br.com.oxford.oxdata.app
       vars:
         # App Apple ID
-        APP_APPLE_ID: 1234567890
+        APP_APPLE_ID: 6751540182
       flutter: 3.32.8
     scripts:
       - name: Setup code signing settings on Xcode
