@@ -7,6 +7,9 @@ import 'package:oxdata/app/core/models/product_complete.dart';
 import 'package:oxdata/app/core/models/product_tag_model.dart'; 
 import 'package:oxdata/app/core/repositories/product_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:oxdata/app/core/models/product_brand.dart';
+import 'package:oxdata/app/core/models/product_line.dart';
+import 'package:oxdata/app/core/models/product_decoration.dart';
 //import 'package:uuid/uuid.dart';
 
 class ProductService with ChangeNotifier {
@@ -21,6 +24,15 @@ class ProductService with ChangeNotifier {
   List<ProductModel> get searchResults => _searchResults;
   ProductComplete? get productComplete => _productComplete;
   int? get totalProducts => _totalProducts;
+
+  List<ProductBrand> _brands = [];
+  Map<String, List<ProductLine>> _linesCache = {};
+  Map<String, List<ProductDecoration>> _decorationsCache = {};
+
+  List<ProductBrand> get brands => _brands;
+  List<ProductLine>? getLines(String brandId) => _linesCache[brandId];
+  List<ProductDecoration>? getDecorations(String brandId, String lineId) => _decorationsCache['$brandId-$lineId'];
+
 
   Future<void> performSearch(Map<String, dynamic> activeFilters) async {
     final ApiProductResponse<List<ProductModel>> response =
@@ -143,5 +155,49 @@ class ProductService with ChangeNotifier {
       throw Exception('Erro ao atualizar tags: ${response.message}');
     }
   }
+
+  /// ========================== FILTROS POR MARCA LINHA E DECORAÇÃO ==========================
+  Future<void> fetchBrands() async {
+    final response = await productRepository.getBrands();
+    if (response.success && response.data != null) {
+      _brands = response.data!;
+    } else {
+      debugPrint('Erro ao carregar marcas: ${response.message}');
+      _brands = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> fetchLinesByBrand(String brandId) async {
+    if (_linesCache.containsKey(brandId)) {
+      notifyListeners();
+      return;
+    }
+    final response = await productRepository.getLinesByBrand(brandId);
+    if (response.success && response.data != null) {
+      _linesCache[brandId] = response.data!;
+    } else {
+      debugPrint('Erro ao carregar linhas: ${response.message}');
+      _linesCache[brandId] = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> fetchDecorationsByBrandLine(String brandId, String lineId) async {
+    final cacheKey = '$brandId-$lineId';
+    if (_decorationsCache.containsKey(cacheKey)) {
+      notifyListeners();
+      return;
+    }
+    final response = await productRepository.getDecorationsByBrandLine(brandId, lineId);
+    if (response.success && response.data != null) {
+      _decorationsCache[cacheKey] = response.data!;
+    } else {
+      debugPrint('Erro ao carregar decorações: ${response.message}');
+      _decorationsCache[cacheKey] = [];
+    }
+    notifyListeners();
+  }
+  /// =========================================================================================
 
 }

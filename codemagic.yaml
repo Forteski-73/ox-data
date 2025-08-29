@@ -42,6 +42,7 @@ workflows:
       app_store_connect:
         auth: integration 
         submit_to_testflight: true
+        automatic_cryptography_compliance: true
         expire_build_submitted_for_review: true
         submit_to_app_store: false
       email:

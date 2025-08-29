@@ -43,7 +43,8 @@ class RouteGenerator {
           );
         }
         return _errorRoute(); // Se o argumento não for do tipo esperado, retorna uma rota de erro
-
+      case productsPage:
+        return MaterialPageRoute(builder: (context) => const SearchProductsPage());
       case inventoriesPage: // *** Futura rota para inventário ***
         return MaterialPageRoute(builder: (context) => const HomePage());
       default:

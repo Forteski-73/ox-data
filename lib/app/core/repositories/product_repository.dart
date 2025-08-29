@@ -10,6 +10,9 @@ import 'package:oxdata/app/core/models/product_complete.dart';
 import 'package:oxdata/app/core/models/product_image_model.dart';
 import 'package:oxdata/app/core/models/product_tag_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:oxdata/app/core/models/product_brand.dart';
+import 'package:oxdata/app/core/models/product_line.dart';
+import 'package:oxdata/app/core/models/product_decoration.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 
@@ -63,21 +66,6 @@ class ProductRepository {
         ApiRoutes.productsSearch,
         body: requestBody,
       );
-
-      /*
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        final List<ProductModel> products = jsonList
-            .map((json) => ProductModel.fromMap(json as Map<String, dynamic>))
-            .toList();
-        return ApiResponse(success: true, data: products);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar produtos: ${response.statusCode}',
-        );
-      }
-      */
 
       //---------------------------------------------------------------------------
 
@@ -339,4 +327,53 @@ class ProductRepository {
     }
   }
 
+  /// ========================== FILTROS POR MARCA LINHA E DECORAÇÃO ==========================
+  /// Busca as marcas de produtos na API.
+  Future<ApiResponse<List<ProductBrand>>> getBrands() async {
+    try {
+      final response = await apiClient.getAuth(ApiRoutes.brands);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final brands = data.map((json) => ProductBrand.fromMap(json)).toList();
+        return ApiResponse(success: true, data: brands);
+      } else {
+        return ApiResponse(success: false, message: 'Falha ao carregar as marcas: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      return ApiResponse(success: false, message: 'Erro de rede: $e');
+    }
+  }
+
+  /// Busca as linhas de um produto com base no ID da marca.
+  Future<ApiResponse<List<ProductLine>>> getLinesByBrand(String brandId) async {
+    try {
+      final response = await apiClient.getAuth('${ApiRoutes.linesByBrand}/$brandId');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final lines = data.map((json) => ProductLine.fromMap(json)).toList();
+        return ApiResponse(success: true, data: lines);
+      } else {
+        return ApiResponse(success: false, message: 'Falha ao carregar as linhas: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      return ApiResponse(success: false, message: 'Erro de rede: $e');
+    }
+  }
+
+  /// Busca as decorações de um produto com base nos IDs de marca e linha.
+  Future<ApiResponse<List<ProductDecoration>>> getDecorationsByBrandLine(String brandId, String lineId) async {
+    try {
+      final response = await apiClient.getAuth('${ApiRoutes.decorationByBrandLine}/$brandId/$lineId');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final decorations = data.map((json) => ProductDecoration.fromMap(json)).toList();
+        return ApiResponse(success: true, data: decorations);
+      } else {
+        return ApiResponse(success: false, message: 'Falha ao carregar as decorações: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      return ApiResponse(success: false, message: 'Erro de rede: $e');
+    }
+  }
+  /// =========================================================================================
 }

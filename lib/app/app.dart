@@ -73,6 +73,30 @@ class MyApp extends StatelessWidget {
             enabledBorder: InputBorder.none,    // Remove a borda quando habilitado
             focusedBorder: InputBorder.none,    // Remove a borda quando focado
           ),
+
+          // Remove o "risco" (divider) globalmente
+          dividerTheme: const DividerThemeData(
+            color: Colors.transparent, // deixa invisível
+            thickness: 0,              // espessura zero
+            space: 0,                  // sem espaçamento
+          ),
+
+          // Configuração global para ExpansionTile
+          expansionTileTheme: const ExpansionTileThemeData(
+            collapsedShape: RoundedRectangleBorder(
+              side: BorderSide(color: Colors.transparent, width: 0), // sem borda colapsado
+            ),
+            shape: RoundedRectangleBorder(
+              side: BorderSide(color: Colors.transparent, width: 0), // sem borda expandido
+            ),
+            backgroundColor: Colors.white, // cor padrão fundo
+            collapsedBackgroundColor: Colors.white,
+            tilePadding: EdgeInsets.symmetric(horizontal: 16.0),
+            childrenPadding: EdgeInsets.zero,
+            iconColor: Colors.blueGrey,        // cor do ícone expandido
+            collapsedIconColor: Colors.indigo, // cor do ícone colapsado
+          ),
+
         ),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,

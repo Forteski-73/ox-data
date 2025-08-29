@@ -56,31 +56,34 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     'tag'         : 'TAGS',
     'noImage'     : 'SEM IMAGEM',
     'yesImage'    : 'COM IMAGEM',
+    'oxfordAtt'   : 'ATRIBUTOS OXFORD',
   };
 
   void _addFilter() {
     if (_searchController.text.isNotEmpty) {
-      setState(() {
-        final inputValue = _searchController.text;
-
-        if (_currentFilterType == 'name') {
-          // Se o filtro for 'name', atribui a string diretamente.
-          _activeFilters[_currentFilterType] = inputValue;
-        } else if (_currentFilterType == 'tag') {
-          // Se o filtro for 'tag', adicione à lista existente.
-          if (_activeFilters.containsKey('tag')) {
-            _activeFilters['tag'].add(inputValue);
-          } else {
-            _activeFilters['tag'] = [inputValue];
-          }
-        } else {
-          // Para os outros filtros de lista
-          _activeFilters[_currentFilterType] = [inputValue];
-        }
-        
-        _searchController.clear();
-      });
+      final inputValue = _searchController.text;
+      _applyFilter(_currentFilterType, inputValue);
+      _searchController.clear();
     }
+  }
+
+  void _applyFilter(String key, dynamic value) {
+    setState(() {
+      if (key == 'name') {
+        // Apenas string
+        _activeFilters[key] = value.toString();
+      } else if (key == 'tag') {
+        // Tags acumulam
+        if (_activeFilters.containsKey(key)) {
+          _activeFilters[key].add(value.toString());
+        } else {
+          _activeFilters[key] = [value.toString()];
+        }
+      } else {
+        // Todos os outros viram lista
+        _activeFilters[key] = [value.toString()];
+      }
+    });
   }
 
   // Função para remover um filtro específico
@@ -90,24 +93,25 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     });
   }
 
-  void _navigateToFilterOptionsPage(BuildContext context) {
-    Navigator.of(context).push(
+  void _navigateToFilterOptionsPage(BuildContext context) async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) {
           return FilterOptionsPage(
             filterDisplayNames: _filterDisplayNames, // mapa de nomes
             currentFilterType: _currentFilterType, // filtro atual
             onFilterSelected: (selectedFilter) {
-              if(selectedFilter == "noImage" || selectedFilter == "yesImage") // tratamento para o filtro de produtos sem imagem
-              {
+              // Este callback só é chamado para os outros filtros, não para 'oxfordAtt'
+              if (selectedFilter == "noImage" || selectedFilter == "yesImage") {
                 setState(() {
                   _activeFilters[selectedFilter] = "SIM";
                 });
-              }
-              else
-              {
+              } else {
                 setState(() {
-                  _currentFilterType = selectedFilter;
+                  if (selectedFilter != "oxfordAtt")
+                  {
+                    _currentFilterType = selectedFilter;
+                  }
                 });
                 _searchFocusNode.requestFocus();
               }
@@ -116,6 +120,30 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
         },
       ),
     );
+
+    // Processa o resultado retornado da FilterOptionsPage
+    if (result != null && result is Map) {
+      final selectedBrand = result["brand"];
+      final selectedLine = result["line"];
+      final selectedDecoration = result["decoration"];
+
+      setState(() {
+        _currentFilterType = 'oxfordAtt';
+        _activeFilters.remove('brandId');
+        _activeFilters.remove('lineId');
+        _activeFilters.remove('decorationId');
+
+        if (selectedBrand != null) {
+          _applyFilter('brandId', selectedBrand.brandId);
+        }
+        if (selectedLine != null) {
+          _applyFilter('lineId', selectedLine.lineId);
+        }
+        if (selectedDecoration != null) {
+          _applyFilter('decorationId', selectedDecoration.decorationId);
+        }
+      });
+    }
   }
 
   /// Retorna o tipo de conteúdo (MIME type) com base na extensão do arquivo.

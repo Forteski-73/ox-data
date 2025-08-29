@@ -9,4 +9,9 @@ class ApiRoutes {
   static String productImageUpdate       = 'Image/ReplaceProductImages';
   static String productImageUpdateBase64 = 'Image/ReplaceProductImages/Base64';
   static String productTag               = 'Tag';
+
+  // Rotas para o filtro de atributos
+  static String brands                = 'Brand';
+  static String linesByBrand          = 'Lines/ByBrand';
+  static String decorationByBrandLine = 'Decoration/ByBrandLine';
 }
