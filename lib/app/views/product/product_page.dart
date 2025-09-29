@@ -16,6 +16,7 @@ import 'package:image/image.dart' as img;
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
+import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -323,7 +324,7 @@ class _ProductPageState extends State<ProductPage> {
                     alignment: Alignment.bottomCenter,
                     children: [
                       SizedBox(
-                        height: 500,
+                        height: 400,
                         child: PageView.builder(
                           controller: _pageController,
                           itemCount: images.length,
@@ -348,12 +349,24 @@ class _ProductPageState extends State<ProductPage> {
                                   final String dataUri = imageSnapshot.data!;
                                   final String base64Image =
                                       dataUri.split(',').last;
-                                  return Image.memory(
-                                    base64Decode(base64Image),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.broken_image, size: 150),
-                                  );
+return GestureDetector( // <--- NOVO: Detecta o duplo clique
+  onDoubleTap: () {
+    // CHAMAR O MÉTODO DE TELA CHEIA AQUI
+    _openFullScreenImage(base64Image); 
+  },
+  child: InteractiveViewer(
+    // Configurações de zoom e pan (já existentes)
+    minScale: 0.8,
+    maxScale: 4.0,
+    clipBehavior: Clip.none,
+    child: Image.memory(
+      base64Decode(base64Image),
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) =>
+          const Icon(Icons.broken_image, size: 150),
+    ),
+  ),
+);
                                 } else {
                                   return const Icon(Icons.image_not_supported,
                                       size: 150, color: Colors.grey);
@@ -1037,6 +1050,21 @@ class _ProductPageState extends State<ProductPage> {
       },
     );
   }
+
+  void _openFullScreenImage(String base64Image) {
+  Navigator.push(
+    context,
+    PageRouteBuilder(
+      // Transição sem animação para parecer um "pop-up" instantâneo
+      pageBuilder: (context, animation, secondaryAnimation) => 
+          FullScreenImageDialog(base64Image: base64Image),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      fullscreenDialog: true, // Indica que é um diálogo de tela cheia (opcional)
+    ),
+  );
+}
 
   void _handleAddTag(ProductComplete productComplete, String valueTag) async {
     final productService = context.read<ProductService>();

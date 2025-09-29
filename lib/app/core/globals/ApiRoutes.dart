@@ -14,4 +14,8 @@ class ApiRoutes {
   static String brands                = 'Brand';
   static String linesByBrand          = 'Lines/ByBrand';
   static String decorationByBrandLine = 'Decoration/ByBrandLine';
+
+  // Rotas para o filtro de atributos de pallet
+  static String pallets                = 'Pallet';
+  static String palletItems            = 'Pallet/Item';
 }

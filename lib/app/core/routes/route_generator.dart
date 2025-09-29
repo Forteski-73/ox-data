@@ -8,16 +8,23 @@ import 'package:oxdata/app/views/login/registration_page.dart';
 import 'package:oxdata/app/views/pages/splash_page.dart';
 import 'package:oxdata/app/views/product/search_products_page.dart';
 import 'package:oxdata/app/views/product/product_page.dart';
+import 'package:oxdata/app/views/pallet/search_pallet_page.dart';
+import 'package:oxdata/app/views/pallet/pallet_builder_page.dart';
+import 'package:oxdata/app/views/pallet/pallet_receive_page.dart';
+import 'package:oxdata/app/core/models/pallet_model.dart';
 
 class RouteGenerator {
-  static const String splashPage      = '/';
-  static const String loginPage       = 'loginPage';
-  static const String loginReg        = 'loginReg';
-  static const String homePage        = 'homePage';
-  static const String productsPage    = 'productsPage';
-  static const String productPage     = 'productPage';
-  static const String inventoriesPage = 'inventoriesPage';
-  static const String tagsPage        = 'inventoriesPage';
+  static const String splashPage        = '/';
+  static const String loginPage         = 'loginPage';
+  static const String loginReg          = 'loginReg';
+  static const String homePage          = 'homePage';
+  static const String productsPage      = 'productsPage';
+  static const String productPage       = 'productPage';
+  static const String inventoriesPage   = 'inventoriesPage';
+  static const String tagsPage          = 'inventoriesPage';
+  static const String palletsPage       = 'palletsPage';
+  static const String palletBuilderPage = 'palletBuilderPage';
+  static const String palletReceivePage = 'palletReceivePage';
 
 
   static Route<dynamic> controller(RouteSettings settings) {
@@ -47,6 +54,26 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
       case inventoriesPage: // *** Futura rota para inventário ***
         return MaterialPageRoute(builder: (context) => const HomePage());
+      case palletsPage:
+        return MaterialPageRoute(builder: (context) => const SearchPalletPage());
+      case palletBuilderPage:
+        if (args is PalletModel?) {
+          return MaterialPageRoute(
+            builder: (context) => PalletBuilderPage(
+              pallet: args,
+            ),
+          );
+        }
+        return _errorRoute();
+        case palletReceivePage:
+          if (args is PalletModel) {
+            return MaterialPageRoute(
+              builder: (context) => PalletReceivePage(
+                pallet: args, // A página REQUER um PalletModel
+              ),
+            );
+          }
+        return _errorRoute(); 
       default:
         throw Exception('A rota ${settings.name} não existe!');
     }

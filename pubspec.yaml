@@ -89,6 +89,7 @@ flutter:
     - assets/images/invent.png
     - assets/images/product.png
     - assets/images/tag.png
+    - assets/images/pallet.png
     - assets/images/oxford-background.png
     - assets/images/oxford-background1.jpg
   # To add assets to your application, add an assets section, like this:
