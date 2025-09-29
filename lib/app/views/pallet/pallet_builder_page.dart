@@ -10,10 +10,12 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 
 // Mock simples de um UserProvider para demonstração.
-/*class UserProvider with ChangeNotifier {
+/*
+class UserProvider with ChangeNotifier {
   String? _currentUserId = 'dummy-user-id';
   String? get currentUserId => _currentUserId; 
-}*/
+}
+*/
 
 class PalletBuilderPage extends StatefulWidget {
   final PalletModel? pallet;
