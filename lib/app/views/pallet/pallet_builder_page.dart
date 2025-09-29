@@ -9,10 +9,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 
-// Este é um mock simples de um UserProvider para demonstração.
+// Mock simples de um UserProvider para demonstração.
 /*class UserProvider with ChangeNotifier {
   String? _currentUserId = 'dummy-user-id';
-  String? get currentUserId => _currentUserId;
+  String? get currentUserId => _currentUserId; 
 }*/
 
 class PalletBuilderPage extends StatefulWidget {
