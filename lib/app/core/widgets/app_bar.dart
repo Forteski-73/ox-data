@@ -6,8 +6,9 @@ import 'package:oxdata/app/core/routes/route_generator.dart';
 
 class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
   final String title;
+  final PreferredSizeWidget? bottom;
 
-  const AppBarCustom({super.key, required this.title});
+  const AppBarCustom({super.key, required this.title, this.bottom});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +23,7 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
         style: const TextStyle(fontSize: 18),
       ),
       centerTitle: true,
-      
+      bottom: bottom, // aqui você passa o TabBar
       actions: [
         IconButton(
           iconSize: 20, 
@@ -110,5 +111,6 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  //Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 }

@@ -20,7 +20,12 @@ import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 
 class SearchProductsPage extends StatefulWidget {
-  const SearchProductsPage({super.key});
+  final bool shouldNavigate; 
+
+  const SearchProductsPage({
+    super.key,
+    this.shouldNavigate = true,
+  }); 
 
   @override
   State<SearchProductsPage> createState() => _SearchProductsPageState();
@@ -270,21 +275,33 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                           margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
                           child: InkWell(
                             onTap: () async {
-                              await CallAction.run(
-                                action: () async {
-                                  loadingService.show();
+                              if (widget.shouldNavigate) {
+                                await CallAction.run(
+                                  action: () async {
+                                    loadingService.show();
 
-                                  await productService.fetchProductComplete(productData.productId);
+                                    await productService.fetchProductComplete(productData.productId);
 
-                                  Navigator.of(context).pushNamed(
-                                    RouteGenerator.productPage,
-                                    arguments: productData.productId,
-                                  );
-                                },
-                                onFinally: () {
-                                  loadingService.hide();
-                                },
-                              );
+                                    Navigator.of(context).pushNamed(
+                                      RouteGenerator.productPage,
+                                      arguments: productData.productId,
+                                    );
+                                  },
+                                  onFinally: () {
+                                    loadingService.hide();
+                                  },
+                                );
+                              }
+                              else {
+                                Navigator.pop(
+                                  context,
+                                  {
+                                    'productId'   : productData.productId,
+                                    'barcode'     : productData.barcode,
+                                    'productName' : productData.name,
+                                  },
+                                );
+                              }
                             },
                             splashColor: const Color.fromARGB(255, 65, 65, 65).withAlpha((255 * 0.2).round()),
                             child: Padding(

@@ -7,6 +7,7 @@ import 'dart:convert';
 class PalletItemModel {
   final int     palletId;
   final String  productId;
+  String?       productName;
   final int     quantity;
   final String  userId;
   final String  status;
@@ -14,6 +15,7 @@ class PalletItemModel {
   PalletItemModel({
     required this.palletId,
     required this.productId,
+    this.productName,
     required this.quantity,
     required this.userId,
     required this.status,
@@ -35,6 +37,7 @@ class PalletItemModel {
     return PalletItemModel(
       palletId:   map['palletId']   as int,
       productId:  map['productId']  as String,
+      productName: map['productName'] as String?,
       quantity:   map['quantity']   as int,
       userId:     map['userId']     as String,
       status:     map['status']     as String,
@@ -57,16 +60,18 @@ class PalletItemModel {
   PalletItemModel copyWith({
     int?    palletId,
     String? productId,
+    String? productName,
     int?    quantity,
     String? userId,
     String? status,
   }) {
     return PalletItemModel(
-      palletId:   palletId  ?? this.palletId,
-      productId:  productId ?? this.productId,
-      quantity:   quantity  ?? this.quantity,
-      userId:     userId    ?? this.userId,
-      status:     status    ?? this.status,
+      palletId:     palletId    ?? this.palletId,
+      productId:    productId   ?? this.productId,
+      productName:  productName ?? this.productName,
+      quantity:     quantity    ?? this.quantity,
+      userId:       userId      ?? this.userId,
+      status:       status      ?? this.status,
     );
   }
 }

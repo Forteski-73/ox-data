@@ -170,4 +170,33 @@ class PalletRepository {
     }
   }
 
+  /// Busca TODOS os itens de TODOS os paletes da API.
+  Future<ApiResponse<List<PalletItemModel>>> getAllPalletItems() async {
+    try {
+      // Assumindo que a API tem uma rota que retorna todos os itens de todos os paletes.
+      // Substitua ApiRoutes.palletItems pela rota correta se necessário.
+      final response = await apiClient.getAuth(ApiRoutes.allPalletItems); 
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        final List<PalletItemModel> items = jsonList
+            .map((json) => PalletItemModel.fromMap(json as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(success: true, data: items);
+      } else {
+        final errorBody = json.decode(response.body);
+        final errorMessage = errorBody['message'] ?? 'Erro ao buscar todos os itens de palete.';
+        return ApiResponse(
+          success: false,
+          message: 'Erro: ${response.statusCode} - $errorMessage',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de todos os itens de palete: $e',
+      );
+    }
+  }
+
 }

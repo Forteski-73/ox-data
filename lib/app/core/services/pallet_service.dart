@@ -111,6 +111,21 @@ class PalletService with ChangeNotifier {
     notifyListeners();
   }*/
 
+    /// **NOVO MÉTODO:** Busca TODOS os itens de TODOS os paletes.
+  Future<void> fetchAllPalletItems() async {
+    // Note: Você precisará implementar o método getAllPalletItems() no seu PalletRepository.
+    // Assumindo que o PalletRepository tem um método para buscar todos os itens.
+    final ApiResponse<List<PalletItemModel>> response = await palletRepository.getAllPalletItems();
+
+    if (response.success && response.data != null) {
+      _palletItems = response.data!;
+    } else {
+      _palletItems = [];
+      debugPrint('Erro ao buscar TODOS os itens de palete: ${response.message}');
+    }
+    notifyListeners();
+  }
+
   /// ==================== UTILITÁRIOS ====================
 
   /// Limpa a lista de paletes localmente.

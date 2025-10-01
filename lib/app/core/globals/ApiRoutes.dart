@@ -18,4 +18,5 @@ class ApiRoutes {
   // Rotas para o filtro de atributos de pallet
   static String pallets                = 'Pallet';
   static String palletItems            = 'Pallet/Item';
+  static String allPalletItems         = 'Pallet/AllItems';
 }

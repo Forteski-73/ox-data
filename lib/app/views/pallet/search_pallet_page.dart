@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
-import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
+import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:provider/provider.dart';
 import 'pallet_builder_page.dart';
+import 'pallet_items_tab.dart';
 
 class SearchPalletPage extends StatefulWidget {
   const SearchPalletPage({super.key});
@@ -14,40 +15,90 @@ class SearchPalletPage extends StatefulWidget {
   State<SearchPalletPage> createState() => _SearchPalletPageState();
 }
 
-class _SearchPalletPageState extends State<SearchPalletPage> {
+class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  // 1. Controller para gerenciar o texto de pesquisa
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    
+    _tabController.addListener(() {
+      // Só executa quando a aba realmente mudou
+      if (!_tabController.indexIsChanging) {
+        // Limpa a pesquisa ao trocar de aba
+        _searchController.clear();
+        _searchQuery = '';
+
+        // Atualiza a UI
+        setState(() {});
+
+        // Carrega os paletes se a aba for a primeira
+        if (_tabController.index == 0) {
+          _loadPallets();
+        }
+      }
+    });
+
+    // 2. Listener para o campo de pesquisa
+    _searchController.addListener(() {
+      // Filtra a lista sempre que o texto muda
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadPallets();
+        _loadPallets(); 
       });
     }
   }
 
-  // Método para carregar todos os paletes ao iniciar a página
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose(); // 3. Dispor o controller
+    super.dispose();
+  }
+
+  // Método para carregar todos os paletes
   Future<void> _loadPallets() async {
     final loadingService = context.read<LoadingService>();
     final palletService = context.read<PalletService>();
 
+    // 1. Marca o início
+    final start = DateTime.now();
+    const minDuration = Duration(seconds: 1);
+
     await CallAction.run(
       action: () async {
+        // 2. Mostra o loading
         loadingService.show();
+
+        // 3. Busca os paletes
         await palletService.fetchAllPallets();
       },
-      onFinally: () {
+      onFinally: () async {
+        // 4. Calcula o tempo decorrido
+        final elapsed = DateTime.now().difference(start);
+
+        if (elapsed < minDuration) {
+          final remaining = minDuration - elapsed;
+          await Future.delayed(remaining);
+        }
+
+        // 5. Esconde o loading só depois do tempo mínimo
         loadingService.hide();
       },
     );
   }
-  
-  // Limpa todos os paletes e os resultados da pesquisa
-  void _clearPallets() {
-    context.read<PalletService>().clearResults();
-  }
 
 
-  // Função para mapear o status de código para o texto completo.
+  // Função para mapear o status de código para o texto completo e definir a cor.
   String _mapStatus(String status) {
     switch (status) {
       case 'I':
@@ -61,116 +112,283 @@ class _SearchPalletPageState extends State<SearchPalletPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: Consumer<PalletService>(
-          builder: (context, palletService, child) {
-            final int totalCount = palletService.pallets.length;
-            final String title = 'Paletes: $totalCount';
-            return AppBarCustom(title: title);
-          },
+  // Função para definir a cor de fundo do Card baseada no status
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'I':
+        return Colors.orange.shade50; // Laranja claro para Iniciado
+      case 'M':
+        return Colors.indigo.shade50; // Índigo claro para Montado
+      case 'R':
+        return Colors.green.shade50; // Verde claro para Recebido
+      default:
+        return Colors.grey.shade100;
+    }
+  }
+
+  // --- LÓGICA DE FILTRAGEM ---
+  List<PalletModel> _getFilteredPallets(List<PalletModel> allPallets) {
+    if (_searchQuery.isEmpty) {
+      return allPallets;
+    }
+    final query = _searchQuery.trim();
+    return allPallets.where((pallet) {
+      // Busca pelo ID do Pallet (convertido para String)
+      final matchesId = pallet.palletId.toString().toLowerCase().contains(query);
+      // Busca pela Localização
+      final matchesLocation = pallet.location.toLowerCase().contains(query);
+      // Busca pelo Status (código ou texto completo)
+      final matchesStatus = pallet.status.toLowerCase().contains(query) || 
+                            _mapStatus(pallet.status).toLowerCase().contains(query);
+
+      return matchesId || matchesLocation || matchesStatus;
+    }).toList();
+  }
+
+  // Função de ajuda com cores ajustadas e mais suaves
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'INICIADO':
+        return Colors.blue[100]!; // Fundo azul claro e suave
+      case 'MONTADO':
+        return Colors.amber[100]!; // Fundo amarelo claro e suave
+      case 'RECEBIDO':
+        return Colors.green[100]!; // Fundo verde claro e suave
+      default:
+        return Colors.grey[200]!;
+    }
+  }
+
+  // Função para a cor do texto (que será escura e legível)
+  Color getTextColor(String status) {
+    switch (status) {
+      case 'INICIADO':
+        return Colors.blue[800]!;
+      case 'MONTADO':
+        return Colors.amber[800]!;
+      case 'RECEBIDO':
+        return Colors.green[800]!;
+      default:
+        return Colors.grey[700]!;
+    }
+  }
+
+  // --- WIDGET PARA A BARRA DE PESQUISA (MODIFICADO PARA SER ÚNICO E DINÂMICO) ---
+  Widget _buildSearchBar() {
+    // Define o texto de dica (hintText) baseado na aba ativa
+    final String hintText = 'Pesquisar...';
+    // A barra de pesquisa agora sempre é exibida no topo, mas com o hintText correto
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, left: 8, right: 9, bottom: 4.0), //(6, 5, 7, 5),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: hintText,
+          prefixIcon: const Icon(Icons.search, color: Colors.black54),
+          // Adiciona um botão para limpar a pesquisa se houver texto
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.black54),
+                  onPressed: () {
+                    _searchController.clear();
+                    // Limpar o controller automaticamente chama o listener e atualiza _searchQuery
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8.0),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.grey[200],
+          contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
         ),
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 10.0, left: 10.0, right: 10.0),
-            child: Consumer<PalletService>(
-              builder: (context, palletService, child) {
-                final pallets = palletService.pallets;
-                return pallets.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Nenhum palete encontrado.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: pallets.length,
-                        itemBuilder: (context, index) {
-                          final PalletModel palletData = pallets[index];
-                          return Card(
-                            color: Colors.white,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(0),
-                            ),
-                            margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
-                            child: InkWell(
-                              onTap: () {
-                                // Navega para a PalletBuilderPage, passando o palete selecionado.
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => PalletBuilderPage(pallet: palletData),
-                                  ),
-                                ).then((value) {
-                                  // Recarrega a lista de paletes após voltar para a página
-                                  _loadPallets();
-                                });
-                              },
-                              splashColor: const Color.fromARGB(255, 65, 65, 65).withAlpha((255 * 0.2).round()),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.pallet, size: 85, color: Colors.indigo),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: Text(
-                                              'Número: ${palletData.palletId}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                              softWrap: false,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text('Localização: ${palletData.location}'),
-                                              const SizedBox(height: 4),
-                                              Text('Status: ${_mapStatus(palletData.status)}'),
-                                              const SizedBox(height: 4),
-                                              Text('Total de Itens: ${palletData.totalQuantity}'),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-              },
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: FloatingActionButton.extended(
-              onPressed: _loadPallets,
-              label: const Text('NOVO'),
-              icon: const Icon(Icons.add_outlined),
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4), // borda arredondada em 4
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
+
+  Widget _buildPalletTabContent(List<PalletModel> pallets) {
+    if (pallets.isEmpty) {
+      return Center(
+        child: Text(
+          _searchQuery.isNotEmpty
+              ? 'Nenhum palete corresponde à pesquisa.'
+              : 'Nenhum palete encontrado.',
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(6, 5, 7, 5),
+      itemCount: pallets.length + 1, // +1 para incluir o cabeçalho
+      separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          // Cabeçalho da "tabela"
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            color: Colors.blueGrey.shade600, //grey.shade200
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(flex: 4, child: Text('N° Palete',  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(flex: 3, child: Text('Local',      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(flex: 3, child: Text('Status',     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+              ],
+            ),
+          );
+        }
+
+        final palletData = pallets[index - 1]; // -1 por causa do cabeçalho
+        final mappedStatus = _mapStatus(palletData.status);
+
+        return StatefulBuilder(
+          builder: (context, setInnerState) {
+            bool isHighlighted = false;
+
+            return Material(
+              color: isHighlighted ? Colors.indigo : Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(1),
+                highlightColor: Colors.grey,
+                splashColor: Colors.grey.shade300,
+                onHighlightChanged: (value) {
+                  setInnerState(() => isHighlighted = value);
+                },
+                onTap: () async {
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => PalletBuilderPage(pallet: palletData),
+                    ),
+                  ).then((_) => _loadPallets());
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: Text(
+                          '${palletData.palletId}',
+                          style: TextStyle(color: isHighlighted ? Colors.white : Colors.black),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          palletData.location,
+                          style: TextStyle(color: isHighlighted ? Colors.white : Colors.black),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            // Define uma largura MÍNIMA e MÁXIMA fixa (e igual) para uniformizar o chip.
+                            constraints: const BoxConstraints(
+                              minWidth: 90,
+                              maxWidth: 90, 
+                              minHeight: 0, 
+                              maxHeight: 25,
+                            ),
+                            
+                            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4), // Padding ajustado para alinhamento interno
+                            
+                            decoration: BoxDecoration(
+                              color: getStatusColor(mappedStatus.toUpperCase()),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: getTextColor(mappedStatus.toUpperCase()).withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Center( 
+                              child: Text(
+                                mappedStatus,
+                                style: TextStyle(
+                                  color: getTextColor(mappedStatus.toUpperCase()),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  height: 1, 
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBarCustom(
+      title: _tabController.index == 0 ? 'PALETES' : 'PEÇAS',
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'PALETES', icon: Icon(Icons.pallet)),
+            Tab(text: 'PEÇAS', icon: Icon(Icons.local_cafe)),
+          ],
+        ),
+      ),
+    ),
+    floatingActionButton: _tabController.index == 0
+        ? FloatingActionButton.extended(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (context) => const PalletBuilderPage(pallet: null),
+                ),
+              ).then((value) => _loadPallets());
+            },
+            label: const Text('NOVO'),
+            icon: const Icon(Icons.add_outlined),
+            backgroundColor: Colors.indigo,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+          )
+        : null,
+    body: Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              Consumer<PalletService>(
+                builder: (context, palletService, child) {
+                  final filteredPallets = _getFilteredPallets(palletService.pallets);
+                  return _buildPalletTabContent(filteredPallets);
+                },
+              ),
+              PalletItemsTab(searchQuery: _searchQuery),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 }
