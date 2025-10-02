@@ -742,6 +742,8 @@ Expanded(
                           // que precisam de largura definida (como o Container ao lado).
                           child: ImagesPicker(
                             imagePaths: _imagePaths,
+                            baseImagePath: "MONTAGEM_PALETE/",
+                            codeImg: widget.pallet!.palletId.toString(),
                             onImageAdded: _addImage,
                             onImageRemoved: _removeImage,
                             itemHeight: 170,
