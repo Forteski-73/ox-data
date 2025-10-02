@@ -9,6 +9,7 @@ class PalletItemModel {
   final String  productId;
   String?       productName;
   final int     quantity;
+  int?          quantityReceived;
   final String  userId;
   final String  status;
 
@@ -17,6 +18,7 @@ class PalletItemModel {
     required this.productId,
     this.productName,
     required this.quantity,
+    this.quantityReceived,
     required this.userId,
     required this.status,
   });
@@ -24,23 +26,25 @@ class PalletItemModel {
   /// Converte uma instância de PalletItemModel para um mapa (Map<String, dynamic>).
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      'palletId':   palletId,
-      'productId':  productId,
-      'quantity':   quantity,
-      'userId':     userId,
-      'status':     status,
+      'palletId':           palletId,
+      'productId':          productId,
+      'quantity':           quantity,
+      'quantityReceived':   quantityReceived,
+      'userId':             userId,
+      'status':             status,
     };
   }
 
   /// Cria uma instância de PalletItemModel a partir de um mapa (Map<String, dynamic>).
   factory PalletItemModel.fromMap(Map<String, dynamic> map) {
     return PalletItemModel(
-      palletId:   map['palletId']   as int,
-      productId:  map['productId']  as String,
-      productName: map['productName'] as String?,
-      quantity:   map['quantity']   as int,
-      userId:     map['userId']     as String,
-      status:     map['status']     as String,
+      palletId:         map['palletId']         as int,
+      productId:        map['productId']        as String,
+      productName:      map['productName']      as String?,
+      quantity:         map['quantity']         as int,
+      quantityReceived: map['quantityReceived'] as int,
+      userId:           map['userId']           as String,
+      status:           map['status']           as String,
     );
   }
 
@@ -53,7 +57,7 @@ class PalletItemModel {
 
   @override
   String toString() {
-    return 'PalletItemModel(palletId: $palletId, productId: $productId, quantity: $quantity, userId: $userId, status: $status)';
+    return 'PalletItemModel(palletId: $palletId, productId: $productId, quantity: $quantity, quantityReceived: $quantityReceived, userId: $userId, status: $status)';
   }
 
   /// Cria uma nova instância com valores atualizados.
@@ -62,16 +66,18 @@ class PalletItemModel {
     String? productId,
     String? productName,
     int?    quantity,
+    int?    quantityReceived,
     String? userId,
     String? status,
   }) {
     return PalletItemModel(
-      palletId:     palletId    ?? this.palletId,
-      productId:    productId   ?? this.productId,
-      productName:  productName ?? this.productName,
-      quantity:     quantity    ?? this.quantity,
-      userId:       userId      ?? this.userId,
-      status:       status      ?? this.status,
+      palletId:         palletId          ?? this.palletId,
+      productId:        productId         ?? this.productId,
+      productName:      productName       ?? this.productName,
+      quantity:         quantity          ?? this.quantity,
+      quantityReceived: quantityReceived  ?? this.quantityReceived,
+      userId:           userId            ?? this.userId,
+      status:           status            ?? this.status,
     );
   }
 }

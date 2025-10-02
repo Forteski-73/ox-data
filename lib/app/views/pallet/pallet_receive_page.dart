@@ -256,101 +256,101 @@ class _PalletReceivePageState extends State<PalletReceivePage> {
             body: Stack(
                 children: [
                     Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                            Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 0), // Adicionei padding horizontal para as bordas
-                                child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 3),
-                                    decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                            colors: [Colors.grey.shade400, Colors.grey.shade200],
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                        ),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 0), // Adicionei padding horizontal para as bordas
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 3),
+                                decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                        colors: [Colors.grey.shade400, Colors.grey.shade200],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
                                     ),
-                                    child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.start,
-                                        children: <Widget>[
-                                            Padding(
-                                                padding: const EdgeInsets.only(left: 6),
-                                                child: Text(
-                                                    'PALETE: ',
-                                                    style: const TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Colors.black,
-                                                    ),
+                                ),
+                                child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: <Widget>[
+                                        Padding(
+                                            padding: const EdgeInsets.only(left: 6),
+                                            child: Text(
+                                                'PALETE: ',
+                                                style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black,
                                                 ),
                                             ),
-                                            const Spacer(),
-                                            Padding(
-                                                padding: const EdgeInsets.only(right: 8),
-                                                child: Text(
-                                                    widget.pallet.palletId.toString(),
-                                                    style: const TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Colors.indigo,
-                                                    ),
+                                        ),
+                                        const Spacer(),
+                                        Padding(
+                                            padding: const EdgeInsets.only(right: 8),
+                                            child: Text(
+                                                widget.pallet.palletId.toString(),
+                                                style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.indigo,
                                                 ),
                                             ),
-                                        ],
+                                        ),
+                                    ],
+                                ),
+                            ),
+                        ),
+                        Column(
+                            children: [
+                                _buildFilterField(),
+                                if (_errorMessage != null) _buildErrorMessage(),
+                            ],
+                        ),
+                        Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 0),
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 3),
+                                decoration: BoxDecoration(
+                                    borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(0),
+                                        topRight: Radius.circular(0),
+                                    ),
+                                    gradient: LinearGradient(
+                                        colors: [Colors.grey.shade400, Colors.grey.shade200],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                    ),
+                                ),
+                                child: const Center(
+                                    child: Text(
+                                        'ITENS',
+                                        style:
+                                            TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
                                     ),
                                 ),
                             ),
-                            Column(
-                                children: [
-                                    _buildFilterField(),
-                                    if (_errorMessage != null) _buildErrorMessage(),
-                                ],
+                        ),
+                        // Lista de Itens (rolável, ocupando o restante do espaço)
+                        Expanded(
+                            child: Container(
+                                color: Colors.grey.shade200, // Cor de fundo do ListView
+                                child: _isLoading
+                                        ? const Center(child: CircularProgressIndicator())
+                                        : _filteredItems.isEmpty
+                                                ? const Center(child: Text('Nenhum item encontrado.'))
+                                                : ListView.builder(
+                                                        padding: const EdgeInsets.fromLTRB(4, 3, 7, 0), // Ajuste o padding
+                                                        itemCount: _filteredItems.length,
+                                                        itemBuilder: (context, index) {
+                                                            final item = _filteredItems[index];
+                                                            return _buildPalletItemCard(item); // Usa o novo layout aqui
+                                                        },
+                                                    ),
                             ),
-                            Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 0),
-                                child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 3),
-                                    decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(0),
-                                            topRight: Radius.circular(0),
-                                        ),
-                                        gradient: LinearGradient(
-                                            colors: [Colors.grey.shade400, Colors.grey.shade200],
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                        ),
-                                    ),
-                                    child: const Center(
-                                        child: Text(
-                                            'ITENS',
-                                            style:
-                                                TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                            textAlign: TextAlign.center,
-                                        ),
-                                    ),
-                                ),
-                            ),
-                            // Lista de Itens (rolável, ocupando o restante do espaço)
-                            Expanded(
-                                child: Container(
-                                    color: Colors.grey.shade200, // Cor de fundo do ListView
-                                    child: _isLoading
-                                            ? const Center(child: CircularProgressIndicator())
-                                            : _filteredItems.isEmpty
-                                                    ? const Center(child: Text('Nenhum item encontrado.'))
-                                                    : ListView.builder(
-                                                            padding: const EdgeInsets.fromLTRB(4, 3, 7, 0), // Ajuste o padding
-                                                            itemCount: _filteredItems.length,
-                                                            itemBuilder: (context, index) {
-                                                                final item = _filteredItems[index];
-                                                                return _buildPalletItemCard(item); // Usa o novo layout aqui
-                                                            },
-                                                        ),
-                                ),
-                            ),
-                            // Espaçamento para o botão flutuante
-                            //const SizedBox(height: 100),
-                        ],
+                        ),
+                        // Espaçamento para o botão flutuante
+                        //const SizedBox(height: 100),
+                      ],
                     ),
                     // Botão flutuante (Rodapé)
                     _buildReceiveButton(),

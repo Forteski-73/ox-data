@@ -19,4 +19,8 @@ class ApiRoutes {
   static String pallets                = 'Pallet';
   static String palletItems            = 'Pallet/Item';
   static String allPalletItems         = 'Pallet/AllItems';
+
+  // Rotas para GET e SET de imagens no FTP
+  static String ftpImage              = 'Ftp/Images/Base64';
+
 }

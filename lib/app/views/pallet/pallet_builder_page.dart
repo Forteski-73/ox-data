@@ -9,6 +9,7 @@ import 'package:oxdata/app/core/utils/upper_case_text.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/widgets/image_picker.dart';
 import 'package:oxdata/app/views/product/search_products_page.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -37,7 +38,13 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
   List<PalletItemModel> _items = [];
   bool _isLoading = false;
   String productName = "";
+  //List<String> _imagePaths = []; 
 
+  List<String> _imagePaths = [
+    'PRODUTO_EMBALADO/OXFORD_PORCELANAS/FLAMINGO/FLAMINGO_WHITE/002679/PRODUTO/0001.jpeg',
+    'PRODUTO_EMBALADO/OXFORD_PORCELANAS/RYO/MARESIA/103239/PRODUTO/0002.jpeg',
+    'PRODUTO_EMBALADO/OXFORD_PORCELANAS/FLAMINGO/FLAMINGO_DIAMOND/002764/PRODUTO/002764.jpg',
+  ];
 
   @override
   void initState() {
@@ -64,6 +71,27 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
           _userController.text = userId.toString().toUpperCase();
         }
       }
+    });
+  }
+
+  // ... (seu _initializeData e outros métodos)
+  
+  /// Adiciona um novo caminho de imagem à lista.
+  void _addImage(String newImagePath) {
+    // Nota: Em uma aplicação real, você faria o upload aqui
+    // e receberia o URL final para adicionar à lista.
+    // Por enquanto, apenas adicionamos o caminho.
+    setState(() {
+      _imagePaths.add(newImagePath);
+      MessageService.showSuccess('Imagem adicionada: ${newImagePath.split('/').last}');
+    });
+  }
+
+  /// Remove um caminho de imagem da lista.
+  void _removeImage(String imagePath) {
+    setState(() {
+      _imagePaths.remove(imagePath);
+      MessageService.showWarning('Imagem removida.');
     });
   }
 
@@ -117,6 +145,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
         productId   : _productIdController.text,
         productName : productName,
         quantity    : int.tryParse(_quantityItemController.text) ?? 0,
+        quantityReceived : int.tryParse(_quantityItemController.text) ?? 0,
         userId      : username,
         status      : 'PENDING',
       );
@@ -642,20 +671,82 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+/*
+Expanded(
+  child: Stack(
+    children: [
+      Container(
+        width: double.infinity,
+        height: 162,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey, width: 1.0),
+        ),
+        child: widget.pallet?.imagePath != null
+            ? Image.network(
+                widget.pallet!.imagePath!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.broken_image, size: 162),
+              )
+            : const Icon(Icons.image_search_outlined,
+                size: 162, color: Colors.grey),
+      ),
+      Positioned(
+        top: 3,
+        left: 3,
+        child: GestureDetector(
+          onTap: () {
+            // Lógica para excluir nova foto
+          },
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white70,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.close_rounded,
+              size: 28,
+              color: Colors.red,
+            ),
+          ),
+        ),
+      ),
+      Positioned(
+        top: 3,
+        right: 3,
+        child: GestureDetector(
+          onTap: () {
+            // Lógica para adicionar foto
+          },
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white70,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.add_a_photo,
+              size: 28,
+              color: Color.fromRGBO(56, 142, 60, 1),
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+*/
                         Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey, width: 1.0),
-                            ),
-                            child: widget.pallet?.imagePath != null
-                                ? Image.network(
-                                    widget.pallet!.imagePath!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.broken_image, size: 162),
-                                  )
-                                : const Icon(Icons.image_search_outlined,
-                                    size: 162, color: Colors.grey),
+                          // Envolve o ImagesPicker em um Expanded se for parte de um Row com outros widgets 
+                          // que precisam de largura definida (como o Container ao lado).
+                          child: ImagesPicker(
+                            imagePaths: _imagePaths,
+                            onImageAdded: _addImage,
+                            onImageRemoved: _removeImage,
+                            itemHeight: 170,
+                            itemWidth: 174,
+                            iconSize: 28,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -721,7 +812,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    if (_statusController != 'M')
+                    if (_statusController != 'M' && _statusController != 'R')
                       Row(
                         children: [
                           Expanded(
@@ -846,36 +937,105 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text('CÓD: ${item.productId}',
-                                            style: const TextStyle(
-                                                fontSize: 14, color: Colors.grey)),
-                                        const SizedBox(width: 10),
-                                        const Text('QTD:',
-                                            style: TextStyle(fontSize: 14)),
-                                        const SizedBox(width: 8),
-                                        SizedBox(
-                                          width: 50,
-                                          child: TextField(
-                                            controller: TextEditingController(
-                                                text: item.quantity.toString()),
-                                            keyboardType: TextInputType.number,
-                                            textAlign: TextAlign.center,
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                              border: InputBorder.none,
-                                            ),
-                                            onSubmitted: (value) {
-                                              _updateQuantity(index, value);
-                                              FocusScope.of(context).unfocus();
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+Row(
+  mainAxisAlignment: MainAxisAlignment.end,
+  children: [
+    // Este Text é exibido SEMPRE, pois está fora da condição 'if'.
+    Text(
+      'CÓD: ${item.productId}',
+      style: const TextStyle(
+          fontSize: 14, color: Colors.grey),
+    ),
+        
+    // O bloco a seguir (QTD e TextField) só é exibido se a condição for verdadeira.
+    if (_statusController == "R") ...[
+      const SizedBox(width: 10), 
+      const Text(
+        'Qtd.:',
+        style: TextStyle(fontSize: 14),
+      ),
+      const SizedBox(width: 8),
+      SizedBox(
+        width: 50,
+        child: TextField(
+          readOnly: true,
+          controller: TextEditingController(
+              text: item.quantity.toString()),
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+            border: InputBorder.none,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10), 
+      const Text(
+        'QTD Recebida:',
+        style: TextStyle(fontSize: 14),
+      ),
+      const SizedBox(width: 8),
+  Container(
+    width: 50,
+    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // Espaçamento para o estilo chip
+    decoration: BoxDecoration(
+      // Se as quantidades forem diferentes, usa vermelho claro; senão, usa transparente.
+      color: item.quantity != item.quantityReceived
+          ? Colors.red.withOpacity(0.15) // Vermelho claro (estilo chip)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(4), // Bordas arredondadas (estilo chip)
+    ),
+    child: SizedBox(
+      width: 50, // O widget filho do Container deve ter o mesmo width
+      child: TextField(
+        readOnly: true,
+        controller: TextEditingController(
+            text: item.quantityReceived.toString()),
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.center,
+        // É bom garantir que o texto dentro do TextField não tenha a cor do fundo:
+        style: TextStyle(
+          color: item.quantity != item.quantityReceived
+              ? Colors.red.shade900 // Texto um pouco mais escuro para destaque
+              : null, // Cor padrão
+        ),
+        decoration: const InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
+        ),
+      ),
+    ),
+  ),
+    ] else ...[
+      const SizedBox(width: 10), 
+      const Text(
+        'QTD:',
+        style: TextStyle(fontSize: 14),
+      ),
+      const SizedBox(width: 8),
+      SizedBox(
+        width: 50,
+        child: TextField(
+          controller: TextEditingController(
+              text: item.quantity.toString()),
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+            border: InputBorder.none,
+          ),
+          onSubmitted: (value) {
+            _updateQuantity(index, value);
+            FocusScope.of(context).unfocus();
+          },
+        ),
+      ),
+    ],
+  ],
+)
                                   ],
                                 ),
                               ),
@@ -930,7 +1090,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                             label: const Text('RECEBER'),
                           ),
                         )
-                      else ...[
+                      else if (_statusController != 'R')...[
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: _savePallet,
