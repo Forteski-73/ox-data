@@ -6,7 +6,8 @@ import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/core/models/pallet_item_model.dart';
-import 'package:oxdata/app/core/repositories/auth_repository.dart'; // Para ApiResponse
+import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:oxdata/app/core/models/ftp_image_response.dart';
 
 /// Repositório responsável pela comunicação com a API de paletes.
 class PalletRepository {
@@ -40,7 +41,7 @@ class PalletRepository {
   }
 
   /// Cria ou atualiza uma lista de paletes (Upsert).
-  Future<ApiResponse<String>> upsertPallets(List<PalletModel> pallets) async {
+  Future<ApiResponse<String>> upsertPallets(List<PalletModel> pallets, List<String>? imagePaths) async {
 
     try {
       final requestBody = pallets.map((p) => p.toMap()).toList();
@@ -52,6 +53,30 @@ class PalletRepository {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final result = json.decode(response.body);
+
+        if (imagePaths != null)
+        {
+          // Corrigido: Mapeia cada String (caminho da imagem) para um objeto Map.
+          final requestBodyImages = imagePaths.map((path) => {
+            "palletId": pallets.first.palletId,
+            'imagePath': path,
+          }).toList();
+
+          // Corrigido: Envia a lista de Maps (o formato JSON correto) no body.
+          final responseImg = await apiClient.postAuth1(
+            ApiRoutes.palletImages,
+            body: requestBodyImages, // Usando o Map criado
+          );
+          
+          // Se precisar verificar o sucesso do upload das imagens também:
+          if (responseImg.statusCode != 200 && responseImg.statusCode != 201) {
+              // Lidar com erro no upload das imagens
+              return ApiResponse(
+                  success: false,
+                  message: 'Erro ao enviar imagens: ${responseImg.statusCode}',
+              );
+          }
+        }
         return ApiResponse(success: true, data: result['message'] ?? 'Paletes salvos com sucesso.');
       } else {
         return ApiResponse(
@@ -195,6 +220,36 @@ class PalletRepository {
       return ApiResponse(
         success: false,
         message: 'Falha na requisição de todos os itens de palete: $e',
+      );
+    }
+  }
+
+  /// Busca todos os paletes da API.
+  Future<ApiResponse<List<dynamic>>> getPalletImagesPath(int palletId) async {
+    try {
+      final response = await apiClient.getAuth("${ApiRoutes.palletImages}/$palletId");
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+
+        return ApiResponse(success: true, data: jsonList);
+
+        /*
+        final List<FtpImageResponse> pallets = jsonList
+            .map((json) => FtpImageResponse.fromJson(json as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(success: true, data: pallets);
+        */
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar paletes: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de paletes: $e',
       );
     }
   }

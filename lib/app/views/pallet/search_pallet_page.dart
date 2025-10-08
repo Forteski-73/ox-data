@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart';
+import 'package:oxdata/app/core/services/image_cache_service.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
@@ -17,7 +18,6 @@ class SearchPalletPage extends StatefulWidget {
 
 class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  // 1. Controller para gerenciar o texto de pesquisa
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -33,17 +33,14 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
         _searchController.clear();
         _searchQuery = '';
 
-        // Atualiza a UI
         setState(() {});
 
-        // Carrega os paletes se a aba for a primeira
         if (_tabController.index == 0) {
           _loadPallets();
         }
       }
     });
 
-    // 2. Listener para o campo de pesquisa
     _searchController.addListener(() {
       // Filtra a lista sempre que o texto muda
       setState(() {
@@ -61,29 +58,29 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
   @override
   void dispose() {
     _tabController.dispose();
-    _searchController.dispose(); // 3. Dispor o controller
+    _searchController.dispose();
     super.dispose();
   }
 
-  // Método para carregar todos os paletes
   Future<void> _loadPallets() async {
     final loadingService = context.read<LoadingService>();
     final palletService = context.read<PalletService>();
 
-    // 1. Marca o início
+    final imageCacheService = context.read<ImageCacheService>(); 
+
+    imageCacheService.clearAllImages();
+
+    // Marca o início
     final start = DateTime.now();
-    const minDuration = Duration(seconds: 1);
+    const minDuration = Duration(seconds: 1); // 1 SEGUNDO PARA EVITAR QUE A TELA FIQUE PISCANDO
 
     await CallAction.run(
       action: () async {
-        // 2. Mostra o loading
         loadingService.show();
 
-        // 3. Busca os paletes
         await palletService.fetchAllPallets();
       },
       onFinally: () async {
-        // 4. Calcula o tempo decorrido
         final elapsed = DateTime.now().difference(start);
 
         if (elapsed < minDuration) {
@@ -91,12 +88,10 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
           await Future.delayed(remaining);
         }
 
-        // 5. Esconde o loading só depois do tempo mínimo
         loadingService.hide();
       },
     );
   }
-
 
   // Função para mapear o status de código para o texto completo e definir a cor.
   String _mapStatus(String status) {
@@ -113,7 +108,7 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
   }
 
   // Função para definir a cor de fundo do Card baseada no status
-  Color _getStatusColor(String status) {
+  /*Color _getStatusColor(String status) {
     switch (status) {
       case 'I':
         return Colors.orange.shade50; // Laranja claro para Iniciado
@@ -124,28 +119,24 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
       default:
         return Colors.grey.shade100;
     }
-  }
+  }*/
 
-  // --- LÓGICA DE FILTRAGEM ---
   List<PalletModel> _getFilteredPallets(List<PalletModel> allPallets) {
     if (_searchQuery.isEmpty) {
       return allPallets;
     }
+
     final query = _searchQuery.trim();
     return allPallets.where((pallet) {
-      // Busca pelo ID do Pallet (convertido para String)
       final matchesId = pallet.palletId.toString().toLowerCase().contains(query);
-      // Busca pela Localização
       final matchesLocation = pallet.location.toLowerCase().contains(query);
-      // Busca pelo Status (código ou texto completo)
-      final matchesStatus = pallet.status.toLowerCase().contains(query) || 
-                            _mapStatus(pallet.status).toLowerCase().contains(query);
+      final matchesStatus = pallet.status.toLowerCase().contains(query) || _mapStatus(pallet.status).toLowerCase().contains(query);
 
       return matchesId || matchesLocation || matchesStatus;
     }).toList();
   }
 
-  // Função de ajuda com cores ajustadas e mais suaves
+  // Função de ajuda com cores
   Color getStatusColor(String status) {
     switch (status) {
       case 'INICIADO':
@@ -159,7 +150,7 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
     }
   }
 
-  // Função para a cor do texto (que será escura e legível)
+  // Função para a cor do texto
   Color getTextColor(String status) {
     switch (status) {
       case 'INICIADO':
@@ -173,25 +164,21 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
     }
   }
 
-  // --- WIDGET PARA A BARRA DE PESQUISA (MODIFICADO PARA SER ÚNICO E DINÂMICO) ---
+  // --- WIDGET PARA A BARRA DE PESQUISA  ---
   Widget _buildSearchBar() {
-    // Define o texto de dica (hintText) baseado na aba ativa
     final String hintText = 'Pesquisar...';
-    // A barra de pesquisa agora sempre é exibida no topo, mas com o hintText correto
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0, left: 8, right: 9, bottom: 4.0), //(6, 5, 7, 5),
+      padding: const EdgeInsets.only(top: 8.0, left: 8, right: 9, bottom: 4.0),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
           hintText: hintText,
           prefixIcon: const Icon(Icons.search, color: Colors.black54),
-          // Adiciona um botão para limpar a pesquisa se houver texto
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, color: Colors.black54),
                   onPressed: () {
                     _searchController.clear();
-                    // Limpar o controller automaticamente chama o listener e atualiza _searchQuery
                   },
                 )
               : null,
@@ -225,10 +212,9 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
       separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.grey),
       itemBuilder: (context, index) {
         if (index == 0) {
-          // Cabeçalho da "tabela"
           return Container(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-            color: Colors.blueGrey.shade600, //grey.shade200
+            color: Colors.blueGrey.shade600,
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -296,9 +282,7 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
                               minHeight: 0, 
                               maxHeight: 25,
                             ),
-                            
-                            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4), // Padding ajustado para alinhamento interno
-                            
+                            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                             decoration: BoxDecoration(
                               color: getStatusColor(mappedStatus.toUpperCase()),
                               borderRadius: BorderRadius.circular(4),
@@ -332,27 +316,26 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
     );
   }
 
-
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBarCustom(
-      title: _tabController.index == 0 ? 'PALETES' : 'PEÇAS',
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(text: 'PALETES', icon: Icon(Icons.pallet)),
-            Tab(text: 'PEÇAS', icon: Icon(Icons.local_cafe)),
-          ],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBarCustom(
+        title: _tabController.index == 0 ? 'PALETES' : 'PEÇAS',
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            tabs: const [
+              Tab(text: 'PALETES', icon: Icon(Icons.pallet)),
+              Tab(text: 'PEÇAS', icon: Icon(Icons.local_cafe)),
+            ],
+          ),
         ),
       ),
-    ),
-    floatingActionButton: _tabController.index == 0
+      floatingActionButton: _tabController.index == 0
         ? FloatingActionButton.extended(
             onPressed: () {
               Navigator.of(context).push(
@@ -370,25 +353,25 @@ Widget build(BuildContext context) {
             ),
           )
         : null,
-    body: Column(
-      children: [
-        _buildSearchBar(),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              Consumer<PalletService>(
-                builder: (context, palletService, child) {
-                  final filteredPallets = _getFilteredPallets(palletService.pallets);
-                  return _buildPalletTabContent(filteredPallets);
-                },
-              ),
-              PalletItemsTab(searchQuery: _searchQuery),
-            ],
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                Consumer<PalletService>(
+                  builder: (context, palletService, child) {
+                    final filteredPallets = _getFilteredPallets(palletService.pallets);
+                    return _buildPalletTabContent(filteredPallets);
+                  },
+                ),
+                PalletItemsTab(searchQuery: _searchQuery),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 }

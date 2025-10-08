@@ -28,6 +28,11 @@ class _HomePageState extends State<HomePage> {
       'routeName': RouteGenerator.palletsPage,
       'imagePath': 'assets/images/pallet.png',
     },
+    {
+      'title': 'TESTE',
+      'routeName': RouteGenerator.TESTE,
+      'imagePath': 'assets/images/pallet.png',
+    },
     /*{
       'title': 'INVENTÁRIOS',
       'routeName': RouteGenerator.inventoriesPage,

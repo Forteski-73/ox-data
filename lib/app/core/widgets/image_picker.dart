@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart';
-import 'package:oxdata/app/core/models/ftp_image_response.dart'; 
+import 'package:oxdata/app/core/services/pallet_service.dart';
+import 'package:oxdata/app/core/models/ftp_image_response.dart';
+import 'package:oxdata/app/core/services/image_cache_service.dart';
+import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
 import 'dart:io';
 import 'dart:convert'; 
 
@@ -12,12 +15,11 @@ class ImagesPicker extends StatefulWidget {
   final List<String>? imagePaths;
   
   // O nome base a ser usado para gerar os caminhos sequenciais das novas imagens.
-  // Ex: se for 'produto_123', as novas imagens serão 'produto_123_001.jpg', etc.
   final String baseImagePath;
-  final String codeImg;
+  final int? codePallet;
 
-  final Function(String newImagePath)? onImageAdded;
   final Function(String imagePath)? onImageRemoved;
+  final Function(List<String> newPaths)? onImagesChanged;
 
   /// Altura de cada item. Se nulo, usa a altura máxima da tela.
   final double? itemHeight;
@@ -31,9 +33,9 @@ class ImagesPicker extends StatefulWidget {
     super.key,
     this.imagePaths,
     required this.baseImagePath,
-    required this.codeImg, 
-    this.onImageAdded,
+    this.codePallet, 
     this.onImageRemoved,
+    this.onImagesChanged,
     this.itemHeight = 300,
     this.itemWidth = 300,
     this.iconSize = 28.0,
@@ -44,25 +46,56 @@ class ImagesPicker extends StatefulWidget {
 }
 
 class _ImagesPickerState extends State<ImagesPicker> {
-  // Mapeia a URL/Caminho Sequencial (String) para a string Base64 (String).
+  // O mapa local é mantido apenas para armazenar o Base64 temporário durante o INIT
+  // e é sincronizado com o Provider.
   Map<String, String> _allImagesBase64 = {}; 
   bool _isLoadingFtpImages = true;
 
   @override
   void initState() {
     super.initState();
+    
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _fetchFtpImages();
+
+      final imageCacheService = context.read<ImageCacheService>();
+      imageCacheService.clearAllImages();
+
+      // Usamos a lista inicial (widget.imagePaths) para buscar as imagens FTP.
+      final initialPaths = widget.imagePaths ?? [];
+      
+      // 1. Busca os paths do Pallet
+      final palletService = context.read<PalletService>();
+      if (widget.codePallet != null)
+      {
+        final images = await palletService.getPalletImages(widget.codePallet!);
+        if (mounted) {
+          
+          final List<String> imagePathsFromApi = images
+              .map<String>((img) => img['imagePath'] as String)
+              .toList();
+
+          // 2. Define a lista de paths para buscar (paths da API têm prioridade)
+          final List<String> pathsToFetch = imagePathsFromApi.isEmpty 
+              ? initialPaths 
+              : imagePathsFromApi;
+          
+          // 3. Busca o conteúdo Base64 via FTP/HTTP
+          await _fetchFtpImages(pathsToFetch); 
+        }
+      }
+      else
+      {
+        _isLoadingFtpImages = false;
+      }
     });
+    
   }
 
   /// Busca as imagens via FTP/HTTP e armazena o Base64.
-  Future<void> _fetchFtpImages() async {
-    // Filtra apenas caminhos que parecem ser URLs (que precisam de busca via FTP/API)
-    final List<String> ftpImagePaths = (widget.imagePaths ?? [])
+  Future<void> _fetchFtpImages(List<String> images) async {
+    final List<String> ftpImagePaths = images
       .where((path) => path.startsWith('http') || path.contains('/'))
       .toList();
-
 
     if (ftpImagePaths.isEmpty) {
       if (mounted) {
@@ -74,6 +107,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
     }
 
     final loadingService = context.read<LoadingService>();
+    final imageCacheService = context.read<ImageCacheService>();
     loadingService.show();
 
     try {
@@ -84,46 +118,73 @@ class _ImagesPickerState extends State<ImagesPicker> {
       if (response.success && response.data != null) {
         final Map<String, String> fetchedImages = {};
         for (final FtpImageResponse imgResponse in response.data!) {
-          if (imgResponse.url.isNotEmpty && imgResponse.base64Content.isNotEmpty) {
-            fetchedImages[imgResponse.url] = imgResponse.base64Content;
+          if (imgResponse.url!.isNotEmpty && imgResponse.base64Content!.isNotEmpty) {
+            fetchedImages[imgResponse.url!] = imgResponse.base64Content!;
           }
         }
         if (mounted) {
           setState(() {
-            // Armazena todas as imagens FTP no mapa unificado
             _allImagesBase64.addAll(fetchedImages);
           });
+          
+          // CRÍTICO: Sincroniza o mapa de imagens FTP e o cache no Provider após o fetch
+          imageCacheService.setCacheFromMap(_allImagesBase64);
         }
-      } else {
-        // CallAction.showToast('Erro ao buscar imagens FTP: ${response.message}');
-      }
+      } 
     } catch (e) {
-      // CallAction.showToast('Exceção ao buscar imagens FTP: $e');
+      // Tratar exceção
     } finally {
       if (mounted) {
         setState(() {
           _isLoadingFtpImages = false;
         });
       }
-      loadingService.hide(); // Ocultar loading
+      loadingService.hide();
     }
+  }
+
+  void _openFullScreenImage(String base64Image) {
+    // É uma boa prática verificar se a string Base64 está vazia antes de navegar.
+    if (base64Image.isEmpty) return;
+
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        // Transição sem animação para parecer um "pop-up" instantâneo
+        pageBuilder: (context, animation, secondaryAnimation) => 
+            FullScreenImageDialog(base64Image: base64Image),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        fullscreenDialog: true, // Indica que é um diálogo de tela cheia (opcional)
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // fallback para largura/altura máxima da tela
+    // ⭐️ 1. WATCH: Assiste ao serviço de cache para obter a lista ATUALIZADA
+    final imageCacheService = context.watch<ImageCacheService>();
+    final List<String> currentImagePaths = imageCacheService.imagePaths;
+    
+    // Mapeia o Base64 atual do Provider para uso no _buildImageWidget
+    final Map<String, String> currentImagesBase64 = {
+        for (var img in imageCacheService.cachedImages) img.url!: img.base64Content!,
+    };
+
     final double height = widget.itemHeight ?? MediaQuery.of(context).size.height;
     final double width = widget.itemWidth ?? MediaQuery.of(context).size.width;
     
-    // Verifica se o baseImagePath é válido para habilitar a adição de novas imagens
-    final bool canAddImage  = widget.baseImagePath.isNotEmpty;
-    final Color iconColor   = canAddImage ? Colors.grey : Colors.grey.shade400;
+    final bool canAddImage = widget.baseImagePath.isNotEmpty;
+    final Color iconColor = canAddImage ? Colors.grey : Colors.grey.shade400;
     final Color borderColor = canAddImage ? Colors.grey.shade300 : Colors.red.shade200;
-    final String message    = canAddImage ? 'Adicionar Foto' : 'Base path ausente';
+    final String message = canAddImage ? 'Adicionar Foto' : 'Base path ausente';
 
+    // ⭐️ 2. LISTA: O ListView usa a lista do Provider
+    final int imageCount = currentImagePaths.length;
 
-    // Se estiver carregando as imagens FTP, você pode mostrar um indicador
-    if (_isLoadingFtpImages && (widget.imagePaths?.isNotEmpty ?? false)) {
+    // Se estiver carregando as imagens FTP E o cache no provider ainda estiver vazio
+    if (_isLoadingFtpImages && imageCount == 0) {
       return SizedBox(
         height: height,
         width: width,
@@ -137,9 +198,9 @@ class _ImagesPickerState extends State<ImagesPicker> {
       height: height,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: (widget.imagePaths?.length ?? 0) + 1,
+        itemCount: imageCount + 1,
         itemBuilder: (context, index) {
-          if (index == (widget.imagePaths?.length ?? 0)) {
+          if (index == imageCount) {
             // Placeholder de adicionar
             return Container(
               width: width,
@@ -151,9 +212,8 @@ class _ImagesPickerState extends State<ImagesPicker> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: GestureDetector(
-                // Adiciona a lógica de verificação
                 onTap: canAddImage ? _showAddImageOptions : () {
-                  //CallAction.showToast('Preencha o caminho base da imagem primeiro.');
+                  // Mensagem de base path ausente
                 },
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -167,7 +227,9 @@ class _ImagesPickerState extends State<ImagesPicker> {
             );
           }
 
-          final imagePath = widget.imagePaths![index];
+          // ⭐️ 3. ITEM: O item é pego da lista ATUALIZADA do Provider
+          final imagePath = currentImagePaths[index];
+          final base64Image = currentImagesBase64[imagePath]; 
           return Container(
             width: width,
             height: height,
@@ -175,16 +237,22 @@ class _ImagesPickerState extends State<ImagesPicker> {
             child: Stack(
               children: [
                 // Imagem
-                Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey, width: 1.0),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: _buildImageWidget(imagePath, height),
+                GestureDetector(
+                // ⭐️ Implementação do onDoubleTap
+                onDoubleTap: base64Image != null && base64Image.isNotEmpty
+                    ? () => _openFullScreenImage(base64Image)
+                    : null,
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey, width: 1.0),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: _buildImageWidget(imagePath, height, currentImagesBase64),
+                    ),
                   ),
                 ),
                 // Ícone de remoção
@@ -192,6 +260,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
                   top: 3,
                   left: 3,
                   child: GestureDetector(
+                    // onImageRemoved deve acionar o ImageCacheService.removeImageByPath no widget pai
                     onTap: () => widget.onImageRemoved?.call(imagePath),
                     child: Container(
                       padding: const EdgeInsets.all(3),
@@ -211,11 +280,12 @@ class _ImagesPickerState extends State<ImagesPicker> {
     );
   }
 
-  Widget _buildImageWidget(String imagePath, double height) {
-    // 1. Tenta carregar a imagem em Base64, se disponível (Imagens FTP ou Novas Renomeadas)
-    if (_allImagesBase64.containsKey(imagePath)) {
+  // ⭐️ MODIFICADO: Aceita o mapa de Base64 atualizado do build
+  Widget _buildImageWidget(String imagePath, double height, Map<String, String> allImagesBase64) {
+    // 1. Tenta carregar a imagem em Base64 (Imagens Base64 de novas fotos ou FTP)
+    if (allImagesBase64.containsKey(imagePath)) {
       try {
-        final bytes = base64Decode(_allImagesBase64[imagePath]!);
+        final bytes = base64Decode(allImagesBase64[imagePath]!);
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
@@ -224,7 +294,6 @@ class _ImagesPickerState extends State<ImagesPicker> {
           errorBuilder: (context, error, stackTrace) => const Icon(Icons.description, size: 80, color: Colors.grey),
         );
       } catch (e) {
-        // Falha na decodificação do Base64
         return const Icon(Icons.broken_image, size: 80);
       }
     }
@@ -250,54 +319,76 @@ class _ImagesPickerState extends State<ImagesPicker> {
       );
     } 
     
-    // 3. Tratar como placeholder se for um path desconhecido (nem Base64, nem HTTP)
+    // 3. Tratar como placeholder
     else {
-      // Se a imagem não for Base64, nem HTTP, nem arquivo local existente,
-      // é um path inválido, uma imagem FTP que falhou ao carregar ou um path local temporário antigo.
       return const Icon(Icons.description, size: 80, color: Colors.grey);
     }
   }
 
-  // NOVO MÉTODO: Lê o arquivo local e o converte para Base64
+  // Lógica para adicionar e reordenar novas imagens
   Future<void> _processNewImage(String? path) async {
-    // 1. Verificação de segurança: Não processa se o caminho for nulo ou se o baseImagePath estiver vazio
     if (path == null || widget.baseImagePath.isEmpty) {
-      // Se este método for chamado diretamente (e não via _showAddImageOptions), 
-      // ele não fará nada. A notificação de erro é tratada no UI (build/GestureDetector).
       return;
     }
 
     try {
       final file = File(path);
-      
-      // Lê e converte para Base64
+
       final bytes = await file.readAsBytes();
       final base64String = base64Encode(bytes);
 
       final String extension = path.split('.').last.toLowerCase();
-      // Determina o próximo índice sequencial (baseado no total de itens)
-      final int newIndex = (widget.imagePaths?.length ?? 0) + 1;
+
+      final imageCacheService = context.read<ImageCacheService>();
       
-      // Cria o novo caminho padronizado: '{baseImagePath}_001.jpg'
-      final String newSequentialPath = 
-        '${widget.baseImagePath}_${newIndex.toString().padLeft(3, '0')}.$extension';
+      // 1. Coleta o Base64 das imagens já no Provider (FTP/Existentes)
+      final Map<String, String> existingImages = {
+          for (var img in imageCacheService.cachedImages) img.url!: img.base64Content!,
+      };
 
-      setState(() {
-        // Usa o NOVO CAMINHO SEQUENCIAL como chave para armazenar o Base64
-        _allImagesBase64[newSequentialPath] = base64String;
-      });
+      // 2. Adiciona a nova imagem com uma chave TEMPORÁRIA para reordenação
+      final String tempKey = 'temp_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      existingImages[tempKey] = base64String;
+      
+      // 3. Reorganiza TODAS as imagens em sequência.
+      final Map<String, String> reordered = {};
+      int index = 1;
+      String? lastSequentialPath;
+      
+      for (final entry in existingImages.entries) {
+        final String currentExtension = entry.key.split('.').last.toLowerCase();
+        final String newSequentialPath = 
+            '${widget.baseImagePath}${widget.codePallet}_${index.toString().padLeft(3, '0')}.$currentExtension';
 
-      // Notifica o widget pai com o NOVO CAMINHO SEQUENCIAL
-      widget.onImageAdded?.call(newSequentialPath);
+        reordered[newSequentialPath] = entry.value;
+        
+        lastSequentialPath = newSequentialPath;
+        index++;
+      }
+
+      // ATUALIZAÇÃO CRÍTICA: Atualiza o mapa local e o Provider
+      if (mounted) {
+        setState(() {
+          // Atualiza o mapa local para ser usado no build (Base64)
+          _allImagesBase64
+            ..clear()
+            ..addAll(reordered);
+        });
+      }
+
+      // LÓGICA FINAL: Usa o método setCacheFromMap para substituir o cache inteiro e CHAMA notifyListeners().
+      imageCacheService.setCacheFromMap(reordered);
+
+      // Notifica TODA a lista reorganizada para o widget pai.
+      widget.onImagesChanged?.call(reordered.keys.toList());
 
     } catch (e) {
-      // Tratar erro de leitura/conversão
-      // CallAction.showToast('Erro ao processar a imagem selecionada: $e');
+      // Tratar erro
     }
   }
 
+
   Future<void> _showAddImageOptions() async {
-    // Verifica novamente aqui para garantir que a opção só aparece se puder adicionar.
     if (widget.baseImagePath.isEmpty) return;
 
     final loadingService = context.read<LoadingService>();
@@ -313,7 +404,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
                 action: () async {
                   loadingService.show();
                   final path = await _pickImage(ImageSource.camera);
-                  await _processNewImage(path); // Novo passo de processamento
+                  await _processNewImage(path);
                 },
                 onFinally: () => loadingService.hide(),
               );
@@ -327,7 +418,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
                 action: () async {
                   loadingService.show();
                   final path = await _pickImage(ImageSource.gallery);
-                  await _processNewImage(path); // Novo passo de processamento
+                  await _processNewImage(path);
                 },
                 onFinally: () => loadingService.hide(),
               );

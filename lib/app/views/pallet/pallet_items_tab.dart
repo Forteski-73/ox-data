@@ -5,7 +5,6 @@ import 'package:oxdata/app/core/models/pallet_item_model.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:provider/provider.dart';
 
-// O widget agora aceita o termo de pesquisa como um parâmetro.
 class PalletItemsTab extends StatefulWidget {
   final String searchQuery;
 
@@ -78,123 +77,124 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
   @override
   Widget build(BuildContext context) {
     return Consumer<PalletService>(
-    builder: (context, palletService, child) {
-      final List<PalletItemModel> filteredItems =
-          _getFilteredItems(palletService.palletItems, widget.searchQuery);
+      builder: (context, palletService, child) {
+        final List<PalletItemModel> filteredItems =
+            _getFilteredItems(palletService.palletItems, widget.searchQuery);
 
-      if (filteredItems.isEmpty) {
-        return Center(
-          child: Text(
-            'Nenhum item de palete encontrado.',
-            style: const TextStyle(color: Colors.grey),
+        if (filteredItems.isEmpty) {
+          return Center(
+            child: Text(
+              'Nenhum item de palete encontrado.',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
+        return SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight,
+                ),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  itemCount: filteredItems.length,
+                  itemBuilder: (context, index) {
+                    final item = filteredItems[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4.0),
+                      ),
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Text(
+                                item.productName ?? 'Nome não disponível',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                softWrap: false,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text('Palete',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600)),
+                                ),
+                                Expanded(
+                                  child: Text('Código',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.grey.shade600)),
+                                ),
+                                Expanded(
+                                  child: Text('Quantidade',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600)),
+                                ),
+                                Expanded(
+                                  child: Text('Status',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                    child: Text(item.palletId.toString(),
+                                        style: const TextStyle(
+                                            fontSize: 13, fontWeight: FontWeight.bold))),
+                                Expanded(
+                                    child: Text(item.productId,
+                                        style: const TextStyle(fontSize: 13))),
+                                Expanded(
+                                    child: Text(item.quantity.toString(),
+                                        style: const TextStyle(fontSize: 13))),
+                                Expanded(
+                                  child: Text(
+                                    item.status,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: item.status == 'M' ? Colors.red.shade700 : Colors.teal.shade700
+                                    )
+                                  )
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          // ação ao tocar
+                        },
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         );
-      }
-
-      return SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight,
-              ),
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                itemCount: filteredItems.length,
-                itemBuilder: (context, index) {
-                  final item = filteredItems[index];
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4.0),
-                    ),
-                    child: ListTile(
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                      title: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Text(
-                              item.productName ?? 'Nome não disponível',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                              softWrap: false,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text('Palete',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600)),
-                              ),
-                              Expanded(
-                                child: Text('Código',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.grey.shade600)),
-                              ),
-                              Expanded(
-                                child: Text('Quantidade',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600)),
-                              ),
-                              Expanded(
-                                child: Text('Status',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Expanded(
-                                  child: Text(item.palletId.toString(),
-                                      style: const TextStyle(
-                                          fontSize: 13, fontWeight: FontWeight.bold))),
-                              Expanded(
-                                  child: Text(item.productId,
-                                      style: const TextStyle(fontSize: 13))),
-                              Expanded(
-                                  child: Text(item.quantity.toString(),
-                                      style: const TextStyle(fontSize: 13))),
-                              Expanded(
-                                  child: Text(item.status,
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: item.status == 'M'
-                                              ? Colors.red.shade700
-                                              : Colors.teal.shade700))),
-                            ],
-                          ),
-                        ],
-                      ),
-                      onTap: () {
-                        // ação ao tocar
-                      },
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      );
-    },
-  );
+      },
+    );
   }
 }

@@ -13,6 +13,7 @@ import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/product_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart'; 
+import 'package:oxdata/app/core/services/image_cache_service.dart';
 
 class Injector {
   // A ordem dos providers é importante!
@@ -43,10 +44,19 @@ class Injector {
       create: (context) => FtpRepository(apiClient: context.read<ApiClient>()),
     ),
     
+    // 8. Registra o ImageCacheService.
+    // TEM QUE VIR ANTES do FtpService (que o consome)
+    ChangeNotifierProvider<ImageCacheService>(
+      create: (_) => ImageCacheService(),
+    ),
+
     // 6. Registra o FtpService, que depende do FtpRepository.
     Provider<FtpService>(
-      create: (context) => FtpService(ftpRepository: context.read<FtpRepository>()),
-    ),
+          create: (context) => FtpService(
+            ftpRepository: context.read<FtpRepository>(),
+            imageCacheService: context.read<ImageCacheService>(),
+          ),
+        ),
 
     // 7. Registra o AuthService, que depende do AuthRepository.
     ChangeNotifierProvider<AuthService>(
@@ -67,6 +77,7 @@ class Injector {
     ChangeNotifierProvider<PalletService>(
       create: (context) => PalletService(palletRepository: context.read<PalletRepository>()),
     ),
+
   ];
 
   static void configureDependencies() {

@@ -4,6 +4,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/core/models/pallet_item_model.dart';
+import 'package:oxdata/app/core/models/ftp_image_response.dart';
 import 'package:oxdata/app/core/repositories/pallet_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 
@@ -36,8 +37,11 @@ class PalletService with ChangeNotifier {
   }
 
   /// Cria ou atualiza uma lista de paletes (Upsert) e atualiza a lista local.
-  Future<void> upsertPallets(List<PalletModel> pallets) async {
-    final ApiResponse<String> response = await palletRepository.upsertPallets(pallets);
+  Future<void> upsertPallets(List<PalletModel> pallets, List<String>? imagePaths) async {
+
+
+    
+    final ApiResponse<String> response = await palletRepository.upsertPallets(pallets, imagePaths);
 
     if (response.success) {
       // Recarrega todos os paletes após salvar
@@ -100,18 +104,7 @@ class PalletService with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cria ou atualiza itens de palete (Upsert)
-  /*Future<void> upsertPalletItems(List<PalletItemModel> items) async {
-    final ApiResponse<String> response = await palletRepository.upsertPalletItems(items);
-
-    if (!response.success) {
-      throw Exception('Erro ao salvar itens de palete: ${response.message}');
-    }
-    // Se quiser, pode recarregar o palete específico para atualizar a UI
-    notifyListeners();
-  }*/
-
-    /// **NOVO MÉTODO:** Busca TODOS os itens de TODOS os paletes.
+    /// Busca TODOS os itens de TODOS os paletes.
   Future<void> fetchAllPalletItems() async {
     // Note: Você precisará implementar o método getAllPalletItems() no seu PalletRepository.
     // Assumindo que o PalletRepository tem um método para buscar todos os itens.
@@ -125,6 +118,26 @@ class PalletService with ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// ========================== IMAGENS ==========================
+  Future<List<dynamic>> getPalletImages(int palletId) async {
+    /*
+    final ApiResponse<List<FtpImageResponse>> response =
+      await palletRepository.getPalletImages(palletId);
+    */
+
+    final ApiResponse<List<dynamic>> response =
+      await palletRepository.getPalletImagesPath(palletId);
+
+    if (response.success && response.data != null) {
+      return response.data!; // retorna todas
+    } else {
+      debugPrint('Erro ao buscar imagens do palete: ${response.message}');
+      return []; // lista vazia em caso de erro
+    }
+  }
+
+  /// =============================================================
 
   /// ==================== UTILITÁRIOS ====================
 

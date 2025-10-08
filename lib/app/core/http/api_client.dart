@@ -181,6 +181,29 @@ class ApiClient {
     }
   }
 
+  /// deleta N registros
+  Future<http.Response> deleteNAuth(
+    String endpoint, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+  }) async {
+    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+    try {
+      final response = await _authenticatedClient.delete(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          ...?headers,
+        },
+        body: body != null ? json.encode(body) : null, // ⬅️ envia o JSON no corpo
+      );
+
+      return response;
+    } on Exception catch (e) {
+      throw Exception('Erro de rede: $e');
+    }
+  }
 
   /// Método para atualizar o token JWT dinâmico no interceptor após o login.
   void updateToken(String token) {
