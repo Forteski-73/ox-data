@@ -553,26 +553,6 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
   /// Exibe o diálogo de confirmação de montagem.
   Future<void> _showBuildConfirmationDialog() async {
 
-    /*final loadingService = context.read<LoadingService>();
-
-    final imageCacheService = context.read<ImageCacheService>();
-    final FtpService ftpService = context.read<FtpService>();
-
-    if (imageCacheService.cachedImages.isNotEmpty) {
-      loadingService.show();
-
-      await _palletService.upsertPalletImages(widget.pallet!.palletId,imageCacheService.imagePaths);
-
-      final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
-      loadingService.hide();
-      if (response.success && response.data != null) {
-      }
-      else
-      {
-        MessageService.showError('Erro ao atualizar o palete: ${response.message}}');
-      }
-    }*/
-
     final bool confirm = await showDialog(
       context: context,
       builder: (context) {
