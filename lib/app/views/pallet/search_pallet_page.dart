@@ -8,6 +8,10 @@ import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:provider/provider.dart';
 import 'pallet_builder_page.dart';
 import 'pallet_items_tab.dart';
+import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 
 class SearchPalletPage extends StatefulWidget {
   const SearchPalletPage({super.key});
@@ -19,25 +23,31 @@ class SearchPalletPage extends StatefulWidget {
 class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  String? _selectedFilter;
   String _searchQuery = '';
+  late PalletService _palletService; 
 
   @override
   void initState() {
+    _palletService = context.read<PalletService>();
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     
     _tabController.addListener(() {
+
       // Só executa quando a aba realmente mudou
       if (!_tabController.indexIsChanging) {
         // Limpa a pesquisa ao trocar de aba
         _searchController.clear();
         _searchQuery = '';
 
-        setState(() {});
+        //setState(() {});
 
-        if (_tabController.index == 0) {
-          _loadPallets();
-        }
+        //if (_tabController.index == 0) {
+          //_loadPallets();
+         _palletService.clearPallets();
+        //}
+        
       }
     });
 
@@ -64,7 +74,6 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
 
   Future<void> _loadPallets() async {
     final loadingService = context.read<LoadingService>();
-    final palletService = context.read<PalletService>();
 
     final imageCacheService = context.read<ImageCacheService>(); 
 
@@ -77,8 +86,8 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
     await CallAction.run(
       action: () async {
         loadingService.show();
-
-        await palletService.fetchAllPallets();
+        await _handleFilterTap("INICIADO");
+        await _palletService.filtersPallets("INICIADO", "");
       },
       onFinally: () async {
         final elapsed = DateTime.now().difference(start);
@@ -106,20 +115,6 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
         return status;
     }
   }
-
-  // Função para definir a cor de fundo do Card baseada no status
-  /*Color _getStatusColor(String status) {
-    switch (status) {
-      case 'I':
-        return Colors.orange.shade50; // Laranja claro para Iniciado
-      case 'M':
-        return Colors.indigo.shade50; // Índigo claro para Montado
-      case 'R':
-        return Colors.green.shade50; // Verde claro para Recebido
-      default:
-        return Colors.grey.shade100;
-    }
-  }*/
 
   List<PalletModel> _getFilteredPallets(List<PalletModel> allPallets) {
     if (_searchQuery.isEmpty) {
@@ -165,33 +160,166 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
   }
 
   // --- WIDGET PARA A BARRA DE PESQUISA  ---
+  _handleFilterTap(String filter) async {
+      setState(() {
+        _selectedFilter = (_selectedFilter == filter) ? null : filter;
+      });
+
+      _palletService.clearPallets();
+      
+      //await _palletService.filtersPallets(_selectedFilter, "");
+  }
+
   Widget _buildSearchBar() {
+    final loadingService = context.read<LoadingService>();
     final String hintText = 'Pesquisar...';
+    
+    const List<String> filters = ['INICIADO', 'MONTADO', 'RECEBIDO'];
+
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0, left: 8, right: 9, bottom: 4.0),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: const Icon(Icons.search, color: Colors.black54),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.black54),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-            borderSide: BorderSide.none,
+      padding: const EdgeInsets.only(top: 0, left: 6, right: 6, bottom: 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch, // Garante que ocupem a largura máxima
+        children: <Widget>[
+          
+          // --- 1. Botões de Filtro Rápido (INICIADO, MONTADO, RECEBIDO) ---
+          Padding(
+            padding: const EdgeInsets.only(bottom: 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: filters.map((filter) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
+                    child: ElevatedButton(
+                      onPressed: () => _handleFilterTap(filter),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _selectedFilter == filter ? Colors.indigo : Colors.grey[300],
+                        foregroundColor: _selectedFilter == filter ? Colors.white : Colors.black87,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(0),
+                        ),
+                      ),
+                      child: Text(
+                        filter,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-          filled: true,
-          fillColor: Colors.grey[200],
-          contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
-        ),
+
+          // --- 2. Campo de Pesquisa (TextField) ---
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: hintText,
+              
+              // Ícone de prefixo (não definido no seu código, mantive comentado)
+              // prefixIcon: const Icon(Icons.search, color: Colors.black54),
+              
+              // SuffixIcon com Ícone de Limpar, QR Code e Pesquisa (agora com PulseIconButton)
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  // Botão de Limpar (Mantido como IconButton)
+                  if (_searchQuery.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.black54),
+                      onPressed: () {
+                        _searchController.clear();
+                        // Chame setState()
+                      },
+                    ),
+                  
+                  // Botão do QR Code Scanner (AGORA COMO PulseIconButton)
+                  PulseIconButton(
+                    icon: Icons.qr_code_scanner_outlined,
+                    color: Colors.indigo,
+                    // size: 34, // Removido, o PulseIconButton pode ter seu próprio tamanho padrão
+                    onPressed: () async {
+                      await CallAction.run(
+                        action: () async {
+                          // CHAMADA DA FUNÇÃO DE SCANNER INTEGRADA AQUI
+                          String scanned = await _scanBarcode();
+                          if (scanned.isNotEmpty) {
+                            _searchController.text = scanned;
+                          }
+                        },
+                        // onFinally opcional aqui, a menos que você precise de lógica após o scan
+                      );
+                    },
+                  ),
+                  
+                  // Botão Pesquisar (AGORA COMO PulseIconButton)
+                  PulseIconButton(
+                    icon: Icons.search, // Ícone de pesquisa
+                    color: Colors.indigo,
+                    // size: 34, // Removido, o PulseIconButton pode ter seu próprio tamanho padrão
+                    onPressed: () async {
+                      await CallAction.run(
+                        action: () async {
+                          // Lógica de pesquisa: mostrar loading, tirar o foco e buscar
+                          loadingService.show();
+                          FocusScope.of(context).unfocus();
+                          
+                          if (_tabController.index == 0) {
+                            await _palletService.filtersPallets(_selectedFilter, _searchController.text);
+                            await _palletService.filterPalletItems(_selectedFilter, "");
+                          }
+                          else {
+                            //await _palletService.filtersPallets(_selectedFilter, "");
+                            await _palletService.filterPalletItems(_selectedFilter, _searchController.text);
+                          }
+                          // Você precisa passar os filtros ativos (incluindo o texto do campo)
+                          //await productService.performSearch(_activeFilters); 
+                          // Note: Assumindo que performSearch usa _searchController.text e _activeFilters
+                        },
+                        onFinally: () {
+                          loadingService.hide();
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+              
+              // Estilo do campo de texto
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8.0),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.grey[200],
+              contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Future<String> _scanBarcode() async {
+    var status = await Permission.camera.request();
+
+    if (status.isDenied) {
+      return "";
+    }
+
+    final barcodeRead = await Navigator.of(context).push<Barcode?>(
+      MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
+    );
+
+    if (barcodeRead == null) {
+      return "";
+    }
+
+    return barcodeRead.rawValue ?? "";
   }
 
   Widget _buildPalletTabContent(List<PalletModel> pallets) {
@@ -218,9 +346,9 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(flex: 4, child: Text('N° Palete',  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
-                Expanded(flex: 3, child: Text('Local',      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
-                Expanded(flex: 3, child: Text('Status',     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(flex: 4, child: Text('N° PALETE',  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(flex: 3, child: Text('LOCAL',      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+                Expanded(flex: 3, child: Text('SITUAÇÃO',     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
               ],
             ),
           );
@@ -337,12 +465,18 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
       ),
       floatingActionButton: _tabController.index == 0
         ? FloatingActionButton.extended(
-            onPressed: () {
-              Navigator.of(context).push(
+            onPressed: () async {
+              final result = await Navigator.of(context).push(
                 MaterialPageRoute(
-                    builder: (context) => const PalletBuilderPage(pallet: null),
+                  builder: (context) => const PalletBuilderPage(pallet: null),
                 ),
-              ).then((value) => _loadPallets());
+              );
+
+              if (result == true) {
+                setState(() {
+                  _loadPallets();
+                });
+              }
             },
             label: const Text('NOVO'),
             icon: const Icon(Icons.add_outlined),
@@ -366,7 +500,7 @@ class _SearchPalletPageState extends State<SearchPalletPage> with SingleTickerPr
                     return _buildPalletTabContent(filteredPallets);
                   },
                 ),
-                PalletItemsTab(searchQuery: _searchQuery),
+                PalletItemsTab(searchQuery: _searchQuery, selectedFilter: _selectedFilter ?? ""),
               ],
             ),
           ),

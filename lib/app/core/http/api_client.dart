@@ -102,61 +102,53 @@ class ApiClient {
   /// Método para requisições POST com autenticação.
   /// body aceita Map, List
   Future<http.Response> postAuth1(
-  String endpoint, {
-  dynamic body, // <-- aceita Map, List ou null
-  Map<String, String>? headers,
-}) async {
-  final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
-
-  try {
-    final response = await _authenticatedClient.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        ...?headers,
-      },
-      body: body != null ? json.encode(body) : null,
-    );
-
-    return response;
-  } on Exception catch (e) {
-    throw Exception('Erro de rede: $e');
-  }
-}
-
-
-  /// Método para requisições POST com autenticação e multipart/form-data
-  /*
-  Future<http.Response> postAuthMultipart(
     String endpoint, {
+    dynamic body, // <-- aceita Map, List ou null
     Map<String, String>? headers,
-    List<http.MultipartFile>? files,
-    Map<String, String>? fields,
   }) async {
-    final uri = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
 
     try {
-      final request = http.MultipartRequest('POST', uri);
-
-      // Adiciona headers extras, se houver
-      if (headers != null) request.headers.addAll(headers);
-
-      // Adiciona campos extras
-      if (fields != null) request.fields.addAll(fields);
-
-      // Adiciona arquivos
-      if (files != null) request.files.addAll(files);
-
-      // Envia usando o _authenticatedClient para passar pelo interceptor
-      final streamedResponse = await _authenticatedClient.send(request);
-      final response = await http.Response.fromStream(streamedResponse);
+      final response = await _authenticatedClient.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          ...?headers,
+        },
+        body: body != null ? json.encode(body) : null,
+      );
 
       return response;
     } on Exception catch (e) {
-      throw Exception('Erro de rede (multipart com interceptor): $e');
+      throw Exception('Erro de rede: $e');
     }
   }
-  */
+
+  /// Método para requisições PUT (Atualização) com autenticação.
+  /// body aceita Map, List ou null, e é enviado como JSON.
+  Future<http.Response> putAuth(
+    String endpoint, {
+    dynamic body, // aceita Map, List ou null
+    Map<String, String>? headers,
+  }) async {
+    final url = Uri.parse('${ApiRoutes.baseUrl}$endpoint');
+
+    try {
+      // Usa o cliente com o interceptor para adicionar o token e o Content-Type.
+      final response = await _authenticatedClient.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          ...?headers, // Mescla cabeçalhos personalizados
+        },
+        body: body != null ? json.encode(body) : null,
+      );
+
+      return response;
+    } on Exception catch (e) {
+      throw Exception('Erro de rede: $e');
+    }
+  }
 
   /// Método para requisições DELETE com autenticação.
   Future<http.Response> deleteAuth(

@@ -36,11 +36,25 @@ class PalletService with ChangeNotifier {
     notifyListeners();
   }
 
+
+    /// Busca paletes a partir dos filtros escolhidos na tela d epesquisa.
+  Future<void> filtersPallets(String? status, String txtFilter) async {
+      
+    final ApiResponse<List<PalletModel>> response = await palletRepository.getFiltersPallets(status, txtFilter);
+
+    if (response.success && response.data != null) {
+      _pallets = response.data!;
+    } else {
+      _pallets = [];
+      debugPrint('Erro ao buscar paletes: ${response.message}');
+    }
+
+    notifyListeners();
+  }
+
   /// Cria ou atualiza uma lista de paletes (Upsert) e atualiza a lista local.
   Future<void> upsertPallets(List<PalletModel> pallets, List<String>? imagePaths) async {
 
-
-    
     final ApiResponse<String> response = await palletRepository.upsertPallets(pallets, imagePaths);
 
     if (response.success) {
@@ -48,6 +62,34 @@ class PalletService with ChangeNotifier {
       await fetchAllPallets();
     } else {
       throw Exception('Erro ao salvar paletes: ${response.message}');
+    }
+    notifyListeners();
+  }
+
+  /// Cria ou atualiza uma lista de paletes (Upsert) e atualiza a lista local.
+  Future<void> upsertPalletImages(int pallet, List<String> imagePaths) async {
+
+    final ApiResponse<String> response = await palletRepository.upsertPalletImages(pallet, imagePaths);
+
+    if (response.success) {
+      // Recarrega todos os paletes após salvar
+      //await fetchAllPallets();
+    } else {
+      throw Exception('Erro ao salvar imagens: ${response.message}');
+    }
+    notifyListeners();
+  }
+
+    /// Altera o status do pallet.
+  Future<void> updatePalletStatus(int pallet, String status) async {
+
+    final ApiResponse<String> response = await palletRepository.updatePalletStatus(pallet, status);
+
+    if (response.success) {
+      // Recarrega todos os paletes após salvar
+      await fetchAllPallets();
+    } else {
+      throw Exception('Erro: ${response.message}');
     }
   }
 
@@ -60,8 +102,41 @@ class PalletService with ChangeNotifier {
     if (!response.success) {
       throw Exception('Erro ao salvar itens de palete: ${response.message}');
     }
-    // Se quiser, pode recarregar o palete específico para atualizar a UI
+
     notifyListeners();
+  }
+
+  /// Adiciona um novo PalletItemModel à lista local temporária
+  /// e notifica os listeners.
+  void addItemLocally(PalletItemModel item) {
+    _palletItems.add(item);
+    notifyListeners();
+  }
+
+  /// Remove um PalletItemModel específico da lista local temporária
+  /// e notifica os listeners.
+  void removeItemLocally(PalletItemModel item) {
+    final removed = _palletItems.remove(item);
+    // Se a remoção for bem-sucedida, notifica os listeners.
+    if (removed) {
+      notifyListeners();
+    }
+  }
+
+  /// Atualiza a quantidade de um item existente na lista local e notifica.
+  void updateItemQuantityLocally(PalletItemModel item, int newQuantity) {
+    final index = _palletItems.indexWhere((i) => 
+        i.palletId == item.palletId && i.productId == item.productId
+    );
+    
+    if (index != -1) {
+      // Cria uma nova instância com a quantidade atualizada
+      _palletItems[index] = item.copyWith(
+        quantity: newQuantity, 
+        quantityReceived: newQuantity, // Assumindo que a quantidade recebida também é atualizada, se necessário
+      );
+      notifyListeners();
+    }
   }
 
   /// ==================== DELETE ====================
@@ -106,8 +181,6 @@ class PalletService with ChangeNotifier {
 
     /// Busca TODOS os itens de TODOS os paletes.
   Future<void> fetchAllPalletItems() async {
-    // Note: Você precisará implementar o método getAllPalletItems() no seu PalletRepository.
-    // Assumindo que o PalletRepository tem um método para buscar todos os itens.
     final ApiResponse<List<PalletItemModel>> response = await palletRepository.getAllPalletItems();
 
     if (response.success && response.data != null) {
@@ -119,12 +192,44 @@ class PalletService with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Busca os itens filtrados
+  Future<void> filterPalletItems(String? status, String txtFilter) async {
+      
+    final ApiResponse<List<PalletItemModel>> response = await palletRepository.getFilterPalletItems(status, txtFilter);
+
+    if (response.success && response.data != null) {
+      _palletItems = response.data!;
+    } else {
+      _palletItems = [];
+      debugPrint('Erro ao buscar os itens de palete: ${response.message}');
+    }
+    notifyListeners();
+  }
+
+  /// Atualiza a quantidade de um item específico de um pallet.
+  Future<void> updateItemQuantity(int index, int newQuantity) async {
+    try {
+
+      if (index >= 0 && index < _palletItems.length) {
+
+        final updatedItem = _palletItems[index].copyWith(
+          quantity: newQuantity,
+          quantityReceived: newQuantity,
+        );
+
+        _palletItems[index] = updatedItem;
+        notifyListeners();
+
+      }
+
+    } catch (e) {
+      debugPrint('Erro em updateItemQuantity: $e');
+      rethrow;
+    }
+  }
+
   /// ========================== IMAGENS ==========================
   Future<List<dynamic>> getPalletImages(int palletId) async {
-    /*
-    final ApiResponse<List<FtpImageResponse>> response =
-      await palletRepository.getPalletImages(palletId);
-    */
 
     final ApiResponse<List<dynamic>> response =
       await palletRepository.getPalletImagesPath(palletId);
@@ -137,13 +242,15 @@ class PalletService with ChangeNotifier {
     }
   }
 
-  /// =============================================================
-
   /// ==================== UTILITÁRIOS ====================
 
-  /// Limpa a lista de paletes localmente.
-  void clearResults() {
+  void clearPallets() {
     _pallets = [];
+    notifyListeners();
+  }
+
+  void clearPalletsItems() {
+    _palletItems = [];
     notifyListeners();
   }
 

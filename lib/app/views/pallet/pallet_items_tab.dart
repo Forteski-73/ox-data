@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 
 class PalletItemsTab extends StatefulWidget {
   final String searchQuery;
+  final String selectedFilter;
 
   const PalletItemsTab({
     super.key,
     required this.searchQuery,
+    required this.selectedFilter,
   });
 
   @override
@@ -21,14 +23,16 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
   @override
   void initState() {
     super.initState();
+
+
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadAllItems();
+        _loadFilterItems();
       });
     }
   }
 
-  Future<void> _loadAllItems() async {
+  Future<void> _loadFilterItems() async {
     final loadingService = context.read<LoadingService>();
     final palletService = context.read<PalletService>();
 
@@ -38,7 +42,10 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
     await CallAction.run(
       action: () async {
         loadingService.show();
-        await palletService.fetchAllPalletItems();
+        //await palletService.fetchAllPalletItems();
+        //await palletService.filterPalletItems(widget.selectedFilter, "");
+         palletService.clearPalletsItems();
+         palletService.clearPallets();
       },
       onFinally: () async {
         final elapsed = DateTime.now().difference(start);
@@ -169,7 +176,8 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
                                 Expanded(
                                     child: Text(item.quantity.toString(),
                                         style: const TextStyle(fontSize: 13))),
-                                Expanded(
+                                
+                                /*Expanded(
                                   child: Text(
                                     item.status,
                                     style: TextStyle(
@@ -178,7 +186,44 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
                                       color: item.status == 'M' ? Colors.red.shade700 : Colors.teal.shade700
                                     )
                                   )
+                                ),*/
+
+                                Expanded(
+                                  //flex: 3,
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Container(
+                                      // Define uma largura MÍNIMA e MÁXIMA fixa (e igual) para uniformizar o chip.
+                                      constraints: const BoxConstraints(
+                                        minWidth: 90,
+                                        maxWidth: 90, 
+                                        minHeight: 0, 
+                                        maxHeight: 25,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: getStatusColor(item.status.toUpperCase()),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: getTextColor(item.status.toUpperCase()).withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Center( 
+                                        child: Text(
+                                          _mapStatus(item.status),
+                                          style: TextStyle(
+                                            color: getTextColor(item.status.toUpperCase()),
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            height: 1, 
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
+
                               ],
                             ),
                           ],
@@ -197,4 +242,47 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
       },
     );
   }
+
+    // Função de ajuda com cores
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'I':
+        return Colors.blue[100]!; // Fundo azul claro e suave
+      case 'M':
+        return Colors.amber[100]!; // Fundo amarelo claro e suave
+      case 'R':
+        return Colors.green[100]!; // Fundo verde claro e suave
+      default:
+        return Colors.grey[200]!;
+    }
+  }
+
+  // Função para a cor do texto
+  Color getTextColor(String status) {
+    switch (status) {
+      case 'I':
+        return Colors.blue[800]!;
+      case 'M':
+        return Colors.amber[800]!;
+      case 'R':
+        return Colors.green[800]!;
+      default:
+        return Colors.grey[700]!;
+    }
+  }
+
+    // Função para mapear o status de código para o texto completo e definir a cor.
+  String _mapStatus(String status) {
+    switch (status) {
+      case 'I':
+        return 'Iniciado';
+      case 'M':
+        return 'Montado';
+      case 'R':
+        return 'Recebido';
+      default:
+        return status;
+    }
+  }
+
 }

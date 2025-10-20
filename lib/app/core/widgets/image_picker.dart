@@ -49,7 +49,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
   // O mapa local é mantido apenas para armazenar o Base64 temporário durante o INIT
   // e é sincronizado com o Provider.
   Map<String, String> _allImagesBase64 = {}; 
-  bool _isLoadingFtpImages = true;
+  //bool _isLoadingFtpImages = true;
 
   @override
   void initState() {
@@ -85,7 +85,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
       }
       else
       {
-        _isLoadingFtpImages = false;
+        //_isLoadingFtpImages = false;
       }
     });
     
@@ -98,11 +98,11 @@ class _ImagesPickerState extends State<ImagesPicker> {
       .toList();
 
     if (ftpImagePaths.isEmpty) {
-      if (mounted) {
+      /*if (mounted) {
         setState(() {
           _isLoadingFtpImages = false;
         });
-      }
+      }*/
       return;
     }
 
@@ -134,11 +134,11 @@ class _ImagesPickerState extends State<ImagesPicker> {
     } catch (e) {
       // Tratar exceção
     } finally {
-      if (mounted) {
+      /*if (mounted) {
         setState(() {
           _isLoadingFtpImages = false;
         });
-      }
+      }*/
       loadingService.hide();
     }
   }
@@ -163,7 +163,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
 
   @override
   Widget build(BuildContext context) {
-    // ⭐️ 1. WATCH: Assiste ao serviço de cache para obter a lista ATUALIZADA
+    // 1. WATCH: Assiste ao serviço de cache para obter a lista ATUALIZADA
     final imageCacheService = context.watch<ImageCacheService>();
     final List<String> currentImagePaths = imageCacheService.imagePaths;
     
@@ -173,26 +173,15 @@ class _ImagesPickerState extends State<ImagesPicker> {
     };
 
     final double height = widget.itemHeight ?? MediaQuery.of(context).size.height;
-    final double width = widget.itemWidth ?? MediaQuery.of(context).size.width;
+    final double width  = widget.itemWidth ?? MediaQuery.of(context).size.width;
     
-    final bool canAddImage = widget.baseImagePath.isNotEmpty;
-    final Color iconColor = canAddImage ? Colors.grey : Colors.grey.shade400;
+    final bool canAddImage  = widget.baseImagePath.isNotEmpty;
+    final Color iconColor   = canAddImage ? Colors.grey : Colors.grey.shade400;
     final Color borderColor = canAddImage ? Colors.grey.shade300 : Colors.red.shade200;
-    final String message = canAddImage ? 'Adicionar Foto' : 'Base path ausente';
+    final String message    = canAddImage ? 'Adicionar Foto' : 'Base path ausente';
 
-    // ⭐️ 2. LISTA: O ListView usa a lista do Provider
+    // ListView usa a lista do Provider
     final int imageCount = currentImagePaths.length;
-
-    // Se estiver carregando as imagens FTP E o cache no provider ainda estiver vazio
-    if (_isLoadingFtpImages && imageCount == 0) {
-      return SizedBox(
-        height: height,
-        width: width,
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
 
     return SizedBox(
       height: height,
@@ -246,7 +235,9 @@ class _ImagesPickerState extends State<ImagesPicker> {
                     width: double.infinity,
                     height: double.infinity,
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey, width: 1.0),
+                      border: base64Image == null || base64Image.isEmpty
+                          ? Border.all(color: Colors.grey, width: 1.0)
+                          : null,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: ClipRRect(

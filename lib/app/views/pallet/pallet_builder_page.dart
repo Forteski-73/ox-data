@@ -16,8 +16,9 @@ import 'package:oxdata/app/views/product/search_products_page.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:oxdata/app/core/routes/route_generator.dart';
-import 'package:oxdata/app/core/models/ftp_image_response.dart';
+import 'package:oxdata/app/views/pallet/pallet_receive_page.dart';
+import 'package:oxdata/app/core/widgets/text_product_search.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 
 class PalletBuilderPage extends StatefulWidget {
   final PalletModel? pallet;
@@ -30,6 +31,7 @@ class PalletBuilderPage extends StatefulWidget {
 
 class _PalletBuilderPageState extends State<PalletBuilderPage> {
   final TextEditingController _palletIdController = TextEditingController();
+  final TextEditingController _itemSearchController = TextEditingController();
   String? _statusController = "N";
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
@@ -38,13 +40,20 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   // Lista de itens local para gerenciar a UI
-  List<PalletItemModel> _items = [];
+  //List<PalletItemModel> _items = [];
   String productName = "";
-  bool _isLoading = false;
+  //bool _isLoading = false;
+  int? _activePalletId;
+  late PalletService _palletService; 
 
   @override
   void initState() {
     super.initState();
+    
+    // Pega o serviço apenas uma vez
+    _palletService = context.read<PalletService>();
+
+    // Inicializa os dados depois que o frame estiver pronto
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeData();
     });
@@ -56,14 +65,17 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
 
     setState(() {
       if (widget.pallet != null) {
-        _palletIdController.text = widget.pallet!.palletId.toString();
-        _statusController = widget.pallet!.status;
-        _locationController.text = widget.pallet!.location;
-        _userController.text = widget.pallet!.createdUser.toUpperCase(); 
-        
+        _palletIdController.text  = widget.pallet!.palletId.toString();
+        _statusController         = widget.pallet!.status;
+        _locationController.text  = widget.pallet!.location;
+        _userController.text      = widget.pallet!.createdUser.toUpperCase(); 
+        _activePalletId           = widget.pallet!.palletId;
+
         _loadPalletItems(); 
 
       } else {
+        _palletService.clearPallets();
+        _palletService.clearPalletsItems();
         _statusController = 'N';
         if (userId != null) {
           _userController.text = userId.toString().toUpperCase();
@@ -82,16 +94,16 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
   /// Carrega os itens do palete a partir do serviço.
   Future<void> _loadPalletItems() async {
     final loadingService = context.read<LoadingService>();
-    final palletService = context.read<PalletService>();
-
+    //final palletService = context.read<PalletService>();
+    
     try {
       await CallAction.run(
         action: () async {
           loadingService.show();
-          await palletService.fetchPalletItems(widget.pallet!.palletId);
-          setState(() {
+          await _palletService.fetchPalletItems(widget.pallet!.palletId);
+          /*setState(() {
             _items = palletService.palletItems;
-          });
+          });*/
           
           //await _getPalletImages(widget.pallet!.palletId);
 
@@ -101,36 +113,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
         },
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text('Erro ao carregar itens do palete: $e')),
-      );
-    }
-  }
-
-  /// Carrega os imagens do palete a partir do serviço.
-  Future<void> _getPalletImages(int palletId) async {
-    final palletService = context.read<PalletService>();
-    final imageCacheService = context.read<ImageCacheService>();
-
-    try {
-      
-      //await palletService.getPalletImages(widget.pallet!.palletId);
-      final images = await palletService.getPalletImages(widget.pallet!.palletId);  
-
-      final List<FtpImageResponse> imageResponses = images.map((imageMap) {
-          return FtpImageResponse(
-              url: imageMap['imagePath'] as String, // O caminho da imagem
-              base64Content: '', // O Base64 real será buscado pelo ImagesPicker
-              status: 'Success',
-              message: 'Loaded path'
-          );
-      }).toList();
-
-      imageCacheService.setCacheImages(imageResponses);
-     
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar imagens do palete: $e')),
-      );
+      MessageService.showError('Erro ao carregar itens do palete: $e');
     }
   }
 
@@ -142,6 +125,31 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
     _productIdController.dispose();
     _quantityItemController.dispose();
     super.dispose();
+  }
+
+  void _setPalletIdFromInput(String? value) {
+    if (!mounted) return;
+
+    // Remove tudo que não for número
+    final numericString = value?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+
+    // Limita a 10 caracteres
+    final limitedNumericString = numericString.length > 8
+        ? numericString.substring(0, 8)
+        : numericString;
+
+    final id = int.tryParse(limitedNumericString);
+
+    _palletIdController.text = limitedNumericString.toString();
+    if (id != null && id > 0 && id != _activePalletId) {
+      setState(() {
+        _activePalletId = id;
+      });
+    } else if ((id == null || numericString!.isEmpty) && _activePalletId != null) {
+      setState(() {
+        _activePalletId = null;
+      });
+    }
   }
 
   /// Adiciona um novo item à lista local do palete.
@@ -163,46 +171,41 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
         userId      : username,
         status      : 'PENDING',
       );
-
-      setState(() {
+      
+      _palletService.addItemLocally(newItem);
+      /*setState(() {
         _items.add(newItem);
-      });
+      });*/
 
       // Limpa os campos após adicionar
       _productIdController.clear();
       _quantityItemController.clear();
       FocusScope.of(context).requestFocus(FocusNode());
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, preencha todos os campos do item e verifique o login.')),
-      );
+      MessageService.showWarning('Por favor, preencha todos os campos do item.');
     }
   }
 
   /// Salva o palete e seus itens.
   Future<void> _savePallet() async {
-    final palletService = Provider.of<PalletService>(context, listen: false);
+    //final palletService = Provider.of<PalletService>(context, listen: false);
     final userId = await _storage.read(key: 'username');
 
     if (_palletIdController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, informe o número do palete.')),
-      );
+      MessageService.showWarning('Informe o número do palete.');
       return;
     }
 
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário não logado. Impossível salvar.')),
-      );
+      MessageService.showError('Usuário não logado. Impossível salvar.');
       return;
     }
 
     try {
-      setState(() {
+      /*setState(() {
         _isLoading = true;
-      });
-
+      });*/
+      final List<PalletItemModel> _items = _palletService.palletItems; 
       final totalQuantity = _items.fold<int>(0, (sum, item) => sum + item.quantity);
       final palletId = int.parse(_palletIdController.text);
 
@@ -217,70 +220,74 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
       );
 
       final imageCacheService = context.read<ImageCacheService>();
+      final loadingService = context.read<LoadingService>();
+      loadingService.show();
       // Salva o palete e seus itens
-      await palletService.upsertPallets([newPallet], imageCacheService.imagePaths);
+      await _palletService.upsertPallets([newPallet], imageCacheService.imagePaths);
+
       if (_items.isNotEmpty) {
         // Envia todos os itens de uma vez para o serviço
         final itemsToSave = _items.map((item) => item.copyWith(palletId: palletId)).toList();
-        await palletService.upsertPalletItems(itemsToSave);
+        await _palletService.upsertPalletItems(itemsToSave);
       }
 
-    final FtpService ftpService = context.read<FtpService>();
+      final FtpService ftpService = context.read<FtpService>();
 
+      if (imageCacheService.cachedImages.isNotEmpty) {
+        final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
+        if (response.success && response.data != null) {
+          MessageService.showSuccess('Palete salvo com sucesso!');
+        }
+        else
+        {
+          MessageService.showError('Erro ao salvar o palete: ${response.message}}');
+        }
+      }
+      loadingService.hide();
+      
+      MessageService.showSuccess('Palete salvo com sucesso!');
 
-    final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Palete salvo com sucesso!')),
-      );
-
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar o palete: $e')),
-      );
+      MessageService.showError('Erro ao salvar o palete: $e');
     } finally {
-      setState(() {
+      /*setState(() {
         _isLoading = false;
-      });
+      });*/
     }
   }
 
   /// Exclui o palete.
   Future<void> _deletePallet() async {
     if (widget.pallet == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não é possível excluir um palete que ainda não foi salvo.')),
-      );
+      MessageService.showWarning('Não é possível excluir um palete que ainda não foi salvo.');
       return;
     }
 
     try {
-      setState(() {
+      /*setState(() {
         _isLoading = true;
-      });
-      final palletService = Provider.of<PalletService>(context, listen: false);
-      await palletService.deletePallet(widget.pallet!.palletId);
+      });*/
+      //final palletService = Provider.of<PalletService>(context, listen: false);
+      await _palletService.deletePallet(widget.pallet!.palletId);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Palete excluído com sucesso!')),
-      );
+      MessageService.showSuccess('Palete excluído com sucesso!');
 
       Navigator.of(context).pop();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao excluir o palete: $e')),
-      );
+      MessageService.showError('Erro ao excluir o palete: $e');
     } finally {
-      setState(() {
+      /*setState(() {
         _isLoading = false;
-      });
+      });*/
     }
   }
 
+
   /// Exclui um item da lista após confirmação.
   Future<void> _confirmAndDeleteItem(int index) async {
+    final List<PalletItemModel> _items = _palletService.palletItems; 
     final bool confirm = await showDialog(
       context: context,
       builder: (context) {
@@ -303,30 +310,28 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
 
     if (confirm) {
       try {
-        final palletService = Provider.of<PalletService>(context, listen: false);
+        //final palletService = Provider.of<PalletService>(context, listen: false);
         final itemToRemove = _items[index];
 
         // Se o item tem um ID, remove do backend. Se não, é um item novo e só remove localmente.
-        if (itemToRemove.productId != null) {
-          await palletService.deletePalletItem(itemToRemove.palletId, itemToRemove.productId!);
+        if (itemToRemove.productId != "") {
+          await _palletService.deletePalletItem(itemToRemove.palletId, itemToRemove.productId!);
         }
 
         setState(() {
           _items.removeAt(index);
         });
+        
+        MessageService.showError('Item removido com sucesso!');
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item removido com sucesso!')),
-        );
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao remover o item: $e')),
-        );
+        MessageService.showError('Erro ao remover o item: $e');
       }
     }
   }
 
   void _updateQuantity(int index, String newValue) {
+    final List<PalletItemModel> _items = _palletService.palletItems; 
     setState(() {
       int quantity = int.tryParse(newValue) ?? 0;
       _items[index] = _items[index].copyWith(quantity: quantity);
@@ -394,9 +399,9 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
       final productId = selectedProductData['productId'] as String?;
       productName = selectedProductData['productName']; 
       if (productId != null) {
-        setState(() {
+        //setState(() {
           _productIdController.text = productId;
-        });
+        //});
       }
     }
   }
@@ -422,8 +427,9 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
   /// Altera o status do Pallet para 'M' (Montado) e salva.
   Future<void> _buildPallet() async {
     final imageCacheService = context.read<ImageCacheService>();
-    final palletService = Provider.of<PalletService>(context, listen: false);
+    //final palletService = Provider.of<PalletService>(context, listen: false);
     final userId = await _storage.read(key: 'username');
+    final List<PalletItemModel> _items = _palletService.palletItems; 
 
     if (userId == null) {
       MessageService.showError('Usuário não logado. Impossível concluir montagem.');
@@ -443,7 +449,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
     }
 
     setState(() {
-      _isLoading = true;
+      //_isLoading = true;
       _statusController = 'M';
     });
 
@@ -462,28 +468,111 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
       );
 
       // Chama o serviço para salvar (atualizar) o Pallet
-      await palletService.upsertPallets([updatedPallet], imageCacheService.imagePaths);
+      await _palletService.upsertPallets([updatedPallet], imageCacheService.imagePaths);
       
       // Salva os itens também, caso haja alterações locais pendentes
       if (_items.isNotEmpty) {
         final itemsToSave = _items.map((item) => item.copyWith(palletId: palletId)).toList();
-        await palletService.upsertPalletItems(itemsToSave);
+        await _palletService.upsertPalletItems(itemsToSave);
       }
       
       MessageService.showSuccess('Montagem do Pallet concluída com sucesso!');
+
+      //final imageCacheService = context.read<ImageCacheService>();
+      final FtpService ftpService = context.read<FtpService>();
+
+      if (imageCacheService.cachedImages.isNotEmpty) {
+        //loadingService.show();
+
+        await _palletService.upsertPalletImages(widget.pallet!.palletId,imageCacheService.imagePaths);
+
+        final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
+        //loadingService.hide();
+        if (response.success && response.data != null) {
+        }
+        else
+        {
+          MessageService.showError('Erro ao salvar: ${response.message}}');
+        }
+      }
 
       Navigator.of(context).pop();
     } catch (e) {
       MessageService.showError('Erro ao concluir a montagem do palete: $e');
     } finally {
-      setState(() {
+      /*setState(() {
         _isLoading = false;
-      });
+      });*/
+    }
+  }
+  
+    /// Altera o status do Pallet para 'I' (Inicializado) e salva.
+  Future<void> _editPallet() async {
+    //final palletService = Provider.of<PalletService>(context, listen: false);
+    final userId = await _storage.read(key: 'username');
+    final List<PalletItemModel> _items = _palletService.palletItems;  
+
+    if (userId == null) {
+      MessageService.showError('Usuário não logado. Impossível concluir ação.');
+      return;
+    }
+
+    setState(() {
+      //_isLoading = true;
+      _statusController = 'I';
+    });
+
+    try {
+
+      final int? palletId = widget.pallet?.palletId;
+
+      if (palletId != null) {
+        // Chama o serviço para salvar (atualizar) o Pallet
+        await _palletService.updatePalletStatus(palletId, "I");
+        
+        // Salva os itens também, caso haja alterações locais pendentes
+        if (_items.isNotEmpty) {
+          final itemsToSave = _items.map((item) => item.copyWith(palletId: widget.pallet?.palletId)).toList();
+          await _palletService.upsertPalletItems(itemsToSave);
+        }
+        
+        MessageService.showSuccess('Pallet reaberto com sucesso!');
+      }
+
+      Navigator.of(context).pop();
+
+    } catch (e) {
+      MessageService.showError('Erro ao reabrir o palete: $e');
+    } finally {
+      /*setState(() {
+        _isLoading = false;
+      });*/
     }
   }
 
   /// Exibe o diálogo de confirmação de montagem.
   Future<void> _showBuildConfirmationDialog() async {
+
+    /*final loadingService = context.read<LoadingService>();
+
+    final imageCacheService = context.read<ImageCacheService>();
+    final FtpService ftpService = context.read<FtpService>();
+
+    if (imageCacheService.cachedImages.isNotEmpty) {
+      loadingService.show();
+
+      await _palletService.upsertPalletImages(widget.pallet!.palletId,imageCacheService.imagePaths);
+
+      final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
+      loadingService.hide();
+      if (response.success && response.data != null) {
+      }
+      else
+      {
+        MessageService.showError('Erro ao atualizar o palete: ${response.message}}');
+      }
+    }*/
+
     final bool confirm = await showDialog(
       context: context,
       builder: (context) {
@@ -505,13 +594,43 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
     ) ?? false;
 
     if (confirm) {
+
+final loadingService = context.read<LoadingService>();
+
       await _buildPallet();
+    }
+  }
+
+    /// Exibe o diálogo de confirmação de montagem.
+  Future<void> _showEditConfirmationDialog() async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Editar Palete'),
+          content: const Text('O Palete será reaberto para edição. Deseja continuar?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Não'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sim'),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (confirm) {
+      await _editPallet();
     }
   }
 
   Future<void> _receivePallet() async {
     final userId = await _storage.read(key: 'username');
-
+    final List<PalletItemModel> _items = _palletService.palletItems;  
     if (userId == null) {
       MessageService.showError('Usuário não logado. Impossível receber.');
       return;
@@ -531,22 +650,43 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
         createdAt: widget.pallet?.createdAt ?? DateTime.now(),
       );
 
-      _navigateToPalletReceivePage(updatedPallet);
+      final loadingService = context.read<LoadingService>();
+
+      final imageCacheService = context.read<ImageCacheService>();
+      final FtpService ftpService = context.read<FtpService>();
+
+      if (imageCacheService.cachedImages.isNotEmpty) {
+        loadingService.show();
+
+        await _palletService.upsertPalletImages(palletId,imageCacheService.imagePaths);
+
+        final response = await ftpService.setImagesBase64(imageCacheService.cachedImages);
+        loadingService.hide();
+        if (response.success && response.data != null) {
+          _navigateToPalletReceivePage(updatedPallet);
+        }
+        else
+        {
+          MessageService.showError('Erro ao atualizar o palete: ${response.message}}');
+        }
+      }
 
     } catch (e) {
       MessageService.showError('Erro ao receber o palete: $e');
     } finally {
-      setState(() {
+      /*setState(() {
         _isLoading = false;
-      });
+      });*/
     }
   }
 
-  void _navigateToPalletReceivePage(PalletModel pallet) {
-    Navigator.of(context).pushNamed(
-      RouteGenerator.palletReceivePage,
-      arguments: pallet,
+  void _navigateToPalletReceivePage(PalletModel pallet) async {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PalletReceivePage(pallet: pallet),
+      ),
     );
+    
   }
 
   // Constrói o Widget do Chip com largura e estilo fixos
@@ -593,103 +733,67 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
 
   @override
   Widget build(BuildContext context) {
-    final imageCacheService = context.watch<ImageCacheService>();
-    final List<String> currentImagePaths = imageCacheService.imagePaths;
+    //final palletService = context.watch<PalletService>();
 
     return Scaffold(
       appBar: const AppBarCustom(title: 'Montagem do Palete'),
       resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.max,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // CONTEÚDO FIXO DO TOPO (Informações e Formulário de Adição)
+              // ================= CONTEÚDO FIXO DO TOPO =================
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 3, 10, 3),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: TextField(
-                            controller: _palletIdController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                              labelText: 'Número',
-                              labelStyle: const TextStyle(fontSize: 14),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-                              suffixIcon: IconButton(
-                                icon: const Icon(
-                                  Icons.qr_code_scanner_outlined,
-                                  size: 38,
-                                  color: Colors.indigo,
-                                ),
-                                onPressed: () async {
-                                  String scanned = await _scanBarcode();
-                                  if (scanned.isNotEmpty) {
-                                    _palletIdController.text = scanned;
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Align(
-                            alignment: Alignment.center,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('Quantidade',
-                                    style: TextStyle(fontSize: 13, height: 2)),
-                                Text(
-                                  _items.fold<int>(0, (sum, item) => sum + item.quantity).toString(),
-                                  style: const TextStyle(
-                                    fontSize: 46,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    // Linha de Pallet ID + Quantidade
+                    PalletIdAndQuantity(
+                      palletIdController: _palletIdController,
+                      //totalQuantity: palletService.palletItems.fold<int>(0, (sum, item) => sum + item.quantity),
+                      scanBarcode: _scanBarcode,
+                      onPalletIdChanged: _setPalletIdFromInput,
                     ),
+
                     const SizedBox(height: 4),
+
+                    // Linha de imagens do pallet + status/local/usuário
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          // Envolve o ImagesPicker em um Expanded se for parte de um Row com outros widgets 
-                          // que precisam de largura definida (como o Container ao lado).
-                          child: ImagesPicker(
-                            imagePaths: currentImagePaths,
-                            baseImagePath: "MONTAGEM_PALETE/",
-                            codePallet: widget.pallet?.palletId,
-                            //onImageAdded: _addImage,
-                            onImageRemoved: _removeImage,
-                            onImagesChanged: (newPaths) {
-                              //setState(() {
-                              //  _imagePaths = newPaths;
-                              //});
-                            },
-                            itemHeight: 170,
-                            itemWidth: 174,
-                            iconSize: 28,
+                        if (_activePalletId != null)
+                          Expanded(
+                            child: _PalletImagesSection(
+                              palletId: widget.pallet?.palletId,
+                              onImageRemoved: _removeImage,
+                            ),
+                          )
+                        else
+                          Expanded(
+                            child: Container(
+                              height: 170,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300, width: 2),
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.grey.shade100,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_outlined,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
-                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             children: [
+                              // Status
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -699,35 +803,34 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                                   ),
                                   const SizedBox(height: 0),
                                   Container(
-                                  // Adiciona a borda do campo para manter o visual uniforme
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: _statusController != null
-                                      ? _buildStatusChip(_statusController!)
-                                      : const SizedBox.shrink(),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: _statusController != null
+                                        ? _buildStatusChip(_statusController!)
+                                        : const SizedBox.shrink(),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 8),
+
+                              // Local
                               TextField(
                                 controller: _locationController,
-                                // Adiciona a formatação para forçar maiúsculas
                                 textCapitalization: TextCapitalization.characters,
-                                inputFormatters: [
-                                  UpperCaseTextFormatter(),
-                                ],
+                                inputFormatters: [UpperCaseTextFormatter()],
                                 decoration: const InputDecoration(
                                   labelText: 'Local',
                                   labelStyle: TextStyle(fontSize: 14),
                                   border: OutlineInputBorder(),
                                   isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                                  contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 5),
                                 ),
                               ),
                               const SizedBox(height: 8),
+
+                              // Usuário
                               TextField(
                                 controller: _userController,
                                 readOnly: true,
@@ -736,8 +839,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                                   labelStyle: TextStyle(fontSize: 14),
                                   border: OutlineInputBorder(),
                                   isDense: true,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                                  contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 5),
                                 ),
                               ),
                             ],
@@ -745,11 +847,12 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+
+                    // Linha de adicionar item (produto + qtd + botão)
                     if (_statusController != 'M' && _statusController != 'R')
                       Row(
                         children: [
-                          Expanded(
+                          /*Expanded(
                             flex: 2,
                             child: TextField(
                               controller: _productIdController,
@@ -758,16 +861,25 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                                 labelStyle: const TextStyle(fontSize: 14),
                                 border: const OutlineInputBorder(),
                                 isDense: true,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.search,
-                                      size: 32, color: Colors.indigo),
+                                  icon: const Icon(Icons.search, size: 32, color: Colors.indigo),
                                   onPressed: () async {
-                                    await _openProductSearch(context); 
+                                    await _openProductSearch(context);
                                   },
                                 ),
                               ),
+                            ),
+                          ),*/
+                          Expanded(
+                            flex: 3,
+                            child: ProductTextFieldWithActions(
+                              controller: _productIdController,
+                              label: 'Produto',
+                              onScanBarcode: _scanBarcode,
+                              onSearch: () async {
+                                await _openProductSearch(context);
+                              },
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -781,276 +893,569 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                                 labelStyle: TextStyle(fontSize: 14),
                                 border: OutlineInputBorder(),
                                 isDense: true,
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+                                contentPadding: EdgeInsets.symmetric(vertical: 5, horizontal: 5),
                               ),
                               onSubmitted: (value) => _addItem(),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.add_box,
-                                color: Colors.indigo, size: 60),
-                            onPressed: _addItem,
+                          PulseIconButton(
+                            icon: Icons.add_box,
+                            color: _palletIdController.text.trim().isNotEmpty
+                                ? Colors.indigo
+                                : Colors.grey.shade400,
+                            size: 60,
+                            onPressed: () {
+                              if (_palletIdController.text.trim().isNotEmpty) {
+                                _addItem(); // aqui pode ser async, sem await
+                              }
+                            },
                           ),
                         ],
                       ),
                   ],
                 ),
               ),
+
+              // ================= CAMPO DE PESQUISA =================
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
                   decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(0),
-                      topRight: Radius.circular(0),
-                    ),
                     gradient: LinearGradient(
                       colors: [Colors.grey.shade400, Colors.grey.shade200],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                   ),
-                  child: const Center(
-                    child: Text(
-                      'ITENS',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-              // LISTA DE ITENS (CONTEÚDO ROLANTE)
-              Expanded(
-                child: Container(
-                  color: Colors.grey.shade200,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(3, 0, 3, 0),
-                    children: [
-                      ..._items.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final item = entry.value;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8.0),
-                          padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.20),
-                                spreadRadius: 2,
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Text(
-                                        '${item.productName}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold, fontSize: 16),
-                                        softWrap: false, // Força o texto a ficar em uma única linha
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          'CÓD: ${item.productId}',
-                                          style: const TextStyle(
-                                              fontSize: 14, color: Colors.grey),
-                                        ),
-                                            
-                                        // O bloco a seguir (QTD e TextField) só é exibido se a condição for verdadeira.
-                                        if (_statusController == "R") ...[
-                                          const SizedBox(width: 10), 
-                                          const Text(
-                                            'Qtd.:',
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 50,
-                                            child: TextField(
-                                              readOnly: true,
-                                              controller: TextEditingController(
-                                                  text: item.quantity.toString()),
-                                              keyboardType: TextInputType.number,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                isDense: true,
-                                                contentPadding: EdgeInsets.zero,
-                                                border: InputBorder.none,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10), 
-                                          const Text(
-                                            'Recebido:',
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                          const SizedBox(width: 8),
-                                      Container(
-                                        width: 50,
-                                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2), // Espaçamento para o estilo chip
-                                        decoration: BoxDecoration(
-                                          // Se as quantidades forem diferentes, usa vermelho claro; senão, usa transparente.
-                                          color: item.quantity != item.quantityReceived
-                                              ? Colors.red.withOpacity(0.15) // Vermelho claro (estilo chip)
-                                              : Colors.transparent,
-                                        ),
-                                        child: SizedBox(
-                                          width: 50,
-                                          child: TextField(
-                                            readOnly: true,
-                                            controller: TextEditingController(
-                                                text: item.quantityReceived.toString()),
-                                            keyboardType: TextInputType.number,
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: item.quantity != item.quantityReceived
-                                                  ? Colors.red.shade900 // Texto um pouco mais escuro para destaque
-                                                  : null, 
-                                            ),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                              border: InputBorder.none,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                        ] else ...[
-                                          const SizedBox(width: 10), 
-                                          const Text(
-                                            'QTD:',
-                                            style: TextStyle(fontSize: 14),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 50,
-                                            child: TextField(
-                                              controller: TextEditingController(
-                                                  text: item.quantity.toString()),
-                                              keyboardType: TextInputType.number,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                isDense: true,
-                                                contentPadding: EdgeInsets.zero,
-                                                border: InputBorder.none,
-                                              ),
-                                              onSubmitted: (value) {
-                                                _updateQuantity(index, value);
-                                                FocusScope.of(context).unfocus();
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close,
-                                    color: Colors.red, size: 30),
-                                onPressed: () => _confirmAndDeleteItem(index),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
-                ),
-              ),
-              // CONTEÚDO FIXO DO RODAPÉ (Botões)
-              SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(8, 0, 8, 0),
                   child: Row(
                     children: [
-                      if (widget.pallet != null)
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _deletePallet,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
-                            ),
-                            icon: const Icon(Icons.delete, size: 24),
-                            label: const Text('EXCLUIR'),
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            'ITENS',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ),
-                      if (widget.pallet != null) const SizedBox(width: 16),
-                      if (_statusController == 'M')
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _receivePallet,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green[700],
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
-                            ),
-                            icon: const Icon(Icons.pallet, size: 24),
-                            label: const Text('RECEBER'),
-                          ),
-                        )
-                      else if (_statusController != 'R')...[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _savePallet,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4)),
-                            ),
-                            icon: const Icon(Icons.save, size: 24),
-                            label: const Text('SALVAR'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _showBuildConfirmationDialog,
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green[700],
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4)),
+                      ),
+                      Expanded(
+                        child: SizedBox(
+                          height: 30,
+                          child: TextField(
+                            controller: _itemSearchController,
+                            decoration: InputDecoration(
+                              hintText: 'Pesquisar..',
+                              hintStyle: const TextStyle(fontSize: 14),
+                              suffixIcon: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(Icons.qr_code_scanner_outlined, size: 28, color: Colors.black,),
+                                onPressed: () async {
+                                  String scanned = await _scanBarcode();
+                                  if (scanned.isNotEmpty) {
+                                    _itemSearchController.text = scanned;
+                                  }
+                                },
                               ),
-                              icon: const Icon(Icons.pallet, size: 24),
-                              label: const Text('MONTAR'),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.only(top: 5, bottom: 5, left: 10, right: 0),
+                              fillColor: Colors.white,
+                              filled: true,
+                              border: const OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(5.0)),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
-                        
-                      ],
+                      ),
                     ],
                   ),
+                ),
+              ),
+
+              // ================= LISTA DE ITENS FILTRADOS =================
+              ValueListenableBuilder(
+                valueListenable: _itemSearchController,
+                builder: (context, _, __) => ItemList(
+                  searchController: _itemSearchController,
+                  onDeleteItem: (item) async {
+                    final index = _palletService.palletItems.indexOf(item);
+                    if (index != -1) {
+                      await _confirmAndDeleteItem(index);
+                    }
+                  },
+                  onUpdateQuantity: (item, newQuantity) {
+                    final index = _palletService.palletItems.indexOf(item);
+                    if (index != -1) {
+                      _palletService.updateItemQuantity(index, newQuantity);
+                      //_updateQuantity(index, newQuantity.toString());
+                    }
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+/*
+  Widget _buildBottomBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+        child: Row(
+          children: [
+            // Botão EXCLUIR
+            if (widget.pallet != null) ...[
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _deletePallet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.delete, size: 24),
+                  label: const Text('EXCLUIR'),
+                ),
+              ),
+              if (_statusController != 'R') const SizedBox(width: 8),
+            ],
+
+            // Botões EDITAR e RECEBER se status = 'M'
+            if (_statusController == 'M') ...[
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showEditConfirmationDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.edit_square, size: 24),
+                  label: const Text('EDITAR'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _receivePallet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.pallet, size: 24),
+                  label: const Text('RECEBER'),
+                ),
+              ),
+            ]
+            // Botões SALVAR e MONTAR se status != 'R' e != 'M'
+            else if (_statusController != 'R') ...[
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _palletIdController.text.trim().isNotEmpty ? _savePallet : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.save, size: 24),
+                  label: const Text('SALVAR'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _palletIdController.text.trim().isNotEmpty
+                      ? () {
+                          if (widget.pallet != null) {
+                            _showBuildConfirmationDialog();
+                          } else {
+                            _statusController = "M";
+                            _savePallet();
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  icon: const Icon(Icons.pallet, size: 24),
+                  label: const Text('MONTAR'),
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+*/
+
+Widget _buildBottomBar() {
+  return SafeArea(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -1),
           ),
         ],
+        border: const Border(
+          top: BorderSide(color: Color(0xFFE0E0E0)),
+        ),
       ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          if (widget.pallet != null)
+            _toolbarButton(
+              label: 'Excluir',
+              icon: Icons.delete_outline,
+              color: Colors.red.shade600,
+              onPressed: _deletePallet,
+            ),
+
+          if (_statusController == 'M') ...[
+            _toolbarButton(
+              label: 'Editar',
+              icon: Icons.edit_note_rounded,
+              color: Colors.indigo,
+              onPressed: _showEditConfirmationDialog,
+            ),
+            _toolbarButton(
+              label: 'Receber',
+              icon: Icons.inventory_2_rounded,
+              color: Colors.green.shade700,
+              onPressed: _receivePallet,
+            ),
+          ] else if (_statusController != 'R') ...[
+            _toolbarButton(
+              label: 'Salvar',
+              icon: Icons.save_outlined,
+              color: Colors.indigo,
+              onPressed: _palletIdController.text.trim().isNotEmpty
+                  ? _savePallet
+                  : null,
+            ),
+            _toolbarButton(
+              label: 'Montar',
+              icon: Icons.pallet,
+              color: Colors.green.shade700,
+              onPressed: _palletIdController.text.trim().isNotEmpty
+                ? () {
+                    if (widget.pallet != null) {
+                      _showBuildConfirmationDialog();
+                    } else {
+                      _statusController = "M";
+                      _savePallet();
+                    }
+                  }
+                : null,
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+/// Botão estilizado para toolbar
+Widget _toolbarButton({
+  required String label,
+  required IconData icon,
+  required Color color,
+  required VoidCallback? onPressed,
+}) {
+  final isDisabled = onPressed == null;
+  return Expanded(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: isDisabled ? Colors.grey.shade300 : color,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        ),
+        icon: Icon(icon, size: 22),
+        label: Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+
+}
+
+class ItemList extends StatelessWidget {
+  final TextEditingController searchController;
+  final void Function(PalletItemModel item) onDeleteItem;
+  final void Function(PalletItemModel item, int newQuantity) onUpdateQuantity;
+
+  const ItemList({
+    super.key,
+    required this.searchController,
+    required this.onDeleteItem,
+    required this.onUpdateQuantity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palletService = context.watch<PalletService>();
+
+    final items = searchController.text.isEmpty
+        ? palletService.palletItems
+        : palletService.palletItems.where((item) {
+            final query = searchController.text.toLowerCase();
+            final nameMatch = item.productName!.toLowerCase().contains(query);
+            final idMatch = item.productId.toLowerCase().contains(query);
+            return nameMatch || idMatch;
+          }).toList();
+
+    return Container(
+      color: Colors.grey.shade200,
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final quantityController = TextEditingController(text: item.quantity.toString());
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.fromLTRB(0, 2, 0, 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.20),
+                  spreadRadius: 2,
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Text(
+                          item.productName ?? '',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          softWrap: false,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text('CÓD: ${item.productId}',
+                              style: const TextStyle(fontSize: 14, color: Color(0xFF1565C0))),
+                          const SizedBox(width: 10),
+                          const Text('QTD:', style: TextStyle(fontSize: 14)),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 50,
+                            child: TextField(
+                              controller: quantityController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (value) => onUpdateQuantity(item, int.tryParse(value) ?? 0),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red, size: 30),
+                  onPressed: () => onDeleteItem(item),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+class PalletIdAndQuantity extends StatelessWidget {
+  final TextEditingController palletIdController;
+  final Future<String> Function() scanBarcode;
+  final void Function(String) onPalletIdChanged;
+
+  const PalletIdAndQuantity({
+    super.key,
+    required this.palletIdController,
+    required this.scanBarcode,
+    required this.onPalletIdChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Usa o Provider para ler os itens e calcular o total
+    final palletService = context.watch<PalletService>();
+    final totalQuantity = palletService.palletItems.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 4,
+          child: TextField(
+            controller: palletIdController,
+            keyboardType: TextInputType.number,
+            onChanged: onPalletIdChanged,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              isDense: true,
+              labelText: 'Número',
+              labelStyle: const TextStyle(fontSize: 14),
+              contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
+              /*suffixIcon: IconButton(
+                icon: const Icon(
+                  Icons.qr_code_scanner_outlined,
+                  size: 38,
+                  color: Colors.indigo,
+                ),
+                onPressed: () async {
+                  String scanned = await scanBarcode();
+                  if (scanned.isNotEmpty) {
+                    palletIdController.text = scanned;
+                    onPalletIdChanged(scanned);
+                  }
+                },
+              ),*/
+              suffixIcon: PulseIconButton(
+                icon: Icons.qr_code_scanner_outlined,
+                color: Colors.indigo,
+                size: 38,
+                onPressed: () {
+                  // pode ser async dentro da função
+                  () async {
+                    String scanned = await scanBarcode();
+                    if (scanned.isNotEmpty) {
+                      palletIdController.text = scanned;
+                      onPalletIdChanged(scanned);
+                    }
+                  }();
+                },
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Align(
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Quantidade', style: TextStyle(fontSize: 13, height: 2)),
+                Text(
+                  totalQuantity.toString(),
+                  style: const TextStyle(
+                    fontSize: 46,
+                    fontWeight: FontWeight.bold,
+                    height: 1.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Separado para não depender do setState do pai
+/// ai não fica piscando atoa quando adiciona itens
+class _PalletImagesSection extends StatelessWidget {
+  final int? palletId;
+  final Function(String) onImageRemoved;
+
+  const _PalletImagesSection({
+    required this.palletId,
+    required this.onImageRemoved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Apenas este widget observa (watch) do ImageCacheService.
+    final imageCacheService = context.watch<ImageCacheService>();
+    final List<String> currentImagePaths = imageCacheService.imagePaths;
+
+    return ImagesPicker(
+      imagePaths: currentImagePaths,
+      baseImagePath: "MONTAGEM_PALETE/",
+      codePallet: palletId,
+      onImageRemoved: onImageRemoved,
+      onImagesChanged: (newPaths) {
+        // A lógica de setState aqui não afeta a tela Pai
+      },
+      itemHeight: 174,
+      itemWidth: 178,
+      iconSize: 28,
     );
   }
 }

@@ -43,7 +43,7 @@ class RouteGenerator {
       case productsPage:
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
       case TESTE:
-        return MaterialPageRoute(builder: (context) => const CustomAnimatedPageView());
+        return MaterialPageRoute(builder: (context) => CustomAnimatedPageView());
       case productPage: // Rota para a página de detalhes do produto
         if (args is String) {
           return MaterialPageRoute(

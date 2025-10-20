@@ -5,7 +5,7 @@ import 'package:oxdata/app/core/models/ftp_image_response.dart';
 
 class ImageCacheService extends ChangeNotifier {
   // Lista privada para armazenar o cache de imagens.
-  // Usamos List<FtpImageResponse> que já contém a URL e o conteúdo Base64.
+  // Usei List<FtpImageResponse> que já contém a URL e o conteúdo Base64.
   List<FtpImageResponse> _cachedImages = [];
 
   /// Retorna o cache atual de imagens.
@@ -14,7 +14,6 @@ class ImageCacheService extends ChangeNotifier {
   /// Retorna apenas a lista de caminhos (URL/ImagePath) como String.
   List<String> get imagePaths => 
       _cachedImages.map((image) => image.url).toList();
-
 
   /// Limpa todas as imagens armazenadas no cache.
   void clearCache() {
@@ -38,7 +37,7 @@ class ImageCacheService extends ChangeNotifier {
 
   void setCacheFromMap(Map<String, String> imageMap) {
     _cachedImages = imageMap.entries.map((entry) => FtpImageResponse(
-        url: entry.key, // O caminho sequencial gerado
+        url: entry.key,             // O caminho sequencial gerado
         base64Content: entry.value, // O conteúdo Base64 da imagem
         status: 'CachedFromPicker', // Status para indicar a origem
         message: 'Image base64 loaded from picker map.',
@@ -53,17 +52,13 @@ class ImageCacheService extends ChangeNotifier {
   }
 
   /// Atualiza o Base64 de uma imagem específica, se ela existir no cache.
-  /// Útil se você precisar atualizar o conteúdo da imagem (Base64) mantendo a URL.
+  /// Útil para atualizar o conteúdo da imagem (Base64) mantendo a URL.
   void updateImageBase64(String url, String newBase64Content) {
     final index = _cachedImages.indexWhere((img) => img.url == url);
     
     if (index != -1) {
       // Cria uma nova instância para garantir que o cache seja imutável (melhor prática com Provider)
-      // Como FtpImageResponse é imutável, você precisará de um método `copyWith` 
-      // ou recriar o objeto na sua model FtpImageResponse, mas para este exemplo,
-      // vamos apenas substituir o objeto na lista:
-      
-      // Se FtpImageResponse for imutável, você deve substituir o objeto inteiro:
+      // Como FtpImageResponse é imutável, precisa de um método copyWith       
       _cachedImages[index] = FtpImageResponse(
         url: url,
         base64Content: newBase64Content,
@@ -84,7 +79,6 @@ class ImageCacheService extends ChangeNotifier {
         notifyListeners();
     }
   }
-
 
   /// Remove uma imagem do cache com base na URL/caminho.
   void removeImageByPath(String path) {
