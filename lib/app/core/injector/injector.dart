@@ -13,7 +13,9 @@ import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/product_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart'; 
+import 'package:oxdata/app/core/services/load_service.dart'; 
 import 'package:oxdata/app/core/services/image_cache_service.dart';
+import 'package:oxdata/app/core/repositories/pallet_load_repository.dart';
 
 class Injector {
   // A ordem dos providers é importante!
@@ -39,18 +41,23 @@ class Injector {
       create: (context) => PalletRepository(apiClient: context.read<ApiClient>()),
     ),
 
-    // 5. Registra o FtpRepository, que depende do ApiClient.
+    // 5. Registra o LoadRepository, que depende do ApiClient.
+    Provider<LoadRepository>(
+      create: (context) => LoadRepository(apiClient: context.read<ApiClient>()),
+    ),
+
+    // 6. Registra o FtpRepository, que depende do ApiClient.
     Provider<FtpRepository>(
       create: (context) => FtpRepository(apiClient: context.read<ApiClient>()),
     ),
     
-    // 8. Registra o ImageCacheService.
+    // 7. Registra o ImageCacheService.
     // TEM QUE VIR ANTES do FtpService (que o consome)
     ChangeNotifierProvider<ImageCacheService>(
       create: (_) => ImageCacheService(),
     ),
 
-    // 6. Registra o FtpService, que depende do FtpRepository.
+    // 8. Registra o FtpService, que depende do FtpRepository.
     Provider<FtpService>(
           create: (context) => FtpService(
             ftpRepository: context.read<FtpRepository>(),
@@ -58,24 +65,29 @@ class Injector {
           ),
         ),
 
-    // 7. Registra o AuthService, que depende do AuthRepository.
+    // 9. Registra o AuthService, que depende do AuthRepository.
     ChangeNotifierProvider<AuthService>(
       create: (context) => AuthService(context.read<AuthRepository>(), ApiClient()),
     ),
     
-    // 8. Registra o LoadingService.
+    // 10. Registra o LoadingService.
     ChangeNotifierProvider<LoadingService>(
       create: (_) => LoadingService(),
     ),
 
-    // 9. Registra o ProductService, que agora dependerá do ProductRepository.
+    // 11. Registra o ProductService, que agora dependerá do ProductRepository.
     ChangeNotifierProvider<ProductService>(
       create: (context) => ProductService(productRepository: context.read<ProductRepository>()),
     ),
     
-    // 10. Registra o PalletService, que depende do PalletRepository.
+    // 12. Registra o PalletService, que depende do PalletRepository.
     ChangeNotifierProvider<PalletService>(
       create: (context) => PalletService(palletRepository: context.read<PalletRepository>()),
+    ),
+
+    // 13. Registra o PalletService, que depende do PalletRepository.
+    ChangeNotifierProvider<LoadService>(
+      create: (context) => LoadService(loadRepository: context.read<LoadRepository>()),
     ),
 
   ];

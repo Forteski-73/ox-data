@@ -575,7 +575,7 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
 
     if (confirm) {
 
-final loadingService = context.read<LoadingService>();
+    //final loadingService = context.read<LoadingService>();
 
       await _buildPallet();
     }

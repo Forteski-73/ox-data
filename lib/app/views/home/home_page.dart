@@ -29,15 +29,15 @@ class _HomePageState extends State<HomePage> {
       'imagePath': 'assets/images/pallet.png',
     },
     {
-      'title': 'TESTE',
+      'title': 'CARGAS',
       'routeName': RouteGenerator.TESTE,
-      'imagePath': 'assets/images/pallet.png',
+      'imagePath': 'assets/images/truck.png',
     },
-    /*{
+    {
       'title': 'INVENTÁRIOS',
       'routeName': RouteGenerator.inventoriesPage,
       'imagePath': 'assets/images/invent.png',
-    },*/
+    },
   ];
 
   @override

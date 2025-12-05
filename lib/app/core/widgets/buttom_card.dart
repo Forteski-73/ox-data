@@ -69,8 +69,8 @@ class _ButtonCardState extends State<ButtonCard>
                   Flexible(
                     child: Image.asset(
                       widget.imagePath!,
-                      width: 60,
-                      height: 60,
+                      width: 62,
+                      height: 62,
                       fit: BoxFit.contain,
                     ),
                   )
@@ -78,7 +78,7 @@ class _ButtonCardState extends State<ButtonCard>
                   Flexible(
                     child: Icon(
                       widget.icon,
-                      size: 60,
+                      size: 62,
                       color: Colors.black87,
                     ),
                   ),

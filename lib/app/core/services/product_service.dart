@@ -98,40 +98,6 @@ class ProductService with ChangeNotifier {
     }
   }
 
-  /// Prepara a lista para que a UI seja atualizada instantaneamente.
-  /*
-  void addProductImageLocal(String finalidade, String base64Image) {
-    if (_productComplete == null) return;
-
-    // Cria o objeto ImageBase64 com os dados da nova imagem
-    final newImage = ImageBase64(
-      // gera um ID temporário
-      imagePath: 'temp_path_${const Uuid().v4()}', 
-      imagesBase64: base64Image,
-      finalidade: finalidade,
-    );
-    
-    // Inicializa a lista de imagens se ela for nula
-    _productComplete!.images ??= []; 
-    _productComplete!.images!.add(newImage);
-
-    notifyListeners();
-  }
-  */
-  /*
-  Future<bool> deleteProductImage(
-      String productId, String imagePath, String finalidade) async {
-
-    if (_productComplete != null) {
-      _productComplete!.images!.removeWhere((img) => img.imagePath == imagePath);
-      _productComplete!.images!.asMap().forEach((index, img) => img.sequence = index + 1);
-      notifyListeners();
-    }
-    await Future.delayed(const Duration(seconds: 1));
-    return true;
-  }
-  */
-
   void clearResults() {
     _searchResults = [];
     notifyListeners();

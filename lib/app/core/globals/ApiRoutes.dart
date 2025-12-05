@@ -24,9 +24,17 @@ class ApiRoutes {
   static String palletSearchItem       = 'Pallet/SearchItem';
   static String palletStatus           = 'Pallet/Status';
 
+  // Rotas para GET e SET das cargas
+  static String palletLoad             = 'PalletLoad';
+  static String palletLoadUp           = 'PalletLoad/UpdateLoadStatus';
+  static String palletLoadLine         = 'PalletLoad/Pallets';
+  static String palletLoadReceiveLine  = 'PalletLoad/ReceiveItems';
+  static String palletLoadInvoices     = 'PalletLoad/Invoices/Load';
+  static String palletLoadInvoice      = 'PalletLoad/Invoice';
+
   // Rotas para GET e SET de imagens no FTP
   static String ftpGetImage              = 'Ftp/Images/GetBase64';
   static String ftpSetImage              = 'Ftp/Images/SetBase64';
   static String ftpDelImage              = 'Ftp/Images';
-  
+
 }

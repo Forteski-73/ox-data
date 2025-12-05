@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/views/load/load_invoice_page.dart';
+import 'package:oxdata/app/views/load/load_new_page.dart';
+import 'package:oxdata/app/views/load/load_receive_page.dart';
+import 'package:oxdata/app/views/load/search_load_page.dart';
+import 'package:oxdata/app/views/load/search_ready_pallets.dart';
+import 'package:oxdata/app/core/services/load_service.dart';
+import 'package:provider/provider.dart';
 
 class CustomAnimatedPageView extends StatefulWidget {
   const CustomAnimatedPageView({super.key});
 
   @override
-  State<CustomAnimatedPageView> createState() =>
-      _CustomAnimatedPageViewState();
+  State<CustomAnimatedPageView> createState() => _CustomAnimatedPageViewState();
 }
 
 class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
@@ -14,30 +21,36 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
   late PageController _pageController;
   double _currentPage = 0.0;
 
+  final List<Widget> pageContents = [
+    const LoadNewPage(),
+    const SearchLoadPage(),
+    const SearchReadyPalletsPage(),
+    const LoadReceivePage(),
+    const LoadInvoicePage(),
+  ];
+
+  final List<IconData> pageIcons = [
+    Icons.add_box_outlined,
+    Icons.local_shipping,
+    Icons.pallet,
+    Icons.move_to_inbox_outlined,
+    Icons.receipt_long,
+  ];
+
   final List<Color> pageColors = [
-    Colors.deepOrange,
     Colors.teal,
-    Colors.indigo,
-    Colors.black12,
-    Colors.deepPurpleAccent,
-    Colors.limeAccent,
-    Colors.tealAccent,
-    Colors.brown,
-    Colors.black,
-    Colors.redAccent,
+    Colors.teal,
+    Colors.teal,
+    Colors.teal,
+    Colors.teal,
   ];
 
   final List<String> pageTitles = [
-    "Página Um",
-    "Página Dois",
-    "Página Três",
-    "Página Quatro",
-    "Página Cinco",
-    "Página Seis",
-    "Página Sete",
-    "Página Oito",
-    "Página Nove",
-    "Página dez",
+    "Nova Carga",
+    "Pesquisar Cargas",
+    "Montar Carga",
+    "Receber Carga",
+    "Informar Nota Fiscal",
   ];
 
   double floatingTop = 100;
@@ -46,23 +59,25 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
   bool isDragging = false;
   double dragStartX = 0;
   double dragStartY = 0;
-
   bool menuOpen = false;
 
   late List<AnimationController> _menuControllers;
   late List<Animation<double>> _menuAnimations;
+  late LoadService _loadService;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 1.0);
+    _loadService = context.read<LoadService>();
+    _loadService.addListener(_pageServiceListener);
+
     _pageController.addListener(() {
       setState(() {
         _currentPage = _pageController.page ?? 0.0;
       });
     });
 
-    // Inicializa animações individuais para cada botão do menu
     _menuControllers = List.generate(pageTitles.length, (index) {
       return AnimationController(
         vsync: this,
@@ -76,10 +91,31 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
               curve: Curves.elasticOut,
             ))
         .toList();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final screenSize = MediaQuery.of(context).size;
+      setState(() {
+        floatingTop = screenSize.height - 180 - 60;
+        floatingLeft = screenSize.width - 30 - 60;
+      });
+    });
+  }
+
+  void _pageServiceListener() {
+    final newIndex = _loadService.currentPageIndex;
+    final currentControllerIndex = _pageController.page?.round() ?? 0;
+    if (currentControllerIndex != newIndex) {
+      _pageController.animateToPage(
+        newIndex,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
   void dispose() {
+    _loadService.removeListener(_pageServiceListener);
     _pageController.dispose();
     for (var c in _menuControllers) c.dispose();
     super.dispose();
@@ -89,6 +125,9 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
     double diff = index - _currentPage;
     double scaleFactor = (1 - (diff.abs() * 0.2)).clamp(0.8, 1.0);
     double marginFactor = (1 - (cos(diff * pi) + 1) / 2) * 50;
+    Widget contentWidget = index < pageContents.length
+        ? pageContents[index]
+        : const Text("Erro: Página não encontrada");
 
     return Center(
       child: Transform.scale(
@@ -99,7 +138,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
           margin: EdgeInsets.symmetric(vertical: marginFactor),
           decoration: BoxDecoration(
             color: pageColors[index],
-            borderRadius: BorderRadius.circular(20.0),
+            borderRadius: BorderRadius.circular(2.0),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.2),
@@ -108,15 +147,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
               ),
             ],
           ),
-          child: Center(
-            child: Text(
-              pageTitles[index],
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
+          child: contentWidget,
         ),
       ),
     );
@@ -125,7 +156,11 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
   Widget _buildIndicator() {
     const double indicatorWidth = 10.0;
     const double spacing = 10.0;
-    double leftPosition = (_currentPage * (indicatorWidth + spacing));
+    final totalWidth =
+        pageColors.length * indicatorWidth + (pageColors.length - 1) * spacing;
+    final startOffset = -totalWidth / 2 + indicatorWidth / 2;
+    double leftPosition =
+        startOffset + (_currentPage * (indicatorWidth + spacing));
 
     return Stack(
       alignment: Alignment.center,
@@ -144,24 +179,14 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
             );
           }),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16.0),
-              child: Transform.translate(
-                offset: Offset(leftPosition + 30.0, 0),
-                child: Container(
-                  width: indicatorWidth,
-                  height: indicatorWidth,
-                  decoration: const BoxDecoration(
-                    color: Colors.blueAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
+        Transform.translate(
+          offset: Offset(leftPosition, 0),
+          child: Container(
+            width: indicatorWidth,
+            height: indicatorWidth,
+            decoration: const BoxDecoration(
+              color: Colors.black,
+              shape: BoxShape.circle,
             ),
           ),
         ),
@@ -169,11 +194,15 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
     );
   }
 
-  List<double> _calculateAngles(int itemCount, double buttonX, double buttonY,
-      double screenWidth, double screenHeight) {
+  List<double> _calculateAngles(
+    int itemCount,
+    double buttonX,
+    double buttonY,
+    double screenWidth,
+    double screenHeight,
+  ) {
     double startAngle = 0;
     double endAngle = 2 * pi;
-
     bool leftSide = buttonX < screenWidth / 2;
     bool topSide = buttonY < screenHeight / 2;
 
@@ -191,11 +220,26 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
       endAngle = 2 * pi;
     }
 
-    double availableWidth = leftSide ? screenWidth - buttonX - 80 : buttonX - 80;
-    double availableHeight = topSide ? screenHeight - buttonY - 80 : buttonY - 80;
+    const double safePadding = 16.0;
+    double availableWidth = leftSide
+        ? screenWidth - buttonX - safePadding
+        : buttonX - safePadding;
+    double availableHeight = topSide
+        ? screenHeight - buttonY - safePadding
+        : buttonY - safePadding;
 
-    // aumenta o raio proporcional ao número de itens (mínimo de 80)
-    double radius = max(min(availableWidth, availableHeight) / 1.5, 80 + itemCount * 5);
+    const double minDistance = 130;
+    double radius = max(min(availableWidth, availableHeight) / 1.5,
+        minDistance + itemCount * 5);
+
+    const int baseItems = 6;
+    double baseAngleRange = endAngle - startAngle;
+
+    if (itemCount > baseItems) {
+      const double minAngleBetween = pi / 10;
+      double requiredRange = minAngleBetween * (itemCount - 1);
+      endAngle = startAngle + max(baseAngleRange, requiredRange);
+    }
 
     return [startAngle, endAngle, radius];
   }
@@ -204,7 +248,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final buttonSize = 50.0;
+    final buttonSize = 60.0;
 
     List<double> angles = _calculateAngles(
         pageTitles.length, floatingLeft, floatingTop, screenWidth, screenHeight);
@@ -213,9 +257,9 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
     double endAngle = angles[1];
     double radius = angles[2];
 
-    double angleStep = pageTitles.length > 1 ? (endAngle - startAngle) / (pageTitles.length - 1) : 0;
+    double angleStep =
+        pageTitles.length > 1 ? (endAngle - startAngle) / (pageTitles.length - 1) : 0;
 
-    // Atualiza animação quando menu abre/fecha
     if (menuOpen) {
       for (var c in _menuControllers) {
         c.forward(from: 0);
@@ -227,52 +271,52 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('PageView com Menu Radial Melhorado'),
-        backgroundColor: Colors.blueAccent,
+      appBar: AppBarCustom(
+        title: context.watch<LoadService>().selectedLoadForEdit != null
+            ? 'CARGA #${context.watch<LoadService>().selectedLoadForEdit!.loadId}'
+            : 'CARGA',
       ),
       body: SafeArea(
         child: Stack(
           children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/oxford-box-background.png',
+                fit: BoxFit.cover,
+              ),
+            ),
             PageView.builder(
               controller: _pageController,
               itemCount: pageColors.length,
+              onPageChanged: (index) {
+                _loadService.setPage(index);
+              },
               itemBuilder: (context, index) => _buildPageItem(index),
             ),
-
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 40.0),
+                padding: const EdgeInsets.only(bottom: 5.0),
                 child: _buildIndicator(),
               ),
             ),
-
-            // Menu radial com animação
             ...List.generate(pageTitles.length, (index) {
               double angle = startAngle + angleStep * index;
               return AnimatedBuilder(
                 animation: _menuAnimations[index],
                 builder: (context, child) {
                   double scale = _menuAnimations[index].value.clamp(0.0, 1.0);
-                  double itemX = floatingLeft +
-                      (radius * cos(angle)) * scale;
-                  double itemY = floatingTop +
-                      (radius * sin(angle)) * scale;
-
-                  // Mantém dentro da tela
+                  double itemX = floatingLeft + (radius * cos(angle)) * scale;
+                  double itemY = floatingTop + (radius * sin(angle)) * scale;
                   itemX = itemX.clamp(8.0, screenWidth - buttonSize);
                   itemY = itemY.clamp(8.0, screenHeight - buttonSize);
-
-                  
-
                   return Positioned(
                     top: itemY,
                     left: itemX,
                     child: Opacity(
                       opacity: scale,
                       child: Transform.scale(
-                        scale: scale, // anima a expansão do botão
+                        scale: scale,
                         child: GestureDetector(
                           onTap: () {
                             _pageController.animateToPage(
@@ -280,6 +324,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                               duration: const Duration(milliseconds: 400),
                               curve: Curves.easeInOut,
                             );
+                            context.read<LoadService>().setPage(index);
                             setState(() {
                               menuOpen = false;
                             });
@@ -288,22 +333,25 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                             width: buttonSize,
                             height: buttonSize,
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent,
+                              color: menuOpen
+                                  ? Colors.black
+                                  : Colors.black.withOpacity(0.5),
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.blueAccent.withOpacity(0.5),
+                                  color: (menuOpen
+                                          ? Colors.black
+                                          : Colors.black.withOpacity(0.5))
+                                      .withOpacity(0.5),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: Text(
-                                "${index + 1}",
-                                style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
+                            child: Icon(
+                              pageIcons[index],
+                              color: Colors.white,
+                              size: 26,
                             ),
                           ),
                         ),
@@ -313,8 +361,6 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                 },
               );
             }),
-
-            // Botão flutuante principal
             Positioned(
               top: floatingTop,
               left: floatingLeft,
@@ -327,12 +373,16 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                 onLongPressMoveUpdate: (details) {
                   if (isDragging) {
                     setState(() {
-                      floatingLeft =
-                          (details.globalPosition.dx - dragStartX)
-                              .clamp(0.0, screenWidth - buttonSize);
-                      floatingTop =
-                          (details.globalPosition.dy - dragStartY)
-                              .clamp(0.0, screenHeight - buttonSize);
+                      final safeTop = MediaQuery.of(context).padding.top;
+                      final safeBottom = MediaQuery.of(context).padding.bottom;
+                      const double extraPadding = 8.0;
+                      floatingLeft = (details.globalPosition.dx - dragStartX)
+                          .clamp(extraPadding, screenWidth - buttonSize - extraPadding);
+                      floatingTop = (details.globalPosition.dy - dragStartY)
+                          .clamp(
+                            safeTop + extraPadding,
+                            screenHeight - buttonSize - safeBottom - extraPadding,
+                          );
                     });
                   }
                 },
@@ -340,7 +390,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                   isDragging = false;
                 },
                 onTap: () {
-                  if (!isDragging) { // só abre/fecha se não estiver arrastando
+                  if (!isDragging) {
                     setState(() {
                       menuOpen = !menuOpen;
                     });
@@ -350,13 +400,14 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
                   width: buttonSize,
                   height: buttonSize,
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent,
+                    color: menuOpen ? Colors.black : Colors.black.withOpacity(0.4),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 5,
-                          offset: const Offset(2, 2)),
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 5,
+                        offset: const Offset(2, 2),
+                      ),
                     ],
                   ),
                   child: const Icon(Icons.menu, color: Colors.white),
@@ -369,6 +420,7 @@ class _CustomAnimatedPageViewState extends State<CustomAnimatedPageView>
     );
   }
 }
+
 
 /*import 'package:flutter/material.dart';
 import 'dart:math';

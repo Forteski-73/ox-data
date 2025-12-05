@@ -2,7 +2,6 @@
 // app/core/repositories/product_repository.dart
 // -----------------------------------------------------------
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_model.dart';
@@ -13,8 +12,6 @@ import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/models/product_brand.dart';
 import 'package:oxdata/app/core/models/product_line.dart';
 import 'package:oxdata/app/core/models/product_decoration.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http_parser/http_parser.dart';
 
 /// Repositório responsável pela comunicação com a API de produtos.
 class ProductRepository {
@@ -157,59 +154,6 @@ class ProductRepository {
       );
     }
   }
-
-  /*
-  /// Envia novas imagens para um produto específico, substituindo as existentes.
-  Future<ApiResponse<bool>> updateProductImages({
-    required String productId,
-    required String finalidade,
-    required List<XFile> images,
-  }) async {
-    if (images.isEmpty) {
-      return ApiResponse(success: false, message: 'Nenhuma imagem selecionada.');
-    }
-
-    try {
-      // Converte os XFile em MultipartFile, definindo nomes e tipos corretos
-      final multipartFiles = <http.MultipartFile>[];
-
-      for (int i = 0; i < images.length; i++) {
-        final xFile = images[i];
-        final bytes = await xFile.readAsBytes();
-
-        // Nome fixo no formato 0001.jpg, 0002.jpg, ...
-        final fileName = '${(i + 1).toString().padLeft(4, '0')}.jpg';
-
-        multipartFiles.add(http.MultipartFile.fromBytes(
-          'files', // campo esperado pelo backend lá na API
-          bytes,
-          filename: fileName,
-          contentType: MediaType('image', 'jpeg'),
-        ));
-      }
-
-      // Envia para a API usando o ApiClient com autenticação
-      final response = await apiClient.postAuthMultipart(
-        '${ApiRoutes.productImageUpdate}/$productId/$finalidade',
-        files: multipartFiles,
-      );
-
-      if (response.statusCode == 200) {
-        return ApiResponse(success: true, data: true);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao enviar imagens: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha ao enviar imagens: $e',
-      );
-    }
-  }
-  */
 
   // Atualiza as imagens na API
   Future<ApiResponse<bool>> updateProductImagesBase64({
