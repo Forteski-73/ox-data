@@ -7,6 +7,7 @@ import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/repositories/product_repository.dart';
 import 'package:oxdata/app/core/repositories/pallet_repository.dart';
+import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart'; 
 import 'package:oxdata/app/core/repositories/ftp_repository.dart'; 
 import 'package:oxdata/app/core/services/auth_service.dart';
@@ -15,6 +16,7 @@ import 'package:oxdata/app/core/services/product_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart'; 
 import 'package:oxdata/app/core/services/load_service.dart'; 
 import 'package:oxdata/app/core/services/image_cache_service.dart';
+import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/repositories/pallet_load_repository.dart';
 
 class Injector {
@@ -44,6 +46,10 @@ class Injector {
     // 5. Registra o LoadRepository, que depende do ApiClient.
     Provider<LoadRepository>(
       create: (context) => LoadRepository(apiClient: context.read<ApiClient>()),
+    ),
+
+    Provider<InventoryRepository>(
+      create: (context) => InventoryRepository(apiClient: context.read<ApiClient>()),
     ),
 
     // 6. Registra o FtpRepository, que depende do ApiClient.
@@ -90,6 +96,10 @@ class Injector {
       create: (context) => LoadService(loadRepository: context.read<LoadRepository>()),
     ),
 
+    //14. Registra o InventoryService, que depende do InventoryRepository.
+    ChangeNotifierProvider<InventoryService>(
+      create: (context) => InventoryService(inventoryRepository: context.read<InventoryRepository>()),
+    ),
   ];
 
   static void configureDependencies() {

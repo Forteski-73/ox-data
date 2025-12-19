@@ -10,7 +10,7 @@ import 'package:oxdata/app/views/inventory/inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_item_page.dart';
 import 'package:oxdata/app/views/inventory/synchronide_database.dart';
 
-import 'package:oxdata/app/core/models/inventory_item.dart';
+import 'package:oxdata/app/core/widgets/buttom_item.dart';
 
 class InventoriesPage extends StatefulWidget {
   const InventoriesPage({super.key});
@@ -32,21 +32,13 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     "Adicionar Contagem no Inventário",
     "Sincrozizar Banco de Dados"
   ];
-
-  late InventoryItem item1 = InventoryItem(
-    title: "Inventário Geral Jan/24",
-    date: "15/01/2024",
-    status: "FECHADO",
-    records: 2,
-    totalItems: 72,
-  );
   
   // 'pageContents' como 'late'
   // Isso diz ao Dart para esperar e inicializar esta variável mais tarde.
   late final List<Widget> pageContents = [
     SearchInventoryPage(),
-    InventoryPage(inventory: item1),
-    const InventoryItemPage(),
+    InventoryPage(),
+    InventoryItemPage(key: InventoryItemPage.inventoryKey),
     const SynchronizeDBPage(),
   ];
 
@@ -262,6 +254,100 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     return [startAngle, endAngle, radius];
   }
 
+  /// Navega para a página especificada pelo índice.
+  void navigateToPageByIndex(int index) {
+    if (index >= 0 && index < pageTitles.length) {
+      // 1. Move o PageView para a página desejada
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+
+      // 2. Atualiza o estado do LoadService (se necessário)
+      _loadService.setPage(index); 
+
+      // 3. Opcional: Fecha o menu flutuante se estiver aberto
+      if (menuOpen) {
+        setState(() {
+          menuOpen = false;
+        });
+      }
+    } else {
+      debugPrint('Erro: Índice de página inválido: $index');
+    }
+  }
+
+  /*
+  Widget _buildBottomItem({required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Centraliza verticalmente
+        children: [
+          Icon(icon, color: Colors.white, size: 26), // Ícone direto (sem o IconButton para evitar o padding)
+          const SizedBox(height: 2), // Espaço mínimo entre ícone e texto
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  */
+ /*
+  Widget _buildBottomItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required Color backgroundColor,   // fundo do bloco
+    required Color iconColor,         // cor do ícone
+    required Color iconBgColor,       // fundo do ícone
+    required Color textColor,         // cor do texto
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: double.infinity,
+          color: backgroundColor,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(0),
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 34,
+                ),
+              ),
+              //const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+*/
+
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -304,6 +390,94 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
             ? 'INVENTÁRIO #${context.watch<LoadService>().selectedLoadForEdit!.loadId}'
             : 'INVENTÁRIO',
       ),
+
+      //bottomNavigationBar: currentPageIndex != 0 ? BottomAppBar(
+      bottomNavigationBar: BottomAppBar(
+        height: 60,
+        padding: EdgeInsets.zero,
+        child: Row(
+          children: [
+
+            if (currentPageIndex == 0)
+              BottomItem(
+                icon: Icons.add,
+                label: "Novo Inventário",
+                backgroundColor: Colors.blue,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                onTap: () {
+                  // limpar
+                },
+              ),
+
+            if (currentPageIndex == 2)
+              BottomItem(
+                icon: Icons.clear,
+                label: "Limpar",
+                backgroundColor: Colors.redAccent,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                onTap: () {
+                  // limpar
+                },
+              ),
+
+            if (currentPageIndex == 1)
+              BottomItem(
+                icon: Icons.delete_forever,
+                label: "Excluir",
+                backgroundColor: Colors.redAccent,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                onTap: () {
+                  // excluir
+                },
+              ),
+
+            if (currentPageIndex == 1)
+              BottomItem(
+                icon: Icons.done_all_rounded,
+                label: "Finalizar",
+                backgroundColor: Colors.green,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                onTap: () {
+                  // finalizar
+                },
+              ),
+
+            if (currentPageIndex == 2)
+              BottomItem(
+                icon: Icons.check,
+                label: "Confirmar",
+                backgroundColor: Colors.green,
+                iconColor: Colors.white,
+                textColor: Colors.white,
+                onTap: () {
+                  InventoryItemPage
+                      .inventoryKey.currentState
+                      ?.saveInventory();
+                },
+              ),
+              if (currentPageIndex == 3)
+                BottomItem(
+                  icon: Icons.refresh,
+                  label: "Sincronizar",
+                  backgroundColor: Colors.teal,
+                  iconColor: Colors.white,
+                  textColor: Colors.white,
+                  onTap: () {
+                    InventoryItemPage
+                        .inventoryKey.currentState
+                        ?.saveInventory();
+                  },
+                ),
+          ],
+        ),
+      ),
+    //: null,
+
+
       body: SafeArea(
         child: Stack(
           children: [
@@ -323,12 +497,18 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
             ),
             
             // 🔑 NOVO: Exibição condicional do Bottom Bar da página de Inventário
-            if (currentPageIndex == _inventoryItemPageIndex)
+            /*if (currentPageIndex == _inventoryItemPageIndex)
               Align(
-                alignment: Alignment.bottomCenter,
-                child: buildInventoryBottomBar(context), // <--- Agora funciona!
-              ),
-              
+                  alignment: Alignment.bottomCenter,
+                  child: buildInventoryBottomBar(
+                    context,
+                    onPressed: () {
+                      // Acessamos o estado da página de inventário pela chave e chamamos o save
+                      InventoryItemPage.inventoryKey.currentState?.saveInventory();
+                    },
+                  ),
+                ),
+              */
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(

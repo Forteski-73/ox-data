@@ -26,10 +26,6 @@ class SynchronizeDBPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Sincronização de Dados"),
-        backgroundColor: Colors.indigo,
-      ),
       body: Container(
         padding: const EdgeInsets.all(24.0),
         color: Colors.white,
@@ -48,7 +44,7 @@ class SynchronizeDBPage extends StatelessWidget {
               const SizedBox(height: 30),
               
               const Text(
-                "ID:",
+                "Identificação do Dispositivo",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w600),
               ),
@@ -77,26 +73,6 @@ class SynchronizeDBPage extends StatelessWidget {
                     return const Text("Nenhum ID disponível.", style: TextStyle(color: Colors.black54));
                   }
                 },
-              ),
-
-              const SizedBox(height: 50),
-              ElevatedButton.icon(
-                onPressed: () {
-                  print('Iniciando sincronização...');
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Text("Iniciar Sincronização", style: TextStyle(fontSize: 18)),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  elevation: 5,
-                ),
               ),
             ],
           ),

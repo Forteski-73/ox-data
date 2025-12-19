@@ -57,10 +57,10 @@ class LoadService with ChangeNotifier {
 
   /// Altera a página que deve estar mostrando para o usuário
   void setPage(int index) {
-      if (_currentPageIndex != index) {
+      //if (_currentPageIndex != index) {
         _currentPageIndex = index;
         notifyListeners(); // Notifica os widgets que estão "escutando"
-      }
+      //}
     }
 
   /// Realiza a busca de todos os cabeçalhos de carga e atualiza o estado.
@@ -83,30 +83,30 @@ class LoadService with ChangeNotifier {
   /// Insere ou atualiza uma lista de cabeçalhos de carga na API.
   /// Se `loadId == 0`, é uma inserção; se `loadId > 0`, é uma atualização.
   Future<void> upsertLoadHeads(List<PalletLoadHeadModel> headsToSave) async {
-      final ApiResponse<List<int>> response =
-          await loadRepository.upsertLoadHeads(headsToSave);
+    final ApiResponse<List<int>> response =
+        await loadRepository.upsertLoadHeads(headsToSave);
 
-      if (response.success && response.data != null) {
-          
-          final List<int> returnedLoadIds = response.data!;
-          
-          if (headsToSave.length == 1 && headsToSave.first.loadId == 0 && returnedLoadIds.isNotEmpty) {
-              
-              final newId = returnedLoadIds.first;
-              final originalHead = headsToSave.first;
-              
-              originalHead.loadId = newId;
+    if (response.success && response.data != null) {
+        
+        final List<int> returnedLoadIds = response.data!;
+        
+        if (headsToSave.length == 1 && headsToSave.first.loadId == 0 && returnedLoadIds.isNotEmpty) {
+            
+            final newId = returnedLoadIds.first;
+            final originalHead = headsToSave.first;
+            
+            originalHead.loadId = newId;
 
-              if (_selectedLoadForEdit != null && _selectedLoadForEdit?.loadId == 0) {
-                  _selectedLoadForEdit = originalHead.copyWith(loadId: newId);
-              }
-          }
-          
-          await fetchAllLoadHeads();
-          
-      } else {
-          throw Exception('Falha ao salvar cargas: ${response.message}');
-      }
+            if (_selectedLoadForEdit != null && _selectedLoadForEdit?.loadId == 0) {
+                _selectedLoadForEdit = originalHead.copyWith(loadId: newId);
+            }
+        }
+        
+        await fetchAllLoadHeads();
+        
+    } else {
+        throw Exception('Falha ao salvar cargas: ${response.message}');
+    }
   }
 
   /// Limpa o estado atual das cargas.

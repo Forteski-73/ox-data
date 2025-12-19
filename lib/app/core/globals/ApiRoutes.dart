@@ -37,4 +37,7 @@ class ApiRoutes {
   static String ftpSetImage              = 'Ftp/Images/SetBase64';
   static String ftpDelImage              = 'Ftp/Images';
 
+  // Rotas para o INVENTÁRIO
+  static String inventory             = 'Inventory';
+
 }
