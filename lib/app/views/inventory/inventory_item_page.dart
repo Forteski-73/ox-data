@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
+import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -203,23 +204,75 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
       switch (_flag) {
         case 1:                               // UNITIZADOR
           _unitizerController.text = scanned;
+          _syncDraft();
           break;
         
         case 2:                               // POSIÇÃO
           _positionController.text = scanned;
+          _syncDraft();
           break;
         
         case 3:                               // PRODUTO
           _productController.text = scanned;
+          _syncDraft();
           break;
         
         default:
-          
+          _syncDraft();
           break;
       }
     }
   }
 
+  Future<void> onSavePressed() async {
+    final service = context.read<InventoryService>();
+
+    final input = InventoryRecordInput(
+      unitizer: _unitizerController.text,
+      position: _positionController.text,
+      product: _productController.text,
+      qtdPorPilha: double.tryParse(_qtdPorPilhaController.text) ?? 0,
+      numPilhas: double.tryParse(_numPilhasController.text) ?? 0,
+      qtdAvulsa: double.tryParse(_qtdAvulsaController.text) ?? 0,
+    );
+
+    try {
+      await service.saveInventoryRecord(input);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registro salvo com sucesso ✅')),
+      );
+
+      _clearFields();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  void _syncDraft() {
+    final service = context.read<InventoryService>();
+
+    service.updateDraft(
+      InventoryRecordInput(
+        unitizer: _unitizerController.text,
+        position: _positionController.text,
+        product: _productController.text,
+        qtdPorPilha: double.tryParse(_qtdPorPilhaController.text) ?? 0,
+        numPilhas: double.tryParse(_numPilhasController.text) ?? 0,
+        qtdAvulsa: double.tryParse(_qtdAvulsaController.text) ?? 0,
+      ),
+    );
+  }
+
+
+
+  /*
     // MÉTODO PARA SALVAR
   Future<void> saveInventory() async {
     final inventoryService = Provider.of<InventoryService>(context, listen: false);
@@ -276,6 +329,8 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e ❌')));
     }
   }
+
+  */
 
   void _clearFields() {
     setState(() {
@@ -471,6 +526,7 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
           keyboardType: TextInputType.number,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 20),
+          onChanged: (_) => _syncDraft(),
           decoration: const InputDecoration(
             hintText: '0',
             hintStyle: TextStyle(fontSize: 18.0),

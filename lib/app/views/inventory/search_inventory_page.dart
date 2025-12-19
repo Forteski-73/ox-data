@@ -103,6 +103,7 @@ class _InventoryCard extends StatelessWidget {
 
 // CLASSE PRINCIPAL (SearchInventoryPage)
 class SearchInventoryPage extends StatefulWidget {
+  static final GlobalKey<_SearchInventoryPageState> inventoryKey = GlobalKey<_SearchInventoryPageState>();
   const SearchInventoryPage({super.key});
 
   @override
@@ -141,6 +142,12 @@ class _SearchInventoryPageState extends State<SearchInventoryPage> {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+      // MÉTODO PARA SALVAR
+  Future<void> saveNewInventory() async {
+    final inventoryService = Provider.of<InventoryService>(context, listen: false);
+    final currentInventory = inventoryService.selectedInventory;
   }
 
   @override

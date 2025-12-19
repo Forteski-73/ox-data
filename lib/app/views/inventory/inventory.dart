@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:oxdata/app/views/inventory/search_inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_item_page.dart';
+import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/views/inventory/synchronide_database.dart';
 
 import 'package:oxdata/app/core/widgets/buttom_item.dart';
@@ -406,7 +407,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
                 onTap: () {
-                  // limpar
+                  //SearchInventoryPage.inventoryKey.currentState?.saveNewInventory();
                 },
               ),
 
@@ -453,10 +454,9 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 backgroundColor: Colors.green,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () {
-                  InventoryItemPage
-                      .inventoryKey.currentState
-                      ?.saveInventory();
+                onTap: () async {
+                  final service = context.read<InventoryService>();
+                  await service.confirmDraft();
                 },
               ),
               if (currentPageIndex == 3)
@@ -467,9 +467,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   iconColor: Colors.white,
                   textColor: Colors.white,
                   onTap: () {
-                    InventoryItemPage
-                        .inventoryKey.currentState
-                        ?.saveInventory();
+                    //InventoryItemPage.inventoryKey.currentState?.saveInventory();
                   },
                 ),
           ],

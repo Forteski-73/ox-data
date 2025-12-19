@@ -44,9 +44,8 @@ class InventoryModel {
       'invent_code': inventCode,
       'invent_guid': inventGuid,
       'invent_sector': inventSector,
-      'invent_created': inventCreated?.toIso8601String(), // Formato ISO 8601 para DateTime
+      'invent_created': inventCreated?.toIso8601String(),
       'invent_user': inventUser,
-      // Armazena o nome do enum (ex: 'Iniciado', 'Finalizado')
       'invent_status': inventStatus.name,
       'invent_total': inventTotal,
     };
@@ -77,7 +76,6 @@ return InventoryModel(
           : null,
       inventUser: map['inventUser']?.toString(),
       inventStatus: parseStatus(map['inventStatus']?.toString()),
-      // Tratamento robusto para converter qualquer entrada numérica para double
       inventTotal: map['inventTotal'] != null 
           ? (map['inventTotal'] as num).toDouble() 
           : null,

@@ -249,7 +249,7 @@ class _InventoryPageState extends State<InventoryPage> {
   // Acessa o status do InventoryModel e o converte para String
   final String statusText = inventory.inventStatus.name.toUpperCase();
   // Ajuste de cor baseado no status do ENUM
-  Color statusColor = statusText == 'FINALIZADO' ? Colors.green : Colors.orange;
+  Color statusColor = statusText == 'FINALIZADO' ? Colors.orange : Colors.green;
 
   // O totalItems agora deve vir de inventTotal do InventoryModel
   double totalItems = inventory.inventTotal ?? 0;
@@ -307,7 +307,7 @@ class _InventoryPageState extends State<InventoryPage> {
           child: Text(
            statusText, // Status vindo do ENUM
            style: TextStyle(
-            fontSize: 12,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: statusColor,
            ),
