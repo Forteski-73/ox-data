@@ -466,8 +466,9 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   backgroundColor: Colors.teal,
                   iconColor: Colors.white,
                   textColor: Colors.white,
-                  onTap: () {
-                    //InventoryItemPage.inventoryKey.currentState?.saveInventory();
+                  onTap: () async {
+                    final service = context.read<InventoryService>();
+                    await service.confirmDraft();
                   },
                 ),
           ],
