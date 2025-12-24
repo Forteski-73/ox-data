@@ -3,8 +3,6 @@ import 'dart:math';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/services/load_service.dart';
 import 'package:provider/provider.dart';
-
-// Importações das novas páginas de Inventário
 import 'package:oxdata/app/views/inventory/search_inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_item_page.dart';
@@ -71,6 +69,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
   late List<Animation<double>> _menuAnimations;
   late LoadService _loadService;
 
+  static const double bottomBarHeight = 60.0;
+  static const double forbiddenBottomZone = 90.0;
+  static const double floatingButtonSize = 60.0;
+  static const double extraPadding = 4.0;
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +106,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
       final screenSize = MediaQuery.of(context).size;
       setState(() {
         // Inicializa o botão no canto inferior direito
-        floatingTop = screenSize.height - 180 - 60;
+        floatingTop = screenSize.height - 180 - 90;
         floatingLeft = screenSize.width - 30 - 60;
       });
     });
@@ -382,7 +385,10 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     // Instancia o InventoryItemPage para que possamos acessar o bottom bar
     // É seguro fazer o cast pois sabemos o que tem no índice 2
     final inventoryItemPage = pageContents[_inventoryItemPageIndex] as InventoryItemPage;
-
+    final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final isSyncing = context.select<InventoryService, bool>(
+      (s) => s.isSyncing,
+    );
     return Scaffold(
       // 🔑 SOLUÇÃO APLICADA: Evita o redimensionamento do Scaffold quando o teclado abre
       resizeToAvoidBottomInset: false, 
@@ -393,7 +399,9 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
       ),
 
       //bottomNavigationBar: currentPageIndex != 0 ? BottomAppBar(
-      bottomNavigationBar: BottomAppBar(
+      bottomNavigationBar: isKeyboardVisible 
+        ? null  // Se o teclado estiver ativo, removemos o widget e o espaço dele
+        : BottomAppBar(
         height: 60,
         padding: EdgeInsets.zero,
         child: Row(
@@ -466,10 +474,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   backgroundColor: Colors.teal,
                   iconColor: Colors.white,
                   textColor: Colors.white,
-                  onTap: () async {
-                    final service = context.read<InventoryService>();
-                    await service.confirmDraft();
-                  },
+                  onTap: isSyncing
+                      ? null
+                      : () {
+                          context.read<InventoryService>().startSync();
+                        },
                 ),
           ],
         ),
@@ -589,6 +598,36 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   dragStartX = details.globalPosition.dx - floatingLeft;
                   dragStartY = details.globalPosition.dy - floatingTop;
                 },
+
+                onLongPressMoveUpdate: (details) {
+                  if (isDragging) {
+                    setState(() {
+                      final media = MediaQuery.of(context);
+                      //final safeTop = media.padding.top;
+                      final safeBottom = media.padding.bottom;
+
+                      final double maxTopAllowed =
+                          screenHeight
+                          - bottomBarHeight
+                          - forbiddenBottomZone
+                          - floatingButtonSize
+                          - safeBottom;
+
+                      floatingLeft = (details.globalPosition.dx - dragStartX).clamp(
+                        extraPadding,
+                        screenWidth - floatingButtonSize - extraPadding,
+                      );
+
+                      floatingTop = (details.globalPosition.dy - dragStartY).clamp(
+                        4.0,
+                        maxTopAllowed,
+                      );
+                    });
+                  }
+                },
+
+
+                /*
                 onLongPressMoveUpdate: (details) {
                   if (isDragging) {
                     setState(() {
@@ -604,6 +643,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                     });
                   }
                 },
+                */
                 onLongPressEnd: (details) {
                   isDragging = false;
                 },

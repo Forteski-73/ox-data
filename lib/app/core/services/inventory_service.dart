@@ -10,15 +10,17 @@ import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
+import 'package:oxdata/db/app_database.dart';
 import 'package:uuid/uuid.dart';
 
 /// Serviço responsável pela lógica de negócios e gerenciamento de estado
 /// (via ChangeNotifier) para as operações de Inventário.
 class InventoryService with ChangeNotifier {
   final InventoryRepository inventoryRepository;
+  final AppDatabase database;
   String? _deviceId;
 
-  InventoryService({required this.inventoryRepository}) {
+  InventoryService({required this.inventoryRepository,required this.database,}) {
     initializeDeviceId(); // Inicializa o ID do dispositivo logo após a criação do serviço
   }
 
@@ -31,6 +33,12 @@ class InventoryService with ChangeNotifier {
   List<InventoryRecordModel> _inventoryRecords = [];
   List<InventoryGuidModel> _inventoryGuids = [];
   InventoryModel? _selectedInventory;
+
+  // SINCRONIZAÇÃO
+  int totalSynchronize = 0;
+  double progressSynchronize = 0.0;
+  String infoSynchronize = "";
+  bool isSyncing = false;
 
   // Getter para expor o ID do Dispositivo
   String? get deviceId => _deviceId;
@@ -75,6 +83,107 @@ class InventoryService with ChangeNotifier {
 
     await saveInventoryRecord(_draft!);
     _draft = null;
+  }
+
+  /// Busca um produto no banco local pelo código de barras ou ID interno.
+  Future<Product?> searchProductLocally(String code) async {
+    if (code.isEmpty) return null;
+
+    try {
+      // Chama o banco de dados injetado no construtor
+      final product = await database.findProductByCode(code);
+      
+      if (product != null) {
+        debugPrint("Produto encontrado: ${product.productName}");
+        return product;
+      } else {
+        debugPrint("Produto não encontrado no banco local: $code");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Erro na busca local: $e");
+      return null;
+    }
+  }
+
+  Future<void> startSync() async {
+    isSyncing = true;
+    progressSynchronize = 0.0;
+    infoSynchronize = "Iniciando sincronização...";
+    notifyListeners();
+
+    try {
+      // 1. Obter a contagem total de produtos do servidor
+      infoSynchronize = "Consultando base de dados remota...";
+      notifyListeners();
+      
+      final countResponse = await inventoryRepository.getProductCount();
+      
+      if (!countResponse.success || countResponse.data == null) {
+        throw Exception(countResponse.message ?? "Falha ao obter contagem de produtos");
+      }
+
+      final int totalProducts = countResponse.data!; // Valor que veio do body['total']
+      const int pageSize = 10000;
+
+      // CALCULO DINÂMICO:
+      // Se total for 25.000 / 10.000 = 2.5 -> ceil() transforma em 3 páginas.
+      final int totalPages = (totalProducts / pageSize).ceil();
+      
+      if (totalPages == 0) {
+        infoSynchronize = "Nenhum produto encontrado para sincronizar.";
+        isSyncing = false;
+        notifyListeners();
+        return;
+      }
+
+      totalSynchronize = totalPages;
+      
+      // 2. Limpeza da base local
+      infoSynchronize = "Limpando base local...";
+      notifyListeners();
+      await database.clearProducts();
+
+      // 3. Loop de sincronização baseado nas páginas calculadas
+      for (int currentPage = 1; currentPage <= totalPages; currentPage++) {
+        //infoSynchronize = "Baixando lote $currentPage de $totalPages...";
+        infoSynchronize = "Sincronizando... ${(progressSynchronize * 100).toInt()}%";
+        notifyListeners();
+
+        final response = await inventoryRepository.getProductsPaged(
+          page: currentPage,
+          pageSize: pageSize,
+        );
+
+        if (response.success && response.data != null) {
+          //infoSynchronize = "Gravando lote $currentPage de $totalPages...";
+          //notifyListeners();
+
+          final error = await database.saveProductsBatch(response.data!);
+          if (error != null) {
+            throw Exception("Falha ao gravar no banco: $error");
+          }
+        } else {
+          throw Exception("Erro no lote $currentPage: ${response.message}");
+        }
+
+        // Atualiza o progresso: de 0.0 a 1.0
+        progressSynchronize = currentPage / totalPages;
+        if (progressSynchronize == 1)
+          infoSynchronize = "Sincronizado... 100%";
+
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
+      infoSynchronize = "Sincronização concluída: $totalProducts produtos atualizados.";
+    } catch (e) {
+      infoSynchronize = "Erro na sincronização: $e";
+      debugPrint(e.toString());
+    } finally {
+      isSyncing = false;
+      notifyListeners();
+    }
   }
 
   /// GET: Busca todos os GUIDs de inventário da API e atualiza a lista.

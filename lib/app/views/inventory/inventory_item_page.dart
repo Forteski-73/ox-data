@@ -542,87 +542,79 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Mantém o bottom fixo
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // --- CONTAINER DE TOTAL REATIVO ---
-                Consumer<InventoryService>(
-                  builder: (context, inventoryService, child) {
-                    // Obtém o valor total do inventário selecionado no Service
-                    final double totalGeral = inventoryService.selectedInventory?.inventTotal ?? 0.0;
-
-                    return Container(
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _primaryColor,
-                        borderRadius: BorderRadius.circular(4),
+      // 1. Mude para TRUE para o Scaffold redimensionar quando o teclado abrir
+      resizeToAvoidBottomInset: true, 
+      body: SafeArea( // Recomendado para evitar notch/barras do sistema
+        child: SingleChildScrollView(
+          // 2. Padding ajustado: remova o 100 exagerado se não houver um botão fixo no rodapé aqui
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // --- CONTAINER DE TOTAL REATIVO ---
+              Consumer<InventoryService>(
+                builder: (context, inventoryService, child) {
+                  final double totalGeral = inventoryService.selectedInventory?.inventTotal ?? 0.0;
+                  return Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: _primaryColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "TOTAL DE PEÇAS",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            totalGeral % 1 == 0 
+                                ? totalGeral.toInt().toString() 
+                                : totalGeral.toStringAsFixed(2),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "TOTAL DE PEÇAS",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            Text(
-                              // Formatação inteligente:
-                              // Se for inteiro (ex: 10.0), mostra "10"
-                              // Se tiver decimais (ex: 10.5), mostra "10.50"
-                              totalGeral % 1 == 0 
-                                  ? totalGeral.toInt().toString() 
-                                  : totalGeral.toStringAsFixed(2),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                // ----------------------------------
-
-                const SizedBox(height: 8),
-                
-                // Campos de Identificação
-                _buildSectionTitle("IDENTIFICAÇÃO"),
-                const SizedBox(height: 6),
-                _buildUnitizerTextField(),
-                const SizedBox(height: 6),
-                _buildPositionTextField(),
-                const SizedBox(height: 6),
-                _buildProductTextField(),
-                const SizedBox(height: 8),
-                
-                // Campos de Quantidades
-                _buildSectionTitle("QUANTIDADES"),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: _buildQuantityField(label: "QTD por Pilha", controller: _qtdPorPilhaController)),
-                    const SizedBox(width: 10),
-                    Expanded(child: _buildQuantityField(label: "Nº de Pilhas", controller: _numPilhasController)),
-                    const SizedBox(width: 10),
-                    Expanded(child: _buildQuantityField(label: "QTD Avulsa", controller: _qtdAvulsaController)),
-                  ],
-                ),
-                const SizedBox(height: 100),
-              ],
-            ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // Campos de Identificação
+              _buildSectionTitle("IDENTIFICAÇÃO"),
+              const SizedBox(height: 6),
+              _buildUnitizerTextField(),
+              const SizedBox(height: 6),
+              _buildPositionTextField(),
+              const SizedBox(height: 6),
+              _buildProductTextField(),
+              const SizedBox(height: 16),
+              
+              // Campos de Quantidades
+              _buildSectionTitle("QUANTIDADES"),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _buildQuantityField(label: "QTD por Pilha", controller: _qtdPorPilhaController)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildQuantityField(label: "Nº de Pilhas", controller: _numPilhasController)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildQuantityField(label: "QTD Avulsa", controller: _qtdAvulsaController)),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
