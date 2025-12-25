@@ -8,6 +8,8 @@ import 'tables/product.dart';
 import 'tables/device_sync.dart';
 import 'tables/inventory_mask.dart';
 import 'package:oxdata/app/core/models/dto/product_db_local.dart';
+import 'package:oxdata/app/core/models/dto/mask_db_local.dart';
+import 'package:oxdata/db/enums/mask_field_name.dart';
 
 part 'app_database.g.dart';
 
@@ -26,6 +28,7 @@ class AppDatabase extends _$AppDatabase {
 
   // --- MÉTODO PARA LIMPAR PRODUTOS ANTES DA SINCRONIZAÇÃO ---
   Future<void> clearProducts() => delete(products).go();
+  Future<void> clearMasks() => delete(inventoryMask).go();
 
   // ----------------------------------------------------------------------
   // MÉTODO DE GRAVAÇÃO EM LOTE (BATCH INSERT)
@@ -57,6 +60,48 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
+  // --- PESQUISA GLOBAL (LIKE) EM MÚLTIPLOS CAMPOS ---
+  Future<List<Product>> searchProducts(String query) {
+    // Definimos o padrão de busca como %texto%
+    final pattern = '%$query%';
+    final startPattern = '$query%';
+    return (select(products)
+          ..where((p) =>
+              p.productId.like(startPattern) |
+              p.barcode.like(pattern) |
+              p.productName.like(pattern))
+          ..orderBy([
+              (t) => OrderingTerm(expression: t.productId, mode: OrderingMode.asc),
+              (t) => OrderingTerm(expression: t.productName, mode: OrderingMode.asc),
+          ])
+          ..limit(50)) // Limite opcional para performance na UI
+        .get();
+  }
+
+  // ----------------------------------------------------------------------
+  // MÉTODOS PARA INVENTORY MASK
+  // ----------------------------------------------------------------------
+  /// Grava a lista de máscaras vinda da API no banco local.
+  /// Recebe uma lista de [InventoryMaskLocal] (seu modelo de DTO/Sincronização).
+  Future<void> saveInventoryMasks(List<InventoryMaskLocal> maskList) async {
+    await batch((b) {
+      b.insertAll(
+        inventoryMask, // Nome da tabela gerada pelo Drift
+        maskList.map((m) => InventoryMaskCompanion.insert(
+          // Mapeamos o id da API para o maskId da tabela
+          maskId: m.maskId != null ? Value(m.maskId!) : const Value.absent(),
+          fieldName: m.fieldName,
+          fieldMask: m.fieldMask,
+        )).toList(),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
+  // Método para limpar as máscaras (caso precise resetar antes de sincronizar)
+  //Future<void> clearInventoryMasks() => delete(inventoryMask).go();
+  // Método para buscar todas as máscaras do banco local
+  Future<List<InventoryMaskData>> getAllMasks() => select(inventoryMask).get();
 
 }
 

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'package:oxdata/app/core/services/inventory_service.dart';
-import 'package:oxdata/app/core/models/inventory_record_model.dart';
-import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
+import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:oxdata/app/core/widgets/instruction_popup.dart';
+import 'package:oxdata/app/core/widgets/product_search_local.dart';
+import 'package:oxdata/app/core/utils/mask_validate.dart';
 import 'dart:async';
 
 // -------------------------------------------------------------------
@@ -203,6 +204,7 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     if (scanned.isNotEmpty) {
       switch (_flag) {
         case 1:                               // UNITIZADOR
+
           _unitizerController.text = scanned;
           _syncDraft();
           break;
@@ -214,6 +216,7 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
         
         case 3:                               // PRODUTO
           _productController.text = scanned;
+
           _syncDraft();
           break;
         
@@ -221,6 +224,20 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
           _syncDraft();
           break;
       }
+    }
+  }
+
+  Future<void> _searchProduct() async {
+    final product = await showDialog<Product>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => const ProductSearchLocalDialog(),
+    );
+
+    if (product != null) {
+      _productController.text = product.barcode;
+      // aqui você recebe o produto selecionado
+      //debugPrint('Produto selecionado: ${product.productName}');
     }
   }
 
@@ -270,6 +287,11 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     );
   }
 
+  void _onProductScanned(String code) async {
+    final inventoryService = Provider.of<InventoryService>(context, listen: false);
+    
+    await inventoryService.searchProductLocally(code);
+  }
 
 
   /*
@@ -376,6 +398,7 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
   }
 
   Widget _buildUnitizerTextField() {
+    final service = context.read<InventoryService>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -385,6 +408,27 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
             Expanded(
               child: TextField(
                 controller: _unitizerController,
+                onSubmitted: (value) async {
+                    // 1. Pega as strings das máscaras que já estão no service
+                    /*final maskStrings = service.listMask.map((m) => m.fieldMask).toList();*/
+                    
+                    final masks = await service.getAllMasks();
+                    final maskStrings = masks.map((m) => m.fieldMask).toList();
+
+                    // 2. Valida usando o utilitário
+                    bool isValid = MaskValidatorService.validateMask(value, maskStrings);
+
+                    if (!isValid) {
+                      // Aqui você pode mostrar um SnackBar ou Alerta de erro
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Código do Unitizador inválido!")),
+                      );
+                      _unitizerController.clear(); // Opcional: limpa o campo se estiver errado
+                    } else {
+                      // Código válido, pode mover o foco para o próximo campo (ex: Posição)
+                      FocusScope.of(context).nextFocus();
+                    }
+                  },
                 style: const TextStyle(fontSize: 18.0), 
                 decoration: InputDecoration(
                   labelText: "Unitizador",
@@ -450,7 +494,7 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
               icon: Icons.search,
               blink: true,
               onPressed: () {
-                debugPrint("Pesquisar Produto Clicado!");
+                _searchProduct();
               },
             ),
             const SizedBox(width: 8),

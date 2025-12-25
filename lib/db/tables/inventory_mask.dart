@@ -1,10 +1,5 @@
 import 'package:drift/drift.dart';
-
-enum MaskFieldName {
-  Unitizador,
-  Posicao,
-  Codigo,
-}
+import 'package:oxdata/db/enums/mask_field_name.dart';
 
 class InventoryMask extends Table {
   IntColumn get maskId      => integer().autoIncrement()();

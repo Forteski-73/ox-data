@@ -7,6 +7,7 @@ import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart'; // Assumindo InventoryModel
 import 'package:oxdata/app/core/models/inventory_guid_model.dart'; // Assumindo InventoryGuidModel
 import 'package:oxdata/app/core/models/inventory_record_model.dart'; // Assumindo InventoryRecordModel
+import 'package:oxdata/app/core/models/dto/mask_db_local.dart';
 import 'package:oxdata/app/core/models/dto/product_db_local.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
@@ -483,4 +484,27 @@ Future<ApiResponse<String>> createOrUpdateInventoryRecords(
       );
     }
   }
+
+  Future<ApiResponse<List<InventoryMaskLocal>>> getInventoryMasks() async {
+    try {
+      final route = '${ApiRoutes.inventory}/Masks';
+      final response = await apiClient.getAuth(route);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        final masks = jsonList
+            .map((json) => InventoryMaskLocal.fromMap(json as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(success: true, data: masks);
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar máscaras: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      return ApiResponse(success: false, message: 'Falha na requisição: $e');
+    }
+  }
+
 }

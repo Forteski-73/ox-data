@@ -34,6 +34,13 @@ class InventoryService with ChangeNotifier {
   List<InventoryGuidModel> _inventoryGuids = [];
   InventoryModel? _selectedInventory;
 
+  // 🔑 Produtos filtrados
+  List<Product> _searchResults = [];
+  List<Product> get searchResults => _searchResults;
+
+  List<InventoryMaskData> _listMask = [];
+  List<InventoryMaskData> get listMask => _listMask;
+
   // SINCRONIZAÇÃO
   int totalSynchronize = 0;
   double progressSynchronize = 0.0;
@@ -51,8 +58,8 @@ class InventoryService with ChangeNotifier {
   InventoryModel? get selectedInventory => _selectedInventory;
 
 
-    InventoryRecordInput? _draft;
-    InventoryRecordInput? get draft => _draft;
+  InventoryRecordInput? _draft;
+  InventoryRecordInput? get draft => _draft;
 
   // =========================================================================
   // === INVENTORY GUID (v1/Inventory)
@@ -86,7 +93,7 @@ class InventoryService with ChangeNotifier {
   }
 
   /// Busca um produto no banco local pelo código de barras ou ID interno.
-  Future<Product?> searchProductLocally(String code) async {
+  Future<Product?> searchProductLocallyByCode(String code) async {
     if (code.isEmpty) return null;
 
     try {
@@ -106,6 +113,19 @@ class InventoryService with ChangeNotifier {
     }
   }
 
+  /// Pesquisa produtos por qualquer texto
+  Future<void> searchProductLocally(String query) async {
+    if (query.length < 4) { // Evita pesquisar com apenas 1 letra por performance
+      _searchResults = [];
+      notifyListeners();
+      return;
+    }
+
+    _searchResults = await database.searchProducts(query);
+    notifyListeners();
+  }
+
+  /// Sincroniza Produtos
   Future<void> startSync() async {
     isSyncing = true;
     progressSynchronize = 0.0;
@@ -143,11 +163,12 @@ class InventoryService with ChangeNotifier {
       infoSynchronize = "Limpando base local...";
       notifyListeners();
       await database.clearProducts();
+      await database.clearMasks();
 
       // 3. Loop de sincronização baseado nas páginas calculadas
       for (int currentPage = 1; currentPage <= totalPages; currentPage++) {
         //infoSynchronize = "Baixando lote $currentPage de $totalPages...";
-        infoSynchronize = "Sincronizando... ${(progressSynchronize * 100).toInt()}%";
+        infoSynchronize = "Sincronizando produtos.. ${(progressSynchronize * 100).toInt()}%";
         notifyListeners();
 
         final response = await inventoryRepository.getProductsPaged(
@@ -170,10 +191,18 @@ class InventoryService with ChangeNotifier {
         // Atualiza o progresso: de 0.0 a 1.0
         progressSynchronize = currentPage / totalPages;
         if (progressSynchronize == 1)
-          infoSynchronize = "Sincronizado... 100%";
+        {
+          infoSynchronize = "Sincronizado produtos.. 100%";
 
-        notifyListeners();
-        await Future.delayed(const Duration(seconds: 1));
+          syncMasks(); // sincroniza mascaras
+
+          notifyListeners();
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        else
+        {
+          notifyListeners();
+        }
       }
 
       infoSynchronize = "Sincronização concluída: $totalProducts produtos atualizados.";
@@ -183,6 +212,24 @@ class InventoryService with ChangeNotifier {
     } finally {
       isSyncing = false;
       notifyListeners();
+    }
+  }
+
+  /// Sincroniza Mascaras
+  Future<void> syncMasks() async {
+    try {
+      final response = await inventoryRepository.getInventoryMasks();
+
+      if (response.success && response.data != null) {
+        // 1. Opcional: Limpar as antigas para não acumular lixo se mudarem IDs
+        await database.delete(database.inventoryMask).go();
+
+        // 2. Salva o lote que veio da API
+        await database.saveInventoryMasks(response.data!);
+        debugPrint("Máscaras sincronizadas com sucesso.");
+      }
+    } catch (e) {
+      debugPrint("Erro ao sincronizar máscaras: $e");
     }
   }
 
@@ -482,8 +529,7 @@ Future<String> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batche
     }
   }
 
-
-// ----------------------------------------------------------------------
+  // ----------------------------------------------------------------------
   // MÉTODO: Inicializa o ID Único do Dispositivo (device_uuid)
   // ----------------------------------------------------------------------
   Future<void> initializeDeviceId() async {
@@ -499,6 +545,32 @@ Future<String> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batche
     // Atualiza o estado interno e notifica os listeners
     _deviceId = id;
     notifyListeners();
+  }
+
+  // =========================================================================
+  // === MÉTODOS DE MÁSCARA (LOCAIS)
+  // =========================================================================
+
+  /// Recupera todas as máscaras armazenadas no banco de dados local (Drift).
+  Future<List<InventoryMaskData>> getAllMasks() async {
+    try {
+      // 1. Busca os dados do banco
+      final masks = await database.getAllMasks();
+      
+      // 2. Grava na variável local
+      _listMask = masks;
+      
+      // 3. Notifica os interessados (UI) que os dados mudaram
+      //notifyListeners();
+      
+      return _listMask;
+
+    } catch (e) {
+      //debugPrint("Erro ao buscar máscaras locais: $e");
+      _listMask = [];
+      notifyListeners();
+      return [];
+    }
   }
 
   // =========================================================================
