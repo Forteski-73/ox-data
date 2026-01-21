@@ -241,44 +241,79 @@ Future<void> insertOrUpdateInventoryOffline(
 */
 
   Future<StatusResult> insertOrUpdateInventoryRecordOffline(
-    InventoryModel inventory,
+    InventoryModel inventoryModel,
     InventoryRecordInput input, {
     bool synced = false,
   }) async {
     try {
       final total = ((input.qtdPorPilha ?? 0) * (input.numPilhas ?? 0)) + (input.qtdAvulsa ?? 0);
       final username = await _storage.read(key: 'username');
-      //const String username = "Diones";
 
       final productLocal = await findProductByCode(input.product);
       if (productLocal == null) {
-        return StatusResult(status: 0, message: 'Produto não encontrado: ${input.product}',);
+        return StatusResult(status: 0, message: 'Produto não encontrado');
       }
 
-      await into(inventoryRecords).insertOnConflictUpdate(
-        InventoryRecordsCompanion.insert(
-          id: input.id != null ? Value(input.id!) : const Value.absent(),
-          inventCode:           inventory.inventCode,
-          inventCreated:        Value(DateTime.now()),
-          inventUser:           Value(username),
-          inventUnitizer:       Value(input.unitizer),
-          inventLocation:       Value(input.position),
-          inventProduct:        productLocal.productId,
-          inventBarcode:        Value(productLocal.barcode),
-          inventStandardStack:  Value((input.qtdPorPilha ?? 0).toInt()),
-          inventQtdStack:       Value((input.numPilhas ?? 0).toInt()),
-          inventQtdIndividual:  Value(input.qtdAvulsa),
-          inventTotal:          Value(total),
-          isSynced:             Value(synced),
-          lastSyncAttempt:      Value(DateTime.now()),
-        ),
+      // 1. TENTAMOS ENCONTRAR O ID DO REGISTRO QUE JÁ ESTÁ LÁ
+      // Usando o método que criamos que retorna o .last ou .single
+      final existing = await checkDuplicateRecord(
+        inventCode: inventoryModel.inventCode,
+        unitizer: input.unitizer,
+        position: input.position,
+        product: input.product,
+      );
+      
+      debugPrint("***************************************************** EXISTE ${existing?.id}");
+
+      // 2. CRIAMOS O COMPANION
+      final companion = InventoryRecordsCompanion.insert(
+        // SE existir um ID no banco, passamos ele aqui. 
+        // Isso força o Drift a fazer UPDATE em vez de INSERT.
+        id: existing != null ? Value(existing.id) : const Value.absent(), 
+        inventCode: inventoryModel.inventCode,
+        inventCreated: Value(DateTime.now()),
+        inventUser: Value(username),
+        inventUnitizer: Value(input.unitizer),
+        inventLocation: Value(input.position),
+        inventProduct: productLocal.productId,
+        inventBarcode: Value(productLocal.barcode),
+        inventStandardStack: Value((input.qtdPorPilha ?? 0).toInt()),
+        inventQtdStack: Value((input.numPilhas ?? 0).toInt()),
+        inventQtdIndividual: Value(input.qtdAvulsa),
+        inventTotal: Value(total),
+        isSynced: Value(synced),
+        lastSyncAttempt: Value(DateTime.now()),
       );
 
-      return StatusResult( status: 1, message: 'Registro salvo localmente com sucesso.', );
+      // 3. AGORA O CONFLITO SERÁ PELO 'ID' E VAI ATUALIZAR
+      await into(inventoryRecords).insertOnConflictUpdate(companion);
+
+
+      // 5. ATUALIZA A TABELA INVENTORY (TOTAL GERAL)
+        // Buscamos o inventário atual no banco para pegar o total que já está lá
+        final currentInventory = await (select(inventory)
+              ..where((tbl) => tbl.inventCode.equals(inventoryModel.inventCode)))
+            .getSingleOrNull();
+
+        if (currentInventory != null) {
+          final totalGeral = (currentInventory.inventTotal ?? 0) + total;
+          
+          await (update(inventory)
+                ..where((tbl) => tbl.inventCode.equals(inventoryModel.inventCode)))
+              .write(
+            InventoryCompanion(
+              inventTotal: Value(totalGeral),
+              lastSyncAttempt: Value(DateTime.now()),
+            ),
+          );
+          
+          debugPrint("✅ Total Geral do Inventário atualizado: $totalGeral");
+        }
+
+      return StatusResult(status: 1, message: 'Registro atualizado com sucesso.');
 
     } catch (e) {
-
-      return StatusResult( status: 0, message: 'Erro ao salvar registro localmente: $e', );
+      return StatusResult(status: 0, message: 'Erro: $e');
     }
   }
 
@@ -312,7 +347,57 @@ Future<void> insertOrUpdateInventoryOffline(
   /// Exclui um item específico (caso o usuário queira remover uma contagem)
   Future<void> deleteRecord(int id) => 
       (delete(inventoryRecords)..where((tbl) => tbl.id.equals(id))).go();
+      
 
+  // ----------------------------------------------------------------------
+  // VERIFICAÇÃO DE DUPLICIDADE
+  // ----------------------------------------------------------------------
+  /// Verifica se já existe um registro no banco local para o mesmo
+  /// inventário, unitizador, posição e produto.
+// ----------------------------------------------------------------------
+  // VERIFICAÇÃO DE DUPLICIDADE (VERSÃO RESILIENTE)
+  // ----------------------------------------------------------------------
+  Future<InventoryRecord?> checkDuplicateRecord({
+    required String inventCode,
+    required String unitizer,
+    required String position,
+    required String product,
+  }) async {
+    // 1. Busca o productId interno
+    final productLocal = await findProductByCode(product);
+    
+    if (productLocal == null) return null;
+
+    // 2. Monta a query
+    final query = select(inventoryRecords)..where((tbl) => 
+      tbl.inventCode.equals(inventCode) & 
+      tbl.inventUnitizer.equals(unitizer) & 
+      tbl.inventLocation.equals(position) & 
+      tbl.inventProduct.equals(productLocal.productId)
+    );
+
+    // 3. Executa o get() para obter a lista completa em vez de getSingleOrNull
+    final results = await query.get();
+
+    // 4. Debug: Imprime a quantidade encontrada
+    debugPrint("🔍 Verificação de Duplicidade:");
+    debugPrint("   Registros encontrados: ${results.length}");
+    debugPrint("   Filtros: $inventCode | $unitizer | $position | $product");
+
+    if (results.isEmpty) {
+      return null;
+    }
+
+    // 5. Se houver mais de um, avisa e retorna o último da lista
+    if (results.length > 1) {
+      debugPrint("⚠️ ALERTA: Existem ${results.length} registros duplicados no banco local para esta posição!");
+      // Retorna o último (o mais recente inserido)
+      return results.last; 
+    }
+
+    // Se houver apenas um, retorna ele mesmo
+    return results.single;
+  }
 }
 
 LazyDatabase _openConnection() {

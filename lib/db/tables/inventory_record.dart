@@ -28,4 +28,11 @@ class InventoryRecords extends Table {
   /// 🔑 CONTROLE OFFLINE
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastSyncAttempt => dateTime().nullable()();
+
+  /// ÍNDICE ÚNICO
+  /// Garante que não existam duplicatas para a mesma contagem na mesma posição.
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {inventCode, inventUnitizer, inventLocation, inventProduct}
+      ];
 }

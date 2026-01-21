@@ -55,4 +55,24 @@ class InventoryRecordInput {
 
     return hasBasics && (hasStackQuantity || hasIndividualQuantity);
   }
+
+  InventoryRecordInput copyWith({
+    int? id,
+    String? unitizer,
+    String? position,
+    String? product,
+    double? qtdPorPilha,
+    double? numPilhas,
+    double? qtdAvulsa,
+  }) {
+    return InventoryRecordInput(
+      id: id ?? this.id,
+      unitizer: unitizer ?? this.unitizer,
+      position: position ?? this.position,
+      product: product ?? this.product,
+      qtdPorPilha: qtdPorPilha ?? this.qtdPorPilha,
+      numPilhas: numPilhas ?? this.numPilhas,
+      qtdAvulsa: qtdAvulsa ?? this.qtdAvulsa,
+    );
+  }
 }

@@ -476,17 +476,18 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
         
-                onTap: () async {
-                  
-                  final service = context.read<InventoryService>();
-                  final StatusResult result = await service.confirmDraft();
 
-                  if (result.status == 1) {
-                    MessageService.showSuccess(result.message);
-                  } else {
-                    MessageService.showError(result.message);
+                  onTap: () async {
+                  // 1. Acessa o estado da página filha via GlobalKey
+                  final childState = InventoryItemPage.inventoryKey.currentState;
+
+                  if (childState != null) {
+                    // 2. Chama o método da filha e espera o resultado
+                    bool proceed = await childState.handleConfirmAction();
+                    
+                    // Se a filha disser que não está ok (validação falhou), para aqui
+                    if (!proceed) return;
                   }
-
                 },
               ),
               if (currentPageIndex == 3)

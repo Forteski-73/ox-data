@@ -104,9 +104,61 @@ class InventoryService with ChangeNotifier {
     }
   }
 
-  void updateDraft(InventoryRecordInput input) {
+  Future<void> updateDraft(InventoryRecordInput input) async {
+
+    /// Verifica se ja existe uma contagem para o mesmo  input.unitizer, input.position e input.product 
+    // Verifica se os campos essenciais não estão vazios ou nulos
+    /*final bool hasMinimumData = 
+        (input.unitizer.isNotEmpty) &&
+        (input.position.isNotEmpty) &&
+        (input.product.isNotEmpty);
+        
+    if (hasMinimumData) {
+      final InventoryRecord? existingRecord = await checkExistingContagem(input);
+
+    if (existingRecord != null) {
+          // Se existe, atualiza o input com os valores que já estão no banco
+          input = input.copyWith(
+            id: existingRecord.id,
+            qtdPorPilha: existingRecord.inventStandardStack?.toDouble(),
+            numPilhas: existingRecord.inventQtdStack?.toDouble(),
+            qtdAvulsa: existingRecord.inventQtdIndividual?.toDouble(),
+          );
+        }
+    }*/
+
     _draft = input;
     notifyListeners();
+  }
+
+  /// Verifica se já existe uma contagem local e retorna o objeto completo
+  Future<InventoryRecord?> checkExistingContagem(InventoryRecordInput input) async {
+    if (_selectedInventory == null) return null;
+
+    // Agora o retorno é o objeto InventoryRecord (ou null caso não exista)
+    final InventoryRecord? existingRecord = await database.checkDuplicateRecord(
+      inventCode: _selectedInventory!.inventCode,
+      unitizer: input.unitizer,
+      position: input.position,
+      product: input.product,
+    );
+
+    return existingRecord;
+  }
+  
+  Future<InventoryRecord?> checkExistingRecord(String unitizer, String position, String product) async {
+    // Use IF em vez de !
+    if (selectedInventory == null) {
+      debugPrint("Aviso: selectedInventory está nulo em checkExistingRecord");
+      return null;
+    }
+
+    return await database.checkDuplicateRecord(
+      inventCode: selectedInventory!.inventCode, // Aqui agora é seguro
+      unitizer: unitizer,
+      position: position,
+      product: product,
+    );
   }
 
   void clearDraft() {
@@ -114,34 +166,41 @@ class InventoryService with ChangeNotifier {
     notifyListeners();
   }
   
-  Future<StatusResult> confirmDraft() async {
-    final StatusResult result;
-    if (_draft == null || !_draft!.isValid) {
-      return StatusResult(
-        status: 0,
-        message: 'CONTAGEM INVÁLIDA!',
-      );
+  Future<StatusResult> confirmDraft(InventoryRecordInput draft1) async {
+    // 1. Proteção inicial (Removido o ! de draft1 pois ele já é checado no if)
+    if (draft1 == null) {
+      return StatusResult(status: 0, message: 'CONTAGEM INVÁLIDA!');
     }
 
     final hasInternet = await NetworkUtils.hasInternetConnection();
 
     if (hasInternet) {
-      result = await saveInventoryRecord(_draft!);
+      // Passamos draft1, que é o que veio da tela
+      final result = await saveInventoryRecord(draft1);
 
       if (result.status == 1) {
         _draft = null;
         notifyListeners();
       }
-
       return result;
     }
 
     // -----------------------------
     // OFFLINE (ou fallback)
     // -----------------------------
-    result = await database.insertOrUpdateInventoryRecordOffline(
+    
+    // 2. Proteção para o Inventário Selecionado
+    if (selectedInventory == null) {
+      return StatusResult(
+        status: 0, 
+        message: 'ERRO: Nenhum inventário selecionado para gravação offline.'
+      );
+    }
+
+    // 3. CORREÇÃO: Usar 'draft1' (o parâmetro) em vez de '_draft' (a variável da classe)
+    final result = await database.insertOrUpdateInventoryRecordOffline(
       selectedInventory!,
-      _draft!,
+      draft1, // <--- Mudança aqui: use o que veio da UI
       synced: false,
     );
 
@@ -149,7 +208,6 @@ class InventoryService with ChangeNotifier {
     notifyListeners();
 
     return result;
-    
   }
 
 
