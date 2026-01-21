@@ -204,10 +204,47 @@ class InventoryService with ChangeNotifier {
       synced: false,
     );
 
+
+    await refreshSelectedInventoryState(selectedInventory!.inventCode);
+
     _draft = null;
     notifyListeners();
 
     return result;
+  }
+
+  /// Busca um inventário específico no banco local e atualiza o estado do serviço.
+  /// Útil para refletir mudanças de totais após inserções offline.
+  Future<void> refreshSelectedInventoryState(String inventCode) async {
+    try {
+      // 1. Busca o registro atualizado diretamente do banco Drift
+      final updatedRow = await (database.select(database.inventory)
+            ..where((tbl) => tbl.inventCode.equals(inventCode)))
+          .getSingleOrNull();
+
+      if (updatedRow != null) {
+        final updatedModel = InventoryModel.fromLocal(updatedRow);
+
+        // 2. Atualiza o objeto selecionado se ele for o mesmo que foi alterado
+        if (_selectedInventory?.inventCode == inventCode) {
+          _selectedInventory = updatedModel;
+        }
+
+        // 3. Atualiza o item correspondente na lista completa (_allInventories)
+        final index = _allInventories.indexWhere((i) => i.inventCode == inventCode);
+        if (index != -1) {
+          _allInventories[index] = updatedModel;
+        }
+
+        // 4. Sincroniza a lista de exibição com a lista completa
+        _inventories = List.from(_allInventories);
+
+        debugPrint("🔄 Estado do Inventário $inventCode atualizado localmente.");
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("❌ Erro ao atualizar estado do inventário: $e");
+    }
   }
 
 
