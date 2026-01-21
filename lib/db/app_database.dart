@@ -289,26 +289,29 @@ Future<void> insertOrUpdateInventoryOffline(
       await into(inventoryRecords).insertOnConflictUpdate(companion);
 
 
-      // 5. ATUALIZA A TABELA INVENTORY (TOTAL GERAL)
-        // Buscamos o inventário atual no banco para pegar o total que já está lá
-        final currentInventory = await (select(inventory)
-              ..where((tbl) => tbl.inventCode.equals(inventoryModel.inventCode)))
-            .getSingleOrNull();
+        // 5. CALCULA O SUM E ATUALIZA A TABELA INVENTORY
+        // Criamos uma expressão de soma para a coluna inventTotal da tabela inventoryRecords
+        final totalSumExpression = inventoryRecords.inventTotal.sum();
 
-        if (currentInventory != null) {
-          final totalGeral = (currentInventory.inventTotal ?? 0) + total;
-          
-          await (update(inventory)
-                ..where((tbl) => tbl.inventCode.equals(inventoryModel.inventCode)))
-              .write(
-            InventoryCompanion(
-              inventTotal: Value(totalGeral),
-              lastSyncAttempt: Value(DateTime.now()),
-            ),
-          );
-          
-          debugPrint("✅ Total Geral do Inventário atualizado: $totalGeral");
-        }
+        final query = selectOnly(inventoryRecords)
+          ..addColumns([totalSumExpression])
+          ..where(inventoryRecords.inventCode.equals(inventoryModel.inventCode));
+
+        // Executamos a query para obter o resultado do SUM
+        final row = await query.getSingle();
+        final totalGeral = row.read(totalSumExpression) ?? 0;
+
+        // Agora atualizamos o inventário pai com o valor real recalculado do banco
+        await (update(inventory)
+              ..where((tbl) => tbl.inventCode.equals(inventoryModel.inventCode)))
+            .write(
+          InventoryCompanion(
+            inventTotal: Value(totalGeral.toDouble()), // Garanta que o tipo combine (double/int)
+            //lastSyncAttempt: Value(DateTime.now()),
+          ),
+        );
+
+        debugPrint("✅ Total Geral do Inventário recalculado: $totalGeral");
 
       return StatusResult(status: 1, message: 'Registro atualizado com sucesso.');
 
