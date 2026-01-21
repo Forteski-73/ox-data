@@ -15,6 +15,9 @@ class InventoryRecordModel {
   final int? inventQtdStack;      // Corresponde a `invent_qtd_stack`
   final double? inventQtdIndividual; // Corresponde a `invent_qtd_individual`
   final double? inventTotal;         // Corresponde a `invent_total`
+  
+  /// Controle OFFLINE
+  final bool? isSynced;
 
   InventoryRecordModel({
     this.id,
@@ -29,6 +32,7 @@ class InventoryRecordModel {
     this.inventQtdStack,
     this.inventQtdIndividual,
     this.inventTotal,
+    this.isSynced,
   });
 
   // --- MÉTODOS DE CONVERSÃO ---
@@ -91,8 +95,34 @@ class InventoryRecordModel {
       inventQtdStack:       parseNullableInt(   map['inventQtdStack']),
       inventQtdIndividual:  parseNullableDouble(map['inventQtdIndividual']),
       inventTotal:          parseNullableDouble(map['inventTotal']),
+      isSynced:             true,
     );
   }
+
+  // ----------------------------------------------------------------------
+  // DRIFT (LOCAL)
+  // ----------------------------------------------------------------------
+
+  /// 🔥 Constrói a partir do banco local (Drift)
+  /// Note: Ajuste o nome 'InventoryRecordData' para o nome da classe gerada pelo seu Drift
+  /* factory InventoryRecordModel.fromLocal(InventoryRecordData data) {
+    return InventoryRecordModel(
+      id: data.id,
+      inventCode: data.inventCode,
+      inventCreated: data.inventCreated,
+      inventUser: data.inventUser,
+      inventUnitizer: data.inventUnitizer,
+      inventLocation: data.inventLocation,
+      inventProduct: data.inventProduct,
+      inventBarcode: data.inventBarcode,
+      inventStandardStack: data.inventStandardStack,
+      inventQtdStack: data.inventQtdStack,
+      inventQtdIndividual: data.inventQtdIndividual,
+      inventTotal: data.inventTotal,
+      isSynced: data.isSynced,
+    );
+  }
+  */
 
   /// Converte para JSON.
   String toJson() => json.encode(toMap());
@@ -117,10 +147,11 @@ class InventoryRecordModel {
     String? inventLocation,
     String? inventProduct,
     String? inventBarcode,
-    int?  inventStandardStack,
+    int?    inventStandardStack,
     int?    inventQtdStack,
     double? inventQtdIndividual,
     double? inventTotal,
+    bool?   isSynced,
   }) {
     return InventoryRecordModel(
       id: id ?? this.id,
@@ -135,6 +166,7 @@ class InventoryRecordModel {
       inventQtdStack: inventQtdStack ?? this.inventQtdStack,
       inventQtdIndividual: inventQtdIndividual ?? this.inventQtdIndividual,
       inventTotal: inventTotal ?? this.inventTotal,
+      isSynced: isSynced ?? this.isSynced,
     );
   }
 }

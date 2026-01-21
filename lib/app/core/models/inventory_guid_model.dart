@@ -18,10 +18,10 @@ class InventoryGuidModel {
   /// Converte uma instância de InventoryGuidModel para um mapa.
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      'invent_guid': inventGuid,
-      'invent_exp_seq': inventExpSeq,
+      'inventGuid': inventGuid,
+      'inventExpSeq': inventExpSeq,
       // Converte DateTime para String ISO 8601
-      'invent_created': inventCreated?.toIso8601String(), 
+      'inventCreated': inventCreated?.toIso8601String(), 
     };
   }
 
@@ -34,11 +34,11 @@ class InventoryGuidModel {
     }
 
     return InventoryGuidModel(
-      inventGuid: map['invent_guid'] as String,
-      inventExpSeq: parseRequiredInt(map['invent_exp_seq']),
+      inventGuid: map['inventGuid'] as String,
+      inventExpSeq: parseRequiredInt(map['inventExpSeq']),
       // Tenta parsear a string para DateTime
-      inventCreated: map['invent_created'] != null 
-          ? DateTime.tryParse(map['invent_created'].toString()) 
+      inventCreated: map['inventCreated'] != null 
+          ? DateTime.tryParse(map['inventCreated'].toString()) 
           : null,
     );
   }

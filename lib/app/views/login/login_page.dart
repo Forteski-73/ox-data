@@ -2,11 +2,14 @@
 // app/views/login/login_page.dart (Tela de Login)
 // -----------------------------------------------------------
 import 'package:flutter/material.dart';
+import 'package:oxdata/app/core/utils/email_sender.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:oxdata/app/core/widgets/app_footer.dart';
+import 'package:oxdata/app/core/utils/network_status.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -199,19 +202,28 @@ class _LoginPageState extends State<LoginPage> {
               // Botão de Entrar
               ElevatedButton(
                 onPressed: loadingService.isLoading ? null : () async {
-                  FocusScope.of(context).unfocus();
-                  loadingService.show();
-                  final email = _emailController.text;
-                  final password = _passwordController.text;
 
-                  await authService.login(email, password, _rememberMe);
+                  final hasInternet = await NetworkUtils.hasInternetConnection();
+                  if (hasInternet) { 
+                    FocusScope.of(context).unfocus();
+                    loadingService.show();
+                    final email = _emailController.text;
+                    final password = _passwordController.text;
 
-                  if (mounted) {
-                    loadingService.hide();
-                    if (authService.isAuthenticated) {
-                      Navigator.of(context).pushReplacementNamed(RouteGenerator.homePage);
+                    await authService.login(email, password, _rememberMe);
+
+                    if (mounted) {
+                      loadingService.hide();
+                      if (authService.isAuthenticated) {
+                        Navigator.of(context).pushReplacementNamed(RouteGenerator.homePage);
+                      }
                     }
                   }
+                  else
+                  {
+                    MessageService.showWarning("Ops! Parece que você está sem internet. Conecte-se para que possamos validar seu acesso.");
+                  }
+
                 },
                 child: const Text(
                   'Entrar',

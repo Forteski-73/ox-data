@@ -3,15 +3,15 @@ import 'dart:math';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/services/load_service.dart';
 import 'package:provider/provider.dart';
-
-// Importações das novas páginas de Inventário
 import 'package:oxdata/app/views/inventory/search_inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_item_page.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/views/inventory/synchronide_database.dart';
-
+import 'package:oxdata/app/core/models/dto/status_result.dart';
 import 'package:oxdata/app/core/widgets/buttom_item.dart';
+import 'package:oxdata/app/views/inventory/inventory_popup.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
 
 class InventoriesPage extends StatefulWidget {
   const InventoriesPage({super.key});
@@ -24,13 +24,13 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     with TickerProviderStateMixin {
   late PageController _pageController;
   double _currentPage = 0.0;
-  static const int _inventoryItemPageIndex = 2;
+  static const int _inventoryItemPageIndex = 1;
 
   // 1. Títulos solicitados
   final List<String> pageTitles = [
     "Meus Inventários",
-    "Inventário em Andamento",
     "Adicionar Contagem no Inventário",
+    "Inventário em Andamento",
     "Sincrozizar Banco de Dados"
   ];
   
@@ -38,16 +38,16 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
   // Isso diz ao Dart para esperar e inicializar esta variável mais tarde.
   late final List<Widget> pageContents = [
     SearchInventoryPage(),
-    InventoryPage(),
     InventoryItemPage(key: InventoryItemPage.inventoryKey),
+    InventoryPage(),
     const SynchronizeDBPage(),
   ];
 
   // 3. Ícones atualizados para o novo tema de Inventário
   final List<IconData> pageIcons = [
     Icons.playlist_add_rounded,
-    Icons.play_lesson_outlined,
     Icons.qr_code_scanner,
+    Icons.play_lesson_outlined,
     Icons.cloud_sync,
   ];
 
@@ -70,6 +70,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
   late List<AnimationController> _menuControllers;
   late List<Animation<double>> _menuAnimations;
   late LoadService _loadService;
+
+  static const double bottomBarHeight = 60.0;
+  static const double forbiddenBottomZone = 90.0;
+  static const double floatingButtonSize = 60.0;
+  static const double extraPadding = 4.0;
 
   @override
   void initState() {
@@ -103,7 +108,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
       final screenSize = MediaQuery.of(context).size;
       setState(() {
         // Inicializa o botão no canto inferior direito
-        floatingTop = screenSize.height - 180 - 60;
+        floatingTop = screenSize.height - 180 - 100; // aumentei para 100 para os tablets
         floatingLeft = screenSize.width - 30 - 60;
       });
     });
@@ -382,7 +387,10 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     // Instancia o InventoryItemPage para que possamos acessar o bottom bar
     // É seguro fazer o cast pois sabemos o que tem no índice 2
     final inventoryItemPage = pageContents[_inventoryItemPageIndex] as InventoryItemPage;
-
+    final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final isSyncing = context.select<InventoryService, bool>(
+      (s) => s.isSyncing,
+    );
     return Scaffold(
       // 🔑 SOLUÇÃO APLICADA: Evita o redimensionamento do Scaffold quando o teclado abre
       resizeToAvoidBottomInset: false, 
@@ -393,7 +401,9 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
       ),
 
       //bottomNavigationBar: currentPageIndex != 0 ? BottomAppBar(
-      bottomNavigationBar: BottomAppBar(
+      bottomNavigationBar: isKeyboardVisible 
+        ? null  // Se o teclado estiver ativo, removemos o widget e o espaço dele
+        : BottomAppBar(
         height: 60,
         padding: EdgeInsets.zero,
         child: Row(
@@ -407,23 +417,34 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
                 onTap: () {
-                  //SearchInventoryPage.inventoryKey.currentState?.saveNewInventory();
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      // Dialog centraliza o widget e define a largura adequada
+                      return const Dialog(
+                        backgroundColor: Colors.transparent,
+                        insetPadding: EdgeInsets.symmetric(horizontal: 20),
+                        child: NewInventoryPopup(),
+                      );
+                    },
+                  );
                 },
               ),
 
-            if (currentPageIndex == 2)
+            if (currentPageIndex == 1)
               BottomItem(
                 icon: Icons.clear,
                 label: "Limpar",
                 backgroundColor: Colors.redAccent,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () {
-                  // limpar
+                onTap: () async {
+                  final service = context.read<InventoryService>();
+                  service.clearDraft();
                 },
               ),
 
-            if (currentPageIndex == 1)
+            if (currentPageIndex == 2)
               BottomItem(
                 icon: Icons.delete_forever,
                 label: "Excluir",
@@ -435,7 +456,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 },
               ),
 
-            if (currentPageIndex == 1)
+            if (currentPageIndex == 2)
               BottomItem(
                 icon: Icons.done_all_rounded,
                 label: "Finalizar",
@@ -447,16 +468,25 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 },
               ),
 
-            if (currentPageIndex == 2)
+            if (currentPageIndex == 1)
               BottomItem(
                 icon: Icons.check,
                 label: "Confirmar",
                 backgroundColor: Colors.green,
                 iconColor: Colors.white,
                 textColor: Colors.white,
+        
                 onTap: () async {
+                  
                   final service = context.read<InventoryService>();
-                  await service.confirmDraft();
+                  final StatusResult result = await service.confirmDraft();
+
+                  if (result.status == 1) {
+                    MessageService.showSuccess(result.message);
+                  } else {
+                    MessageService.showError(result.message);
+                  }
+
                 },
               ),
               if (currentPageIndex == 3)
@@ -466,10 +496,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   backgroundColor: Colors.teal,
                   iconColor: Colors.white,
                   textColor: Colors.white,
-                  onTap: () async {
-                    final service = context.read<InventoryService>();
-                    await service.confirmDraft();
-                  },
+                  onTap: isSyncing
+                      ? null
+                      : () {
+                          context.read<InventoryService>().performSync();
+                        },
                 ),
           ],
         ),
@@ -589,6 +620,36 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   dragStartX = details.globalPosition.dx - floatingLeft;
                   dragStartY = details.globalPosition.dy - floatingTop;
                 },
+
+                onLongPressMoveUpdate: (details) {
+                  if (isDragging) {
+                    setState(() {
+                      final media = MediaQuery.of(context);
+                      //final safeTop = media.padding.top;
+                      final safeBottom = media.padding.bottom+10;
+
+                      final double maxTopAllowed =
+                          screenHeight
+                          - bottomBarHeight
+                          - forbiddenBottomZone
+                          - floatingButtonSize
+                          - safeBottom;
+
+                      floatingLeft = (details.globalPosition.dx - dragStartX).clamp(
+                        extraPadding,
+                        screenWidth - floatingButtonSize - extraPadding,
+                      );
+
+                      floatingTop = (details.globalPosition.dy - dragStartY).clamp(
+                        4.0,
+                        maxTopAllowed,
+                      );
+                    });
+                  }
+                },
+
+
+                /*
                 onLongPressMoveUpdate: (details) {
                   if (isDragging) {
                     setState(() {
@@ -604,6 +665,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                     });
                   }
                 },
+                */
                 onLongPressEnd: (details) {
                   isDragging = false;
                 },

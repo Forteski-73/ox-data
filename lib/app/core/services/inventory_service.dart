@@ -1,6 +1,7 @@
 // -----------------------------------------------------------
 // app/core/services/inventory_service.dart
 // -----------------------------------------------------------
+
 import 'package:flutter/foundation.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_guid_model.dart';
@@ -8,18 +9,25 @@ import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:oxdata/app/core/models/dto/status_result.dart';
+import 'package:oxdata/app/core/utils/network_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
+import 'package:oxdata/db/enums/mask_field_name.dart';
+import 'package:oxdata/db/app_database.dart';
 import 'package:uuid/uuid.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
 
 /// Serviço responsável pela lógica de negócios e gerenciamento de estado
 /// (via ChangeNotifier) para as operações de Inventário.
 class InventoryService with ChangeNotifier {
   final InventoryRepository inventoryRepository;
+  final AppDatabase database;
   String? _deviceId;
 
-  InventoryService({required this.inventoryRepository}) {
-    initializeDeviceId(); // Inicializa o ID do dispositivo logo após a criação do serviço
+  InventoryService({required this.inventoryRepository,required this.database,}) {
+    //initializeDeviceId(); // Inicializa o ID do dispositivo logo após a criação do serviço
   }
 
   // --- Estado Local ---
@@ -32,6 +40,19 @@ class InventoryService with ChangeNotifier {
   List<InventoryGuidModel> _inventoryGuids = [];
   InventoryModel? _selectedInventory;
 
+  // 🔑 Produtos filtrados
+  List<Product> _searchResults = [];
+  List<Product> get searchResults => _searchResults;
+
+  List<InventoryMaskData> _listMask = [];
+  List<InventoryMaskData> get listMask => _listMask;
+
+  // SINCRONIZAÇÃO
+  int totalSynchronize = 0;
+  double progressSynchronize = 0.0;
+  String infoSynchronize = "";
+  bool isSyncing = false;
+
   // Getter para expor o ID do Dispositivo
   String? get deviceId => _deviceId;
 
@@ -43,8 +64,25 @@ class InventoryService with ChangeNotifier {
   InventoryModel? get selectedInventory => _selectedInventory;
 
 
-    InventoryRecordInput? _draft;
-    InventoryRecordInput? get draft => _draft;
+  InventoryRecordInput? _draft;
+  InventoryRecordInput? get draft => _draft;
+
+  // --- NOVAS VARIÁVEIS DE CONFIGURAÇÃO DE SINCRONIZAÇÃO ---
+  bool _isSetupEnabled = true;
+  bool _isContagemEnabled = false;
+
+  bool get isSetupEnabled => _isSetupEnabled;
+  bool get isContagemEnabled => _isContagemEnabled;
+
+  void setSetupEnabled(bool value) {
+    _isSetupEnabled = value;
+    notifyListeners();
+  }
+
+  void setContagemEnabled(bool value) {
+    _isContagemEnabled = value;
+    notifyListeners();
+  }
 
   // =========================================================================
   // === INVENTORY GUID (v1/Inventory)
@@ -59,22 +97,411 @@ class InventoryService with ChangeNotifier {
     if (response.success && response.data != null) {
       return response.data!;
     } else {
+
       //debugPrint('Erro ao criar/verificar GUID: ${response.message}');
       throw Exception('Erro ao criar/verificar GUID: ${response.message}');
+
     }
   }
 
   void updateDraft(InventoryRecordInput input) {
     _draft = input;
+    notifyListeners();
+  }
+
+  void clearDraft() {
+    _draft = null;
+    notifyListeners();
   }
   
-  Future<void> confirmDraft() async {
-    if (_draft == null) {
-      throw Exception('Nenhum dado para salvar');
+  Future<StatusResult> confirmDraft() async {
+    final StatusResult result;
+    if (_draft == null || !_draft!.isValid) {
+      return StatusResult(
+        status: 0,
+        message: 'CONTAGEM INVÁLIDA!',
+      );
     }
 
-    await saveInventoryRecord(_draft!);
+    final hasInternet = await NetworkUtils.hasInternetConnection();
+
+    if (hasInternet) {
+      result = await saveInventoryRecord(_draft!);
+
+      if (result.status == 1) {
+        _draft = null;
+        notifyListeners();
+      }
+
+      return result;
+    }
+
+    // -----------------------------
+    // OFFLINE (ou fallback)
+    // -----------------------------
+    result = await database.insertOrUpdateInventoryRecordOffline(
+      selectedInventory!,
+      _draft!,
+      synced: false,
+    );
+
     _draft = null;
+    notifyListeners();
+
+    return result;
+    
+  }
+
+
+  /// Busca um produto no banco local pelo código de barras ou ID interno.
+  Future<Product?> searchProductLocallyByCode(String code) async {
+    if (code.isEmpty) return null;
+
+    try {
+      // Chama o banco de dados injetado no construtor
+      final product = await database.findProductByCode(code);
+      
+      if (product != null) {
+        debugPrint("Produto encontrado: ${product.productName}");
+        return product;
+      } else {
+        debugPrint("Produto não encontrado no banco local: $code");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Erro na busca local: $e");
+      return null;
+    }
+  }
+
+  /// Pesquisa produtos por qualquer texto
+  Future<void> searchProductLocally(String query) async {
+    if (query.length < 4) { // Evita pesquisar com apenas 1 letra por performance
+      _searchResults = [];
+      notifyListeners();
+      return;
+    }
+
+    _searchResults = await database.searchProducts(query);
+    notifyListeners();
+  }
+
+  /// Método mestre chamado pelo botão na UI
+  Future<void> performSync() async {
+    if (_isSetupEnabled) {
+      // Se setup estiver ativo, faz a carga completa (Produtos + Máscaras)
+      await startSyncSetUp();
+    }
+    if (_isContagemEnabled) {
+      // Se apenas contagem estiver ativa
+      await startSyncInventory();
+    } else {
+      infoSynchronize = "Selecione ao menos uma opção para sincronizar.";
+      notifyListeners();
+    }
+  }
+
+  /// Sincroniza Produtos
+  Future<void> startSyncSetUp() async {
+    isSyncing = true;
+    progressSynchronize = 0.0;
+    infoSynchronize = "Iniciando sincronização...";
+    notifyListeners();
+
+    try {
+      // 1. Obter a contagem total de produtos do servidor
+      infoSynchronize = "Consultando base de dados remota...";
+      notifyListeners();
+      
+      final countResponse = await inventoryRepository.getProductCount();
+      
+      if (!countResponse.success || countResponse.data == null) {
+        throw Exception(countResponse.message ?? "Falha ao obter contagem de produtos");
+      }
+
+      final int totalProducts = countResponse.data!; // Valor que veio do body['total']
+      const int pageSize = 10000;
+
+      // CALCULO DINÂMICO:
+      // Se total for 25.000 / 10.000 = 2.5 -> ceil() transforma em 3 páginas.
+      final int totalPages = (totalProducts / pageSize).ceil();
+      
+      if (totalPages == 0) {
+        infoSynchronize = "Nenhum produto encontrado para sincronizar.";
+        isSyncing = false;
+        notifyListeners();
+        return;
+      }
+
+      totalSynchronize = totalPages;
+      
+      // 2. Limpeza da base local
+      infoSynchronize = "Limpando base local...";
+      progressSynchronize = 1.0;
+      notifyListeners();
+      await database.clearProducts();
+      await database.clearMasks();
+
+      
+      infoSynchronize = "Sincronizando padrões..";
+      notifyListeners();
+      syncMasks(); // sincroniza mascaras
+      await Future.delayed(const Duration(seconds: 1));
+      progressSynchronize = 0.0;
+      notifyListeners();
+
+      // 3. Loop de sincronização baseado nas páginas calculadas
+      for (int currentPage = 1; currentPage <= totalPages; currentPage++) {
+        //infoSynchronize = "Baixando lote $currentPage de $totalPages...";
+        infoSynchronize = "Sincronizando produtos.. ${(progressSynchronize * 100).toInt()}%";
+        notifyListeners();
+
+        final response = await inventoryRepository.getProductsPaged(
+          page: currentPage,
+          pageSize: pageSize,
+        );
+
+        if (response.success && response.data != null) {
+          //infoSynchronize = "Gravando lote $currentPage de $totalPages...";
+          //notifyListeners();
+
+          final error = await database.saveProductsBatch(response.data!);
+          if (error != null) {
+            throw Exception("Falha ao gravar no banco: $error");
+          }
+        } else {
+          throw Exception("Erro no lote $currentPage: ${response.message}");
+        }
+
+        // Atualiza o progresso: de 0.0 a 1.0
+        progressSynchronize = currentPage / totalPages;
+        if (progressSynchronize == 1)
+        {
+          infoSynchronize = "Sincronizado produtos.. 100%";
+          await Future.delayed(const Duration(seconds: 1));
+          //syncMasks(); // sincroniza mascaras
+
+          notifyListeners();
+          await Future.delayed(const Duration(seconds: 1));
+        }
+        else
+        {
+          notifyListeners();
+        }
+      }
+
+      infoSynchronize = "Sincronização concluída: $totalProducts produtos atualizados.";
+    } catch (e) {
+      infoSynchronize = "Erro na sincronização: $e";
+      debugPrint(e.toString());
+    } finally {
+      isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+
+  Future<void> startSyncInventory() async {
+    isSyncing = true;
+    progressSynchronize = 0.0;
+    infoSynchronize = "Verificando conexão...";
+    notifyListeners();
+
+    try {
+      // 1. Validação de Internet Real
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+      if (!hasInternet) {
+        infoSynchronize = "Sem conexão com a internet.";
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 2));
+        return;
+      }
+
+      // 2. Busca Inventários pai pendentes
+      final List<InventoryData> pendingInventories = await database.getPendingInventories();
+      
+      // 3. Busca Records (filhos) pendentes (de qualquer inventário)
+      final List<InventoryRecord> allPendingRecords = await database.getPendingRecords();
+
+      if (pendingInventories.isEmpty && allPendingRecords.isEmpty) {
+        progressSynchronize = 1.0;
+        infoSynchronize = "Tudo em dia! Nada pendente.";
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 2));
+        return;
+      }
+
+      // --- PASSO A: Sincronizar os Cabeçalhos (Pai) ---
+      for (var item in pendingInventories) {
+        infoSynchronize = "Sincronizando Cabeçalho: ${item.inventName}";
+        notifyListeners();
+
+        final modelToSync = InventoryModel.fromLocal(item);
+        final response = await inventoryRepository.createOrUpdateInventory(modelToSync);
+
+        if (response.success) {
+          await database.markInventoryAsSynced(item.inventCode);
+        }
+      }
+
+      // --- PASSO B: Sincronizar os Itens (Filhos) ---
+      // Agrupamos os registros por inventCode para enviar em lotes conforme sua API espera (InventoryBatchRequest)
+      final Map<String, List<InventoryRecord>> groupedRecords = {};
+      for (var rec in allPendingRecords) {
+        groupedRecords.putIfAbsent(rec.inventCode, () => []).add(rec);
+      }
+
+      int totalGroups = groupedRecords.length;
+      int currentGroup = 0;
+
+      for (var entry in groupedRecords.entries) {
+        final String inventCode = entry.key;
+        final List<InventoryRecord> records = entry.value;
+
+        infoSynchronize = "Enviando registros do inventário: $inventCode";
+        notifyListeners();
+
+        // Criamos o lote para a API conforme o seu cURL/BatchRequest
+        final batchRequest = InventoryBatchRequest(
+          inventGuid: _deviceId ?? "", // Usando o deviceId guardado no service
+          inventCode: inventCode,
+          records: records.map((r) => InventoryRecordModel(
+            id: r.id,
+            inventCode: r.inventCode,
+            inventCreated: r.inventCreated,
+            inventUser: r.inventUser ?? "Diones",
+            inventUnitizer: r.inventUnitizer,
+            inventLocation: r.inventLocation,
+            inventProduct: r.inventProduct,
+            inventBarcode: r.inventBarcode,
+            inventStandardStack: r.inventStandardStack ?? 0,
+            inventQtdStack: r.inventQtdStack ?? 0,
+            inventQtdIndividual: r.inventQtdIndividual ?? 0,
+            inventTotal: r.inventTotal ?? 0,
+          )).toList(),
+        );
+
+        try {
+          // Envia para: https://oxfordonline.com.br/API/v1/Inventory/Record
+          final response = await inventoryRepository.createOrUpdateInventoryRecords([batchRequest]);
+          
+          // Se a API retornou sucesso (String de confirmação)
+          // Marcar cada item do lote como sincronizado no Drift
+          for (var r in records) {
+            await database.markRecordAsSynced(r.id);
+          }
+        } catch (e) {
+          debugPrint("Erro ao sincronizar lote de registros: $e");
+        }
+
+        currentGroup++;
+        progressSynchronize = currentGroup / totalGroups;
+        notifyListeners();
+      }
+
+      infoSynchronize = "Sincronização concluída com sucesso!";
+      
+    } catch (e) {
+      infoSynchronize = "Erro inesperado: $e";
+      debugPrint(e.toString());
+    } finally {
+      await Future.delayed(const Duration(seconds: 1));
+      isSyncing = false;
+      notifyListeners();
+    }
+  }
+
+  /*
+  /// Sincronização de Inventário (Contagem)
+  Future<void> startSyncInventory() async {
+    isSyncing = true;
+    progressSynchronize = 0.0;
+    infoSynchronize = "Verificando conexão...";
+    notifyListeners();
+
+    try {
+      // 1. Validação de Internet
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+      if (!hasInternet) {
+        infoSynchronize = "Sem conexão com a internet.";
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 2));
+        return;
+      }
+
+      // 2. Busca os dados pendentes no banco local (Drift)
+      final List<InventoryData> pendingList = await database.getPendingInventories();
+
+      if (pendingList.isEmpty) {
+        progressSynchronize = 1.0;
+        infoSynchronize = "Tudo em dia! Nenhum inventário pendente.";
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 2));
+        return;
+      }
+
+      int totalItems = pendingList.length;
+      int successCount = 0;
+
+      // 3. Loop de envio unitário
+      for (int i = 0; i < totalItems; i++) {
+        final item = pendingList[i];
+        
+        // Atualiza status na tela
+        infoSynchronize = "Sincronizando: ${item.inventName}";
+        notifyListeners();
+
+        try {
+          // Converte o dado do banco para o modelo da API
+          final modelToSync = InventoryModel.fromLocal(item);
+
+          // Envia para o endpoint https://oxfordonline.com.br/API/v1/Inventory/Inventory
+          final response = await inventoryRepository.createOrUpdateInventory(modelToSync);
+
+          if (response.success) {
+            // Marca como sincronizado localmente para não enviar de novo
+            await database.markInventoryAsSynced(item.inventCode);
+            successCount++;
+          }
+        } catch (e) {
+          debugPrint("Erro ao enviar item ${item.inventCode}: $e");
+        }
+
+        // 4. Cálculo do progresso (volta a 0.0 no início e vai até 1.0)
+        // Adicionamos um pequeno delay para a barra não "voar" se for rápido demais
+        progressSynchronize = (i + 1) / totalItems;
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      infoSynchronize = "Sucesso: $successCount de $totalItems sincronizados.";
+      
+    } catch (e) {
+      infoSynchronize = "Erro inesperado: $e";
+    } finally {
+      await Future.delayed(const Duration(seconds: 1));
+      isSyncing = false;
+      notifyListeners();
+    }
+  }
+  */
+
+  /// Sincroniza Mascaras
+  Future<void> syncMasks() async {
+    try {
+      final response = await inventoryRepository.getInventoryMasks();
+
+      if (response.success && response.data != null) {
+        // 1. Opcional: Limpar as antigas para não acumular lixo se mudarem IDs
+        await database.delete(database.inventoryMask).go();
+
+        // 2. Salva o lote que veio da API
+        await database.saveInventoryMasks(response.data!);
+        debugPrint("Máscaras sincronizadas com sucesso.");
+      }
+    } catch (e) {
+      debugPrint("Erro ao sincronizar máscaras: $e");
+    }
   }
 
   /// GET: Busca todos os GUIDs de inventário da API e atualiza a lista.
@@ -109,26 +536,78 @@ class InventoryService with ChangeNotifier {
   // =========================================================================
 
   /// POST: Cria ou atualiza um Inventário principal e atualiza a lista local.
-  Future<void> createOrUpdateInventory(InventoryModel inventory) async {
-    final ApiResponse<InventoryModel> response =
-        await inventoryRepository.createOrUpdateInventory(inventory);
+  /*Future<void> createOrUpdateInventory(InventoryModel inventory) async {
 
-    if (response.success) {
-      // Recarrega todos os Inventários para refletir a mudança
-      await fetchAllInventories();
-    } else {
-      debugPrint('Erro ao salvar Inventário: ${response.message}');
-      throw Exception('Erro ao salvar Inventário: ${response.message}');
+    final hasInternet = await NetworkUtils.hasInternetConnection();
+
+    if (hasInternet) { // Tem internet
+      final ApiResponse<InventoryModel> response =
+          await inventoryRepository.createOrUpdateInventory(inventory);
+
+      if (response.success) {
+        // Recarrega todos os Inventários para refletir a mudança
+        await fetchAllInventories();
+      } else {
+        debugPrint('Erro ao salvar Inventário: ${response.message}');
+        throw Exception('Erro ao salvar Inventário: ${response.message}');
+      }
+    }
+    else // Não tem internet
+    {
+
     }
   }
+  */
+  Future<void> createOrUpdateInventory(InventoryModel inventory) async {
+    final hasInternet = await NetworkUtils.hasInternetConnection();
+
+    if (hasInternet) {
+      // -----------------------------
+      // ONLINE
+      // -----------------------------
+      final ApiResponse<InventoryModel> response =
+          await inventoryRepository.createOrUpdateInventory(inventory);
+
+      if (response.success) {
+        // Atualiza local como sincronizado
+        await database.insertOrUpdateInventoryOffline(
+          response.data ?? inventory,
+          synced: true,
+        );
+
+        await fetchAllInventories();
+        return;
+      }
+
+      // Se falhou online, faz fallback offline
+      debugPrint('Falha online, salvando offline: ${response.message}');
+    }
+
+    // -----------------------------
+    // OFFLINE (ou fallback)
+    // -----------------------------
+    await database.insertOrUpdateInventoryOffline(
+      inventory,
+      synced: false,
+    );
+    
+    await fetchAllInventories();
+    debugPrint('Inventário salvo OFFLINE (${inventory.inventCode})');
+  }
+
+  Future<void> setDecrementSequence() async {
+    final storage = StorageService();
+    await storage.decrementSequence();
+  }
+  
 
   // 🔑 MUDANÇA 1: Armazena o resultado nas duas listas
-  Future<void> fetchAllInventories() async {
-    _deviceId = "65c1aa5a-7b26-4fc3-8ea2-b2eb5b9f7102"; // RETIRAR EM PRODUÇÃO ****************************************************################################
+  /*Future<void> fetchAllInventories() async {
+    //_deviceId = "65c1aa5a-7b26-4fc3-8ea2-b2eb5b9f7102"; // RETIRAR EM PRODUÇÃO ****************************************************################################
 
     // 2. Garante que o ID não é nulo. Se for, tenta inicializar.
     if (_deviceId == null) {
-      await initializeDeviceId(); // Tenta carregar o ID
+      //await initializeDeviceId(); // Tenta carregar o ID
       if (_deviceId == null) {
         debugPrint('Erro: deviceId não está disponível para buscar inventários.');
         _inventories = [];
@@ -176,7 +655,66 @@ class InventoryService with ChangeNotifier {
       debugPrint('Inventário não encontrado: $guid. ${response.message}');
       return null;
     }
+  }*/
+
+  Future<void> fetchAllInventories() async {
+    // 1. Garante deviceId
+    if (_deviceId == null) {
+      debugPrint('Erro: deviceId não disponível.');
+      _inventories = [];
+      _allInventories = [];
+      notifyListeners();
+      return;
+    }
+
+    // 2. Busca LOCAL (Drift)
+    final localRows = await database.getPendingInventories();
+
+    final Map<String, InventoryModel> merged = {
+      for (final row in localRows)
+        row.inventCode: InventoryModel.fromLocal(row),
+    };
+
+    // 3. Busca REMOTO (API)
+    final ApiResponse<List<InventoryModel>> response =
+        await inventoryRepository.getRecentInventoriesByGuid(_deviceId!);
+
+    if (response.success && response.data != null) {
+      for (final remote in response.data!) {
+        final local = merged[remote.inventCode];
+
+        // Se não existe local ou local está sincronizado, usa remoto
+        if (local == null || local.isSynced == true) {
+          merged[remote.inventCode] = remote;
+
+          // Atualiza banco local como sincronizado
+          await database.insertOrUpdateInventoryOffline(
+            remote,
+            synced: true,
+          );
+        }
+      }
+    } else {
+      debugPrint('Falha ao buscar inventários remotos: ${response.message}');
+    }
+
+    // 4. Atualiza listas
+    _allInventories = merged.values.toList()
+      ..sort((a, b) => b.inventCreated?.compareTo(a.inventCreated ?? DateTime(0)) ?? 0);
+
+    _inventories = List.from(_allInventories);
+
+    // 5. Mantém inventário selecionado
+    if (_allInventories.isNotEmpty) {
+      _selectedInventory ??= _allInventories.first;
+    } else {
+      _selectedInventory = null;
+    }
+
+    // 6. Notifica UI
+    notifyListeners();
   }
+
 
   /// GET: Busca Inventário por GUID e InventCode.
   Future<InventoryModel?> getInventoryByGuidInventCode(
@@ -216,27 +754,30 @@ class InventoryService with ChangeNotifier {
   }
 
   // SALVAR NOVO INVENTARIO
-  Future<void> saveInventoryRecord(InventoryRecordInput input) async {
+  Future<StatusResult> saveInventoryRecord(InventoryRecordInput input) async {
     final currentInventory = selectedInventory;
 
     if (currentInventory == null) {
-      throw Exception('Nenhum inventário selecionado');
+      return StatusResult(status: 0, message: 'Nenhum inventário selecionado', );
     }
 
     if (input.product.isEmpty) {
-      throw Exception('Produto obrigatório');
+      return StatusResult(status: 0, message: 'Produto obrigatório', );
     }
 
-    final total =
-        (input.qtdPorPilha * input.numPilhas) + input.qtdAvulsa;
+    final productLocal = await searchProductLocallyByCode(input.product);
+
+    final total = ((input.qtdPorPilha ?? 0) * (input.numPilhas ?? 0)) + (input.qtdAvulsa ?? 0);
+
 
     final record = InventoryRecordModel(
       inventCode: currentInventory.inventCode,
       inventUnitizer: input.unitizer,
       inventLocation: input.position,
-      inventProduct: input.product,
-      inventStandardStack: input.qtdPorPilha.toInt(),
-      inventQtdStack: input.numPilhas.toInt(),
+      inventProduct: productLocal!.productId,
+      inventBarcode: productLocal.barcode,
+      inventStandardStack: (input.qtdPorPilha ?? 0).toInt(),
+      inventQtdStack: (input.numPilhas ?? 0).toInt(),
       inventQtdIndividual: input.qtdAvulsa,
       inventTotal: total,
       inventCreated: DateTime.now(),
@@ -249,44 +790,50 @@ class InventoryService with ChangeNotifier {
       records: [record],
     );
 
-    await createOrUpdateInventoryRecords([batch]);
+    final StatusResult result = await createOrUpdateInventoryRecords([batch]);
+
+    return result;
   }
 
   // =========================================================================
   // === INVENTORY RECORD (v1/Inventory/Record)
   // =========================================================================
 
-Future<String> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batches) async {
-  final ApiResponse<String> response =
-      await inventoryRepository.createOrUpdateInventoryRecords(batches);
+  Future<StatusResult> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batches) async {
+    final ApiResponse<String> response =
+        await inventoryRepository.createOrUpdateInventoryRecords(batches);
 
-  if (response.success) {
-    final data = response.rawJson;
+    if (response.success) {
+      final data = response.rawJson;
 
-    if (data != null) {
-      // Ajustado para bater com o DTO C#: InventCode, InventTotal e Message
-      final String? returnedCode = data['InventCode'] ?? data['inventCode'];
-      final double? newTotal = (data['InventTotal'] ?? data['inventTotal'] as num?)?.toDouble();
+      if (data != null) {
+        // Ajustado para bater com o DTO C#: InventCode, InventTotal e Message
+        final String? returnedCode = data['InventCode'] ?? data['inventCode'];
+        final double? newTotal = (data['InventTotal'] ?? data['inventTotal'] as num?)?.toDouble();
 
-      if (selectedInventory != null && selectedInventory!.inventCode == returnedCode) {
-        selectedInventory!.inventTotal = newTotal ?? selectedInventory!.inventTotal;
-        
-        // Isso fará o contador na UI (Header) atualizar instantaneamente
-        notifyListeners();
+        if (_selectedInventory != null &&
+            _selectedInventory!.inventCode == returnedCode) {
+          
+          _selectedInventory = _selectedInventory!.copyWith(
+            inventTotal: newTotal ?? _selectedInventory!.inventTotal,
+          );
+
+          notifyListeners();
+        }
+
+        // Retorna a mensagem vinda do C#
+        return StatusResult( status: 1, message:data['Message'] ?? data['message'] ?? 'Registros salvos com sucesso.',);
       }
+      
+      return StatusResult(status: 1, message: response.data ?? 'Registros salvos com sucesso.',);
 
-      // Retorna a mensagem vinda do C#
-      return data['Message'] ?? data['message'] ?? 'Registros salvos com sucesso.';
+    } else {
+      // Caso o sucesso seja false, usamos a message do ApiResponse
+      final errorMsg = response.message ?? 'Erro desconhecido ao salvar registros';
+      return StatusResult(status: 0, message: errorMsg,);
     }
-    
-    return response.data ?? 'Registros salvos com sucesso.';
-  } else {
-    // Caso o sucesso seja false, usamos a message do ApiResponse
-    final errorMsg = response.message ?? 'Erro desconhecido ao salvar registros';
-    debugPrint('Erro no Service: $errorMsg');
-    throw Exception(errorMsg);
   }
-}
+
   /// GET: Busca todos os Records de um dado InventCode e atualiza a lista local.
   Future<void> fetchRecordsByInventCode(String inventCode) async {
     final ApiResponse<List<InventoryRecordModel>> response =
@@ -373,11 +920,10 @@ Future<String> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batche
     }
   }
 
-
-// ----------------------------------------------------------------------
+  // ----------------------------------------------------------------------
   // MÉTODO: Inicializa o ID Único do Dispositivo (device_uuid)
   // ----------------------------------------------------------------------
-  Future<void> initializeDeviceId() async {
+  /*Future<void> initializeDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
     String? id = prefs.getString("device_uuid");
 
@@ -390,6 +936,64 @@ Future<String> createOrUpdateInventoryRecords(List<InventoryBatchRequest> batche
     // Atualiza o estado interno e notifica os listeners
     _deviceId = id;
     notifyListeners();
+  }
+  */
+
+  Future<void> initializeDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? id = prefs.getString("device_uuid");
+
+    if (id == null) {
+      // Se não existir, gera um novo UUID v4
+      id = const Uuid().v4();
+      await prefs.setString("device_uuid", id);
+    }
+
+    _deviceId = id;
+
+    // =====================================================
+    // ** Enviar para a API **
+    // =====================================================
+    try {
+      final guidModel = InventoryGuidModel(
+        inventGuid: _deviceId!,
+        inventExpSeq: 0,
+      );
+
+      await createInventoryGuid(guidModel);
+      debugPrint("GUID do dispositivo registrada/verificada com sucesso: $_deviceId");
+    } catch (e) {
+      debugPrint("Erro ao registrar GUID do dispositivo na API: $e");
+      // ⚠️ Não interrompe o app — GUID local continua válida
+    }
+
+    notifyListeners();
+  }
+
+  // =========================================================================
+  // === MÉTODOS DE MÁSCARA (LOCAIS)
+  // =========================================================================
+
+  /// Recupera todas as máscaras armazenadas no banco de dados local (Drift).
+  Future<List<InventoryMaskData>> getMasksByFieldName(MaskFieldName name) async {
+    try {
+      // 1. Busca os dados do banco
+      final masks = await database.masksByFieldName(name);
+      
+      // 2. Grava na variável local
+      _listMask = masks;
+      
+      // 3. Notifica os interessados (UI) que os dados mudaram
+      //notifyListeners();
+      
+      return _listMask;
+
+    } catch (e) {
+      //debugPrint("Erro ao buscar máscaras locais: $e");
+      _listMask = [];
+      notifyListeners();
+      return [];
+    }
   }
 
   // =========================================================================

@@ -53,4 +53,50 @@ class StorageService {
     await _storage.delete(key: 'password');
   }
 
+  // -----------------------------------------------------------
+  // MÉTODOS PARA SEQUÊNCIA NUMÉRICA
+  // -----------------------------------------------------------
+
+  /// Retorna o próximo número da sequência e o incrementa no storage.
+  Future<int> getNextSequence() async {
+    try {
+      // 1. Lê o valor atual
+      String? currentStr = await _storage.read(key: 'inventory_sequence');
+      
+      // 2. Converte para int (se for nulo, começa em 0)
+      int current = currentStr != null ? int.parse(currentStr) : 0;
+      
+      // 3. Incrementa
+      int next = current + 1;
+      
+      // 4. Salva o novo valor
+      await _storage.write(key: 'inventory_sequence', value: next.toString());
+      
+      return next;
+    } catch (e) {
+      MessageService.showError('Erro ao gerar sequência: $e');
+      return 1; // Fallback para não travar o app
+    }
+  }
+
+  Future<void> decrementSequence() async {
+    try {
+      String? currentStr = await _storage.read(key: 'inventory_sequence');
+      int current = currentStr != null ? int.parse(currentStr) : 0;
+
+      int next = current > 0 ? current - 1 : 0;
+      await _storage.write(key: 'inventory_sequence', value: next.toString(),);
+
+      return;
+    } catch (e) {
+      return;
+    }
+  }
+
+  /// Lê o valor atual da sequência sem incrementar.
+  Future<int> getCurrentSequence() async {
+    String? currentStr = await _storage.read(key: 'inventory_sequence');
+    return currentStr != null ? int.parse(currentStr) : 0;
+  }
+
 }
