@@ -15,7 +15,7 @@ class InventoryRecordModel {
   final int? inventQtdStack;      // Corresponde a `invent_qtd_stack`
   final double? inventQtdIndividual; // Corresponde a `invent_qtd_individual`
   final double? inventTotal;         // Corresponde a `invent_total`
-  
+  final String? productDescription; // Nome do produto NotMapped
   /// Controle OFFLINE
   final bool? isSynced;
 
@@ -32,6 +32,7 @@ class InventoryRecordModel {
     this.inventQtdStack,
     this.inventQtdIndividual,
     this.inventTotal,
+    this.productDescription,
     this.isSynced,
   });
 
@@ -52,6 +53,7 @@ class InventoryRecordModel {
       'inventQtdStack': inventQtdStack,
       'inventQtdIndividual': inventQtdIndividual,
       'inventTotal': inventTotal,
+      'productDescription': productDescription,
     };
   }
 
@@ -63,15 +65,15 @@ class InventoryRecordModel {
       if (value is int) return value;
       return int.tryParse(value.toString());
     }
-    
-  double? parseNullableDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    
-    // Converte para String e trata a vírgula antes de tentar o parse
-    return double.tryParse(value.toString().replaceAll(',', '.'));
-  }
+      
+    double? parseNullableDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      
+      // Converte para String e trata a vírgula antes de tentar o parse
+      return double.tryParse(value.toString().replaceAll(',', '.'));
+    }
 
     // Função auxiliar para garantir que o campo string seja parsed corretamente.
     String? parseNullableString(dynamic value) {
@@ -95,6 +97,7 @@ class InventoryRecordModel {
       inventQtdStack:       parseNullableInt(   map['inventQtdStack']),
       inventQtdIndividual:  parseNullableDouble(map['inventQtdIndividual']),
       inventTotal:          parseNullableDouble(map['inventTotal']),
+      productDescription: parseNullableString(map['productDescription']),
       isSynced:             true,
     );
   }
@@ -151,6 +154,7 @@ class InventoryRecordModel {
     int?    inventQtdStack,
     double? inventQtdIndividual,
     double? inventTotal,
+    String? productDescription,
     bool?   isSynced,
   }) {
     return InventoryRecordModel(
@@ -166,6 +170,7 @@ class InventoryRecordModel {
       inventQtdStack: inventQtdStack ?? this.inventQtdStack,
       inventQtdIndividual: inventQtdIndividual ?? this.inventQtdIndividual,
       inventTotal: inventTotal ?? this.inventTotal,
+      productDescription: productDescription ?? this.productDescription,
       isSynced: isSynced ?? this.isSynced,
     );
   }

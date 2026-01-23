@@ -7,167 +7,203 @@ import 'package:intl/intl.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart'; 
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
-
-import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:oxdata/app/core/services/load_service.dart';
+import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
 
 // -------------------------------------------------------------
 // Widget para o Card de Item de Contagem (Inalterado)
 // -------------------------------------------------------------
 
 class _CountItemCard extends StatelessWidget {
- final InventoryRecordModel recordItem;
+  final InventoryRecordModel recordItem;
+  final InventoryModel inventory;
 
- const _CountItemCard({required this.recordItem});
+  const _CountItemCard({required this.recordItem, required this.inventory,});
 
- // Método para formatar a quantidade: P: Pilhas x Itens Av: Avulsos
- String _formatQuantity() {
-  final stacks = recordItem.inventQtdStack ?? 0;
-  final itemsPerStack = recordItem.inventStandardStack ?? 0;
-  final loose = recordItem.inventQtdIndividual ?? 0;
-  
-  return 'P: ${stacks}x${itemsPerStack} Av: ${loose}';
- }
- 
- // Método para formatar a hora, assumindo que inventCreated é um DateTime
- String _formatTime() {
-  if (recordItem.inventCreated != null) {
-   // Formata apenas a hora
-   return DateFormat('HH:mm').format(recordItem.inventCreated!.toLocal());
+  String _formatTime() {
+    if (recordItem.inventCreated != null) {
+      return DateFormat('HH:mm').format(recordItem.inventCreated!.toLocal());
+    }
+    return '--:--';
   }
-  return '--:--';
- }
 
- @override
- Widget build(BuildContext context) {
-  // Provider para ações como exclusão/edição
-  final inventoryService = Provider.of<InventoryService>(context, listen: false);
+  @override
+  Widget build(BuildContext context) {
 
-  return Card(
-   margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-   child: Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-    child: Row(
-     crossAxisAlignment: CrossAxisAlignment.start,
-     children: [
-      // Informações do Item (Centro)
-      Expanded(
-       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-         Row(
-          children: [
-           // Código do Unitizador (inventUnitizer)
-           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-             color: Colors.grey.shade200,
-             borderRadius: BorderRadius.circular(4),
+    final inventoryService = Provider.of<InventoryService>(context, listen: false);
+    final Color statusColor = inventory.inventStatus == InventoryStatus.Finalizado ? Colors.green : Colors.orange;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Text(
-             recordItem.inventUnitizer ?? "N/A", 
-             style: TextStyle(
-               fontSize: 16,
-               fontWeight: FontWeight.bold,
-               color: Colors.grey.shade700),
-            ),
-           ),
-           const SizedBox(width: 8),
-           // Hora
-           Text(
-            _formatTime(), 
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-           ),
           ],
-         ),
-         const SizedBox(height: 4),
-         // Código e Nome do Item (inventProduct - inventBarcode)
-         Text(
-          '${recordItem.inventProduct} - ${recordItem.inventBarcode ?? "Nome Desconhecido"}', 
-          style: const TextStyle(
-            fontSize: 18, fontWeight: FontWeight.w600),
-         ),
-         const SizedBox(height: 4),
-         // Quantidade detalhada
-         Text(
-          _formatQuantity(), 
-          style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-         ),
-        ],
-       ),
-      ),
-      
-      // Coluna Direita (Total e Ações)
-      Container(
-       alignment: Alignment.topRight,
-       child: IntrinsicHeight(
-        child: Row(
-         crossAxisAlignment: CrossAxisAlignment.stretch,
-         children: [
-          // Total
-          Container(
-           padding: const EdgeInsets.only(right: 16.0, left: 8.0, top: 6.0), 
-           alignment: Alignment.center,
-           child: Text(
-            recordItem.inventTotal.toString(), // Total do Record
-            style: const TextStyle(
-             fontSize: 22,
-             fontWeight: FontWeight.bold,
-             color: Colors.blue,
-            ),
-           ),
-          ),
-          
-          // Separador (Vertical Divider)
-          const VerticalDivider(
-           width: 1, 
-           thickness: 1, 
-           indent: 0,
-           endIndent: 0,
-           color: Color(0xFFE0E0E0),
-          ),
-          
-          // Ícones de Ação (Editar e Excluir)
-          Padding(
-           padding: const EdgeInsets.only(left: 10.0),
-           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-             // Ícone de Editar
-             GestureDetector(
-              onTap: () {
-               ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(content: Text('Editar: ${recordItem.inventProduct}')));
-              },
-              child: const Icon(Icons.edit, size: 36, color: Color(0xFF909090)),
-             ),
-             const SizedBox(height: 20),
-             // Ícone de Excluir
-             GestureDetector(
-              onTap: () async {
-               if (recordItem.id != null) {
-                // Ação de exclusão
-                await inventoryService.deleteInventoryRecord(recordItem.id!);
-                ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(content: Text('Registro ${recordItem.inventProduct} excluído!')));
-               }
-              },
-              child: const Icon(Icons.delete, size: 36, color: Color(0xFF909090)),
-             ),
-            ],
-           ),
-          ),
-         ],
         ),
-       ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Barra lateral colorida (Indigo para registros de contagem)
+              Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                  ),
+                ),
+              ),
+              
+              // Conteúdo Central
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only( left: 10, top: 10, right: 2, bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Descrição com Scroll Horizontal
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Text(
+                          '${recordItem.productDescription}',
+                          softWrap: false,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2D3142),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      
+                      // Código e Badge de Hora
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${recordItem.inventProduct}  •  ${recordItem.inventBarcode?.replaceFirst(RegExp(r'^0+'), '') ?? ""}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo,
+                            ),
+                          ),
+                          // Badge de Hora (seguindo o estilo do status do outro card)
+                          _buildTimeBadge(_formatTime()),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 10),
+                      const Divider(height: 2, color: Color(0xFFF1F1F1)),
+                      const SizedBox(height: 6),
+                      
+                      // Seção de Quantidade
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "TOTAL CONTADO:",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            formatQty(recordItem.inventTotal),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Coluna de Ações
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ColorChangingButton(
+                      size: 45,
+                      icon: Icons.edit_rounded,
+                      onPressed: () {
+
+                        //context.read<InventoryService>().setSelectedInventory(inventory);
+                        //context.read<InventoryService>().fetchRecordsByInventCode(inventory.inventCode);
+
+                      final input = InventoryRecordInput(
+                        id: recordItem.id,
+                        unitizer: recordItem.inventUnitizer ?? '',
+                        position: recordItem.inventLocation ?? '',
+                        product: recordItem.inventProduct,
+                        qtdPorPilha: recordItem.inventStandardStack?.toDouble(),
+                        numPilhas: recordItem.inventQtdStack?.toDouble(),
+                        qtdAvulsa: recordItem.inventQtdIndividual,
+                      );
+
+                        context.read<InventoryService>().updateDraft(input);
+                        context.read<LoadService>().setPage(1);
+        
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _ColorChangingButton(
+                      size: 45,
+                      icon: Icons.delete_forever_rounded,
+                      onPressed: () async {
+                        if (recordItem.id != null) {
+                          await inventoryService.deleteInventoryRecord(recordItem.id!);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-     ],
-    ),
-   ),
-  );
- }
+    );
+  }
+
+  // Widget auxiliar para a hora (seguindo o padrão visual do _buildStatusBadge)
+  Widget _buildTimeBadge(String time) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.access_time, size: 12, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(
+            time,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // -------------------------------------------------------------
@@ -242,21 +278,19 @@ class _InventoryPageState extends State<InventoryPage> {
   }
  }
 
-// -------------------------------------------------------------
+  // -------------------------------------------------------------
  // Widget de Cabeçalho (STATUS, TOTAL DE ITENS, Registros)
  // -------------------------------------------------------------
  Widget _buildHeader(BuildContext context, InventoryModel inventory, int recordsCount) {
-  // Acessa o status do InventoryModel e o converte para String
   final String statusText = inventory.inventStatus.name.toUpperCase();
-  // Ajuste de cor baseado no status do ENUM
-  Color statusColor = statusText == 'FINALIZADO' ? Colors.orange : Colors.green;
+  Color statusColor = statusText == InventoryStatus.Finalizado ? Colors.orange : Colors.green;
 
   // O totalItems agora deve vir de inventTotal do InventoryModel
   double totalItems = inventory.inventTotal ?? 0;
 
 
   return Container(
-   padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 10.0, bottom: 4.0),
+   padding: const EdgeInsets.only(left: 12.0, right: 12.0, top: 5.0, bottom: 5.0),
    decoration: BoxDecoration(
     color: Colors.white,
     border: Border(
@@ -266,16 +300,34 @@ class _InventoryPageState extends State<InventoryPage> {
    child: Column( // Alterado para Column para colocar o título acima
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-     // 🔑 NOVO: TÍTULO DO INVENTÁRIO (inventCode)
-     Text(
-      'INVENTÁRIO: ${inventory.inventCode}',
-      style: const TextStyle(
-       fontSize: 22, 
-       fontWeight: FontWeight.bold,
-       color: Colors.black87
+      // TÍTULO DO INVENTÁRIO (inventCode)
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Empurra um para cada lado
+        crossAxisAlignment: CrossAxisAlignment.baseline,   // Alinha as bases do texto
+        textBaseline: TextBaseline.alphabetic, 
+        children: [
+          // LADO ESQUERDO: Nome do Inventário
+          Text(
+            inventory.inventName ?? '',
+            style: const TextStyle(
+              fontSize: 20, 
+              fontWeight: FontWeight.bold, 
+              color: Colors.black87,
+            ),
+          ),
+          
+          // LADO DIREITO: Código do Inventário
+          Text(
+            inventory.inventCode ?? '',
+            style: const TextStyle(
+              fontSize: 16, 
+              fontWeight: FontWeight.normal, 
+              color: Colors.black54,
+            ),
+          ),
+        ],
       ),
-     ),
-     const SizedBox(height: 12),
+     const SizedBox(height: 6),
      
      // Conteúdo Original (TOTAL DE ITENS, STATUS, REGISTROS)
      Row(
@@ -285,11 +337,11 @@ class _InventoryPageState extends State<InventoryPage> {
        Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-         Text('TOTAL DE ITENS', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+         Text('TOTAL DE ITENS', style: TextStyle(fontSize: 14, color: Colors.grey.shade800)),
          // Usa inventTotal do InventoryModel
-         Text(totalItems.toString(),
+         Text(formatQty(totalItems),
            style: const TextStyle(
-            fontSize: 32, fontWeight: FontWeight.bold)),
+            fontSize: 33, fontWeight: FontWeight.bold)),
         ],
        ),
        
@@ -301,8 +353,9 @@ class _InventoryPageState extends State<InventoryPage> {
          Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-           color: statusColor.withOpacity(0.1),
-           borderRadius: BorderRadius.circular(4),
+            color: statusColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: statusColor.withOpacity(0.2)),
           ),
           child: Text(
            statusText, // Status vindo do ENUM
@@ -315,7 +368,7 @@ class _InventoryPageState extends State<InventoryPage> {
          ),
          const SizedBox(height: 8),
          // Registros (Contagem dinâmica da lista de records)
-         Text('Registros', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+         Text('Contagens', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
          Text(recordsCount.toString(), 
            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
@@ -391,10 +444,10 @@ class _InventoryPageState extends State<InventoryPage> {
            )
           // Se não estiver carregando e houver registros
           : ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8.8),
             itemCount: records.length, 
             itemBuilder: (context, index) {
-             return _CountItemCard(recordItem: records[index]); 
+             return _CountItemCard(recordItem: records[index], inventory: currentInventory); 
             },
            ),
      ),
@@ -404,280 +457,96 @@ class _InventoryPageState extends State<InventoryPage> {
  }
 }
 
+// -------------------------------------------------------------------
+// WIDGET REUTILIZÁVEL: _ColorChangingButton
+// -------------------------------------------------------------------
+class _ColorChangingButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final double size;
+  final Color? color;
 
+  const _ColorChangingButton({
+    Key? key,
+    required this.icon,
+    this.onPressed,
+    this.size = 54,
+    this.color,
+  }) : super(key: key);
 
+  @override
+  State<_ColorChangingButton> createState() => __ColorChangingButtonState();
+}
 
-/*
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; 
-// Importe seus modelos e serviços
-import 'package:oxdata/app/core/models/inventory_item.dart'; 
-import 'package:oxdata/app/core/models/inventory_record_model.dart';
-import 'package:oxdata/app/core/services/inventory_service.dart';
+class __ColorChangingButtonState extends State<_ColorChangingButton> {
+  late Color _containerColor;
 
-// -------------------------------------------------------------
-// Novo Widget para o Card de Item de Contagem
-// -------------------------------------------------------------
+  final Color _defaultColor = const Color(0xFFE3F2FD);
+  final Color _darkerColor = const Color.fromARGB(255, 187, 211, 251);
+  final Color _primaryIconColor = const Color(0xFF3F51B5);
 
-class _CountItemCard extends StatelessWidget {
-  // Agora recebe o modelo real do backend
-  final InventoryRecordModel recordItem;
-
-  const _CountItemCard({required this.recordItem});
-
-  // Método para formatar a quantidade: P: Pilhas x Itens Av: Avulsos
-  String _formatQuantity() {
-    final stacks = recordItem.inventQtdStack ?? 0;
-    final itemsPerStack = recordItem.inventStandardStack ?? 0;
-    final loose = recordItem.inventQtdIndividual ?? 0;
-    
-    return 'P: ${stacks}x${itemsPerStack} Av: ${loose}';
+  @override
+  void initState() {
+    super.initState();
+    _containerColor = widget.color ?? _defaultColor;
   }
-  
-  // Método para formatar a hora, assumindo que recordDate é um DateTime
-  String _formatTime() {
-    if (recordItem.inventCreated != null) {
-      // Formata apenas a hora
-      return DateFormat('HH:mm').format(recordItem.inventCreated!.toLocal());
+
+  // Função que faz a "piscadinha"
+  void _handleTap() async {
+    if (widget.onPressed == null) return;
+
+    setState(() {
+      // Escurece a cor ao tocar
+      _containerColor = widget.color != null 
+          ? widget.color!.withOpacity(0.7) 
+          : _darkerColor;
+    });
+
+    // Pequeno delay para o olho humano perceber a mudança
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    if (mounted) {
+      setState(() {
+        _containerColor = widget.color ?? _defaultColor;
+      });
     }
-    return '--:--';
+
+    widget.onPressed!();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Informações do Item (Centro)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // Código do Unitizador (CX-220, PAL-001)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          recordItem.inventUnitizer ?? "N/A", // Dados do Record
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade700),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Hora
-                      Text(
-                        _formatTime(), // Hora formatada
-                        style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // Código e Nome do Item
-                  Text(
-                    '${recordItem.inventProduct ?? "Sem Código"} - ${recordItem.inventBarcode ?? "Nome Desconhecido"}', // Dados do Record
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  // Quantidade detalhada (P: 5x10 Av: 2)
-                  Text(
-                    _formatQuantity(), // Quantidade formatada
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Coluna Direita (Total e Ações)
-            Container(
-              alignment: Alignment.topRight,
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Total
-                    Container(
-                      padding: const EdgeInsets.only(right: 16.0, left: 8.0, top: 6.0), 
-                      alignment: Alignment.center,
-                      child: Text(
-                        recordItem.inventTotal.toString(), // Total do Record
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    ),
-                    
-                    // Separador (Vertical Divider)
-                    const VerticalDivider(
-                      width: 1, 
-                      thickness: 1, 
-                      indent: 0,
-                      endIndent: 0,
-                      color: Color(0xFFE0E0E0),
-                    ),
-                    
-                    // Ícones de Ação (Editar e Excluir)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Ícone de Editar
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Editar: ${recordItem.inventProduct}')));
-                            },
-                            child: const Icon(Icons.edit, size: 36, color: Color(0xFF909090)),
-                          ),
-                          const SizedBox(height: 20),
-                          // Ícone de Excluir
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Excluir: ${recordItem.inventProduct}')));
-                            },
-                            child: const Icon(Icons.delete, size: 36, color: Color(0xFF909090)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    final bool isDisabled = widget.onPressed == null;
+
+    return GestureDetector(
+      onTap: _handleTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100), // Transição rápida
+        height: widget.size,
+        width: widget.size,
+        decoration: BoxDecoration(
+          color: isDisabled ? Colors.grey[200] : _containerColor,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Icon(
+            widget.icon,
+            color: isDisabled 
+                ? Colors.grey[400] 
+                : (widget.color != null ? Colors.white : _primaryIconColor),
+            // Aumentado de 0.55 para 0.7 para o ícone ficar maior
+            size: widget.size * 0.7, 
+          ),
         ),
       ),
     );
   }
 }
 
-// -------------------------------------------------------------
-// Página Principal (InventoryPage)
-// -------------------------------------------------------------
-
-class InventoryPage extends StatelessWidget {
-  final InventoryItem inventory;
-
-  InventoryPage({required this.inventory, super.key});
-  
-  // -------------------------------------------------------------
-  // Widget de Cabeçalho (STATUS, TOTAL DE ITENS, Registros)
-  // -------------------------------------------------------------
-  Widget _buildHeader(BuildContext context, int recordsCount) {
-    Color statusColor = inventory.status == 'FECHADO' ? Colors.green : Colors.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // TOTAL DE ITENS (Lado Esquerdo)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('TOTAL DE ITENS', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              Text(inventory.totalItems.toString(),
-                  style: const TextStyle(
-                      fontSize: 32, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          
-          // STATUS e Registros (Lado Direito)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Status
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  inventory.status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Registros
-              Text('Registros', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              Text(recordsCount.toString(), // Contagem DINÂMICA
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-        ],
-      ),
-    );
+  String formatQty(double? value) {
+    if (value == null) return "0";
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+    return value.toString();
   }
-
-  @override
-  Widget build(BuildContext context) {
-    // 🔑 CONECTANDO AO PROVIDER: O widget escuta o InventoryService e reconstrói 
-    // quando a lista `inventoryRecords` muda.
-    final records = context.watch<InventoryService>().inventoryRecords;
-    
-    return Scaffold(
-      
-      // Floating Action Button
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Ação para adicionar uma nova contagem
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Adicionar nova contagem')),
-          );
-        },
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      
-      body: Column(
-        children: [
-          // Cabeçalho de Resumo
-          _buildHeader(context, records.length), // Passa o número real de registros
-          
-          // Lista de Itens Contados
-          Expanded(
-            child: records.isEmpty
-                ? const Center(child: Text('Nenhum registro de contagem encontrado.'))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    itemCount: records.length, // Usando a lista do Provider
-                    itemBuilder: (context, index) {
-                      return _CountItemCard(recordItem: records[index]); // Passando o Record Model
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-*/

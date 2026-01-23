@@ -181,7 +181,7 @@ class _InventoryCard extends StatelessWidget {
                                   _buildInfoItem(Icons.business_rounded, "Setor", inventory.inventSector ?? "Geral"),
                                   _buildInfoItem(Icons.person_outline_rounded, "Usuário", inventory.inventUser ?? "N/D"),
                                   _buildInfoItem(Icons.calendar_today_rounded, "Data", dateText),
-                                  _buildInfoItem(Icons.inventory_2_outlined, "Total Itens", inventory.inventTotal?.toString() ?? "0", isBold: true),
+                                  _buildInfoItem(Icons.inventory_2_outlined, "Total Peças", inventory.inventTotal?.toString() ?? "0", isBold: true),
                                 ],
                               ),
                             ),
@@ -318,9 +318,9 @@ class _InventoryCard extends StatelessWidget {
 
 }
 
-// -------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------
 // PÁGINA PRINCIPAL
-// -------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------
 class SearchInventoryPage extends StatefulWidget {
   static final GlobalKey<_SearchInventoryPageState> inventoryKey = GlobalKey<_SearchInventoryPageState>();
   const SearchInventoryPage({super.key});
@@ -362,29 +362,62 @@ class _SearchInventoryPageState extends State<SearchInventoryPage> {
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
             child: TextField(
               controller: _searchController,
+              onChanged: (value) {
+                setState(() {});
+              },
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               decoration: InputDecoration(
-                hintText: 'Pesquisar inventário...',
-                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
-                prefixIcon: const Icon(Icons.search_rounded, color: Colors.indigo),
+                hintText: 'Pesquisar..',
+                hintStyle: TextStyle(
+                  color: Colors.blueGrey[300],
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: Colors.indigo,
+                  size: 22,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                fillColor: const Color(0xFFF8FAFC),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                
+                // ESTA É A PARTE QUE VOCÊ PRECISAVA:
+                // O 'border' padrão garante que o preenchimento (fillColor) seja arredondado
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
+                ),
+                
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Colors.indigo, width: 1),
                 ),
               ),
             ),

@@ -9,7 +9,6 @@ class FieldInfoPopup extends StatelessWidget {
   final MaskFieldName field;
   final String title;
   final IconData icon;
-  final String description;
 
   const FieldInfoPopup({
     super.key,
@@ -17,8 +16,20 @@ class FieldInfoPopup extends StatelessWidget {
     required this.field,
     required this.title,
     required this.icon,
-    required this.description,
   });
+
+  String get description {
+    switch (field) {
+      case MaskFieldName.Unitizador:
+        return "Código Único de itentificação.";
+      case MaskFieldName.Posicao:
+        return "Código da posição (DEPÓSITO - BLOCO - QUADRA - LOTE - ANDAR).";
+      case MaskFieldName.Codigo:
+        return "Código da Peça/Item.";
+      default:
+        return "";
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,6 +215,7 @@ class FieldInfoPopup extends StatelessWidget {
     final quadra = safeExtract(value, 4, 5);
     final lote = safeExtract(value, 5, 7);
     final andar = safeExtract(value, 7, 8);
+    final undefined = safeExtract(value, 8, 100);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,17 +314,19 @@ class FieldInfoPopup extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 3. Detalhamento da Estrutura
+        // Detalhamento da Estrutura
         _buildSectionHeader("Estrutura da Posição", Icons.layers_outlined),
         const SizedBox(height: 6),
         _buildDescriptionContainer(
           Column(
             children: [
-              _buildLocationRow("Depósito", deposito, deposito.isEmpty),
-              _buildLocationRow("Bloco", bloco, bloco.isEmpty),
-              _buildLocationRow("Quadra", quadra, quadra.isEmpty),
-              _buildLocationRow("Lote", lote, lote.isEmpty),
-              _buildLocationRow("Andar", andar, andar.isEmpty),
+              _buildLocationRow("Depósito:", deposito, deposito.isEmpty, 2),
+              _buildLocationRow("Bloco:", bloco, bloco.isEmpty, 2),
+              _buildLocationRow("Quadra:", quadra, quadra.isEmpty, 1),
+              _buildLocationRow("Lote:", lote, lote.isEmpty, 2),
+              _buildLocationRow("Andar:", andar, andar.isEmpty, 1),
+              if (undefined.isNotEmpty)
+                _buildLocationRow("", undefined, true, undefined.length),
             ],
           ),
         ),
@@ -321,10 +335,13 @@ class FieldInfoPopup extends StatelessWidget {
     );
   }
 
-  Widget _buildLocationRow(String label, String val, bool hasError) {
-    final Color textColor = hasError ? Colors.red.shade700 : Colors.black54;
-    final Color backgroundColor = hasError ? Colors.red.withOpacity(0.1) : Colors.green.shade100;
-
+  Widget _buildLocationRow(String label, String val, bool hasError, int maskLength) {
+    Color textColor = hasError ? Colors.red.shade900 : Colors.black54;
+    Color backgroundColor = hasError ? Colors.red.withOpacity(0.1) : Colors.green.shade100;
+    if (value.isEmpty && label != "") {
+      textColor = Colors.black54;
+      backgroundColor = Colors.transparent;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -336,14 +353,14 @@ class FieldInfoPopup extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            "$label:", 
+            label, 
             style: TextStyle(
-              color: hasError ? Colors.red.shade900 : Colors.black54, 
+              color: textColor, 
               fontWeight: hasError ? FontWeight.bold : FontWeight.w500
             )
           ),
           Text(
-            hasError ? "*" : val, 
+            (hasError && label != "") ? ("*" * maskLength) : val,
             style: TextStyle(
               fontFamily: 'monospace', 
               fontWeight: FontWeight.bold, 
@@ -441,7 +458,7 @@ class FieldInfoPopup extends StatelessWidget {
             child: Text(
               masks.isEmpty
                   ? "Campo sem formato de entrada definido."
-                  : masks.map((m) => "• $m (${m.length} caracteres)").join('\n'),
+                  : masks.map((m) => "$m (${m.length} caracteres)").join('\n'),
               style: const TextStyle(fontSize: 14, height: 1.4),
             ),
           ),

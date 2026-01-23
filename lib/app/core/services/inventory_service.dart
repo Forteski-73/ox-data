@@ -106,27 +106,6 @@ class InventoryService with ChangeNotifier {
 
   Future<void> updateDraft(InventoryRecordInput input) async {
 
-    /// Verifica se ja existe uma contagem para o mesmo  input.unitizer, input.position e input.product 
-    // Verifica se os campos essenciais não estão vazios ou nulos
-    /*final bool hasMinimumData = 
-        (input.unitizer.isNotEmpty) &&
-        (input.position.isNotEmpty) &&
-        (input.product.isNotEmpty);
-        
-    if (hasMinimumData) {
-      final InventoryRecord? existingRecord = await checkExistingContagem(input);
-
-    if (existingRecord != null) {
-          // Se existe, atualiza o input com os valores que já estão no banco
-          input = input.copyWith(
-            id: existingRecord.id,
-            qtdPorPilha: existingRecord.inventStandardStack?.toDouble(),
-            numPilhas: existingRecord.inventQtdStack?.toDouble(),
-            qtdAvulsa: existingRecord.inventQtdIndividual?.toDouble(),
-          );
-        }
-    }*/
-
     _draft = input;
     notifyListeners();
   }
@@ -506,81 +485,6 @@ class InventoryService with ChangeNotifier {
     }
   }
 
-  /*
-  /// Sincronização de Inventário (Contagem)
-  Future<void> startSyncInventory() async {
-    isSyncing = true;
-    progressSynchronize = 0.0;
-    infoSynchronize = "Verificando conexão...";
-    notifyListeners();
-
-    try {
-      // 1. Validação de Internet
-      final hasInternet = await NetworkUtils.hasInternetConnection();
-      if (!hasInternet) {
-        infoSynchronize = "Sem conexão com a internet.";
-        notifyListeners();
-        await Future.delayed(const Duration(seconds: 2));
-        return;
-      }
-
-      // 2. Busca os dados pendentes no banco local (Drift)
-      final List<InventoryData> pendingList = await database.getPendingInventories();
-
-      if (pendingList.isEmpty) {
-        progressSynchronize = 1.0;
-        infoSynchronize = "Tudo em dia! Nenhum inventário pendente.";
-        notifyListeners();
-        await Future.delayed(const Duration(seconds: 2));
-        return;
-      }
-
-      int totalItems = pendingList.length;
-      int successCount = 0;
-
-      // 3. Loop de envio unitário
-      for (int i = 0; i < totalItems; i++) {
-        final item = pendingList[i];
-        
-        // Atualiza status na tela
-        infoSynchronize = "Sincronizando: ${item.inventName}";
-        notifyListeners();
-
-        try {
-          // Converte o dado do banco para o modelo da API
-          final modelToSync = InventoryModel.fromLocal(item);
-
-          // Envia para o endpoint https://oxfordonline.com.br/API/v1/Inventory/Inventory
-          final response = await inventoryRepository.createOrUpdateInventory(modelToSync);
-
-          if (response.success) {
-            // Marca como sincronizado localmente para não enviar de novo
-            await database.markInventoryAsSynced(item.inventCode);
-            successCount++;
-          }
-        } catch (e) {
-          debugPrint("Erro ao enviar item ${item.inventCode}: $e");
-        }
-
-        // 4. Cálculo do progresso (volta a 0.0 no início e vai até 1.0)
-        // Adicionamos um pequeno delay para a barra não "voar" se for rápido demais
-        progressSynchronize = (i + 1) / totalItems;
-        notifyListeners();
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-
-      infoSynchronize = "Sucesso: $successCount de $totalItems sincronizados.";
-      
-    } catch (e) {
-      infoSynchronize = "Erro inesperado: $e";
-    } finally {
-      await Future.delayed(const Duration(seconds: 1));
-      isSyncing = false;
-      notifyListeners();
-    }
-  }
-  */
-
   /// Sincroniza Mascaras
   Future<void> syncMasks() async {
     try {
@@ -629,30 +533,6 @@ class InventoryService with ChangeNotifier {
   // =========================================================================
   // === INVENTORY (v1/Inventory/Inventory)
   // =========================================================================
-
-  /// POST: Cria ou atualiza um Inventário principal e atualiza a lista local.
-  /*Future<void> createOrUpdateInventory(InventoryModel inventory) async {
-
-    final hasInternet = await NetworkUtils.hasInternetConnection();
-
-    if (hasInternet) { // Tem internet
-      final ApiResponse<InventoryModel> response =
-          await inventoryRepository.createOrUpdateInventory(inventory);
-
-      if (response.success) {
-        // Recarrega todos os Inventários para refletir a mudança
-        await fetchAllInventories();
-      } else {
-        debugPrint('Erro ao salvar Inventário: ${response.message}');
-        throw Exception('Erro ao salvar Inventário: ${response.message}');
-      }
-    }
-    else // Não tem internet
-    {
-
-    }
-  }
-  */
   Future<void> createOrUpdateInventory(InventoryModel inventory) async {
     final hasInternet = await NetworkUtils.hasInternetConnection();
 
@@ -694,63 +574,6 @@ class InventoryService with ChangeNotifier {
     final storage = StorageService();
     await storage.decrementSequence();
   }
-  
-
-  // 🔑 MUDANÇA 1: Armazena o resultado nas duas listas
-  /*Future<void> fetchAllInventories() async {
-    //_deviceId = "65c1aa5a-7b26-4fc3-8ea2-b2eb5b9f7102"; // RETIRAR EM PRODUÇÃO ****************************************************################################
-
-    // 2. Garante que o ID não é nulo. Se for, tenta inicializar.
-    if (_deviceId == null) {
-      //await initializeDeviceId(); // Tenta carregar o ID
-      if (_deviceId == null) {
-        debugPrint('Erro: deviceId não está disponível para buscar inventários.');
-        _inventories = [];
-        _allInventories = []; // Limpa também a lista completa
-        notifyListeners();
-        return;
-      }
-    }
-
-    // 3. Chama o Repositório com o ID do dispositivo.
-    final ApiResponse<List<InventoryModel>> response =
-        await inventoryRepository.getRecentInventoriesByGuid(_deviceId!);
-
-    if (response.success && response.data != null) {
-      // 🔑 Salva na lista completa
-      _allInventories = response.data!; 
-      // 🔑 Define a lista exibida (inventories) como a lista completa inicialmente
-      _inventories = List.from(_allInventories); 
-
-      if (_allInventories.isNotEmpty) {
-          _selectedInventory ??= _allInventories.first; // ?? dispensa o IF = null
-          
-        } else {
-            _selectedInventory = null;
-        }
-      
-    } else {
-      debugPrint('Inventário não encontrado: ${response.message}');
-      _inventories = []; // Limpa a lista exibida
-      _allInventories = []; // Limpa a lista completa
-    }
-    
-    // 4. Notifica a UI
-    notifyListeners();
-  }
-
-  /// GET: Busca Inventário por GUID.
-  Future<InventoryModel?> getInventoryByGuid(String guid) async {
-    final ApiResponse<InventoryModel> response =
-        await inventoryRepository.getInventoryByGuid(guid);
-
-    if (response.success && response.data != null) {
-      return response.data!;
-    } else {
-      debugPrint('Inventário não encontrado: $guid. ${response.message}');
-      return null;
-    }
-  }*/
 
   Future<void> fetchAllInventories() async {
     // 1. Garante deviceId

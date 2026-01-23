@@ -49,13 +49,12 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
   bool _isUnitizerBlink = false;
   bool _isPositionBlink = false;
   bool _isProductBlink = false;
-  bool _draftHydrated = false;
 
   @override
   void initState() {
     super.initState();
     _initListeners();
-    //WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateDraftOnce());
+    _setForEdit();
   }
 
   @override
@@ -63,21 +62,6 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     _controllers.values.forEach((c) => c.dispose());
     _nodes.values.forEach((n) => n.dispose());
     super.dispose();
-  }
-
-  
-  Future<void> _syncDraft() async {
-    final service = context.read<InventoryService>();
-    await service.updateDraft(
-      InventoryRecordInput(
-        unitizer: _controllers['unitizer']!.text,
-        position: _controllers['position']!.text,
-        product: _controllers['product']!.text,
-        qtdPorPilha: double.tryParse(_controllers['qtdPilha']!.text) ?? 0,
-        numPilhas: double.tryParse(_controllers['numPilhas']!.text) ?? 0,
-        qtdAvulsa: double.tryParse(_controllers['qtdAvulsa']!.text) ?? 0,
-      ),
-    );
   }
 
   // Dentro da classe _InventoryItemPageState
@@ -152,16 +136,53 @@ Future<bool> handleConfirmAction() async {
     });
   }
 
+  void _setForEdit() {
+    final service = context.read<InventoryService>();
+    final draft = service.draft;
+
+    if (draft != null) {
+      setState(() {
+        _controllers['unitizer']?.text = draft.unitizer;
+        _controllers['position']?.text = draft.position;
+        _controllers['product']?.text = draft.product;
+        
+        _controllers['qtdPilha']?.text = (draft.qtdPorPilha != null && draft.qtdPorPilha! > 0) 
+            ? draft.qtdPorPilha!.toInt().toString() : '';
+            
+        _controllers['numPilhas']?.text = (draft.numPilhas != null && draft.numPilhas! > 0) 
+            ? draft.numPilhas!.toInt().toString() : '';
+            
+        _controllers['qtdAvulsa']?.text = (draft.qtdAvulsa != null && draft.qtdAvulsa! > 0) 
+            ? (draft.qtdAvulsa! % 1 == 0 ? draft.qtdAvulsa!.toInt().toString() : draft.qtdAvulsa!.toString()) 
+            : '';
+      });
+
+      /*_validateField('unitizer', MaskFieldName.Unitizador);
+      _validateField('position', MaskFieldName.Posicao);
+      _handleProductBlur();
+      */
+    }
+  }
+
   void _initListeners() {
     // Adicionamos a lógica de verificar duplicidade apenas no "Blur" (perda de foco)
     _nodes['unitizer']!.addListener(() {
-      if (!_nodes['unitizer']!.hasFocus) _contagemJaExiste();
+      if (!_nodes['unitizer']!.hasFocus) {
+        _contagemJaExiste();
+        _validateField('unitizer', MaskFieldName.Unitizador);
+      }
     });
     _nodes['position']!.addListener(() {
-      if (!_nodes['position']!.hasFocus) _contagemJaExiste();
+      if (!_nodes['position']!.hasFocus) {
+        _contagemJaExiste();
+        _validateField('position', MaskFieldName.Posicao);
+      }
     });
     _nodes['product']!.addListener(() {
-      if (!_nodes['product']!.hasFocus) _contagemJaExiste();
+      if (!_nodes['product']!.hasFocus) {
+        _contagemJaExiste();
+        _validateField('product', MaskFieldName.Codigo);
+      }
     });
   }
 
@@ -229,9 +250,21 @@ Future<bool> handleConfirmAction() async {
 
   void _setBlink(String key, bool value) {
     setState(() {
-      if (key == 'unitizer') _isUnitizerBlink = value;
-      if (key == 'position') _isPositionBlink = value;
-      if (key == 'product') _isProductBlink = value;
+      if (key == 'unitizer') {
+        _isUnitizerBlink = value;
+        if(_isUnitizerBlink == true)
+          _openInfoPopup('unitizer', MaskFieldName.Unitizador, "Código Unitizador");
+      }
+      if (key == 'position') {
+        _isPositionBlink = value;
+        if(_isPositionBlink == true)
+          _openInfoPopup('position', MaskFieldName.Posicao, "Código Posição");
+      }
+      if (key == 'product') {
+        _isProductBlink = value;
+        if(_isProductBlink == true)
+          _openInfoPopup('product', MaskFieldName.Codigo, "Código Produto");
+      }
     });
   }
 
@@ -285,7 +318,7 @@ Future<bool> handleConfirmAction() async {
                 onSubmitted: (_) => _handleProductBlur(),
                 onInfo: () => _openInfoPopup('product', MaskFieldName.Codigo, "Código Produto"),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               _buildSectionHeader("QUANTIDADES"),
               const SizedBox(height: 8),
               Row(
@@ -306,23 +339,47 @@ Future<bool> handleConfirmAction() async {
 
   Widget _buildQtyBox(String label, TextEditingController ctrl, FocusNode node, bool isInt) {
     return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 4),
-          TextField(
-            controller: ctrl,
-            focusNode: node,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.numberWithOptions(decimal: !isInt),
-            style: const TextStyle(fontSize: 20),
-            inputFormatters: [
-              isInt ? FilteringTextInputFormatter.digitsOnly : FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
-            ],
-            decoration: const InputDecoration(isDense: true, border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(vertical: 10)),
-          ),
+      child: TextField(
+        controller: ctrl,
+        focusNode: node,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.numberWithOptions(decimal: !isInt),
+        // Ajustado para 17 para bater com o seu campo de referência
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+        onTapOutside: (_) => node.unfocus(),
+        inputFormatters: [
+          isInt 
+            ? FilteringTextInputFormatter.digitsOnly 
+            : FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
         ],
+        decoration: InputDecoration(
+          labelText: label, // O label agora fica dentro do campo
+          floatingLabelAlignment: FloatingLabelAlignment.center, // Centraliza o label ao subir
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          // Padding vertical 14 para manter a mesma altura de 54px dos botões
+          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          
+          // Bordas idênticas ao seu exemplo
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(
+              color: Color(0xFFE2E8F0),
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(
+              color: Colors.indigo,
+              width: 1,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -382,7 +439,6 @@ Future<bool> handleConfirmAction() async {
         field: field,
         title: title,
         icon: Icons.qr_code_2,
-        description: 'Verifique o formato do código.',
       ),
     );
   }
@@ -418,31 +474,91 @@ class _InventoryField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onSubmitted: onSubmitted,
-              onTapOutside: (_) => focusNode.unfocus(),
-              decoration: InputDecoration(
-                labelText: label, isDense: true, border: const OutlineInputBorder(),
-                suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: controller,
-                  builder: (context, value, _) => value.text.isNotEmpty 
-                    ? IconButton(icon: const Icon(Icons.clear, size: 20), onPressed: onClear)
-                    : const SizedBox.shrink(),
+      child: Container(
+        //padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                onSubmitted: onSubmitted,
+                onTapOutside: (_) => focusNode.unfocus(),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  labelText: label,
+                  //isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+
+                  suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: controller,
+                    builder: (context, value, _) =>
+                      value.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: onClear,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(
+                      color: Color(0xFFE2E8F0),
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(
+                      color: Colors.indigo,
+                      width: 1,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _ColorChangingButton(icon: Icons.qr_code_2, onPressed: onScan),
-          if (extraIcon != null) ...[const SizedBox(width: 8), _ColorChangingButton(icon: extraIcon!, onPressed: onExtra)],
-          const SizedBox(width: 8),
-          _ColorChangingButton(icon: Icons.info_outline, blink: isBlinking, onPressed: onInfo),
-        ],
+
+            const SizedBox(width: 8),
+            _ColorChangingButton(
+              icon: Icons.qr_code_2,
+              onPressed: onScan,
+            ),
+
+            if (extraIcon != null) ...[
+              const SizedBox(width: 8),
+              _ColorChangingButton(
+                icon: extraIcon!,
+                onPressed: onExtra,
+              ),
+            ],
+
+            const SizedBox(width: 8),
+            _ColorChangingButton(
+              icon: Icons.info_outline,
+              blink: isBlinking,
+              onPressed: onInfo,
+            ),
+          ],
+        ),
       ),
     );
   }
