@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:oxdata/db/app_database.dart';
+
 
 /// Classe que representa um registro individual dentro de um Inventário.
 /// Corresponde à tabela `inventory_record`.
@@ -172,6 +174,25 @@ class InventoryRecordModel {
       inventTotal: inventTotal ?? this.inventTotal,
       productDescription: productDescription ?? this.productDescription,
       isSynced: isSynced ?? this.isSynced,
+    );
+  }
+
+  // Para o banco local
+  factory InventoryRecordModel.fromLocal(InventoryRecord data) {
+    return InventoryRecordModel(
+      id: data.id,
+      inventCode: data.inventCode,
+      inventCreated: data.inventCreated,
+      inventUser: data.inventUser,
+      inventUnitizer: data.inventUnitizer,
+      inventLocation: data.inventLocation,
+      inventProduct: data.inventProduct,
+      inventBarcode: data.inventBarcode,
+      inventStandardStack: data.inventStandardStack,
+      inventQtdStack: data.inventQtdStack,
+      inventQtdIndividual: data.inventQtdIndividual,
+      inventTotal: data.inventTotal,
+      isSynced: data.isSynced,
     );
   }
 }

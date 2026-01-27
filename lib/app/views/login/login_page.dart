@@ -2,7 +2,6 @@
 // app/views/login/login_page.dart (Tela de Login)
 // -----------------------------------------------------------
 import 'package:flutter/material.dart';
-import 'package:oxdata/app/core/utils/email_sender.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
@@ -216,6 +215,10 @@ class _LoginPageState extends State<LoginPage> {
                       loadingService.hide();
                       if (authService.isAuthenticated) {
                         Navigator.of(context).pushReplacementNamed(RouteGenerator.homePage);
+                      }
+                      else
+                      {
+                        MessageService.showInfo("Ops! Usuário ou Senha não encontrado!");
                       }
                     }
                   }

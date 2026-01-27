@@ -152,7 +152,7 @@ class _DeviceIdentification extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       // Estilização do entorno (Card)
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
@@ -192,7 +192,7 @@ class _DeviceIdentification extends StatelessWidget {
                       return SelectableText(
                         snapshot.data!,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: Colors.deepOrange, // Mantive o destaque que você pediu
                           fontFamily: 'monospace',

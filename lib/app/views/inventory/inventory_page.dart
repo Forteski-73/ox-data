@@ -9,6 +9,8 @@ import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/load_service.dart';
 import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
+import 'package:oxdata/app/core/widgets/app_confirm_dialog.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
 
 // -------------------------------------------------------------
 // Widget para o Card de Item de Contagem (Inalterado)
@@ -172,6 +174,7 @@ class _CountItemCard extends StatelessWidget {
                           await inventoryService.deleteInventoryRecord(recordItem.id!);
                         }
                       },
+                      color: Colors.red.shade300,
                     ),
                   ],
                 ),
@@ -211,43 +214,49 @@ class _CountItemCard extends StatelessWidget {
 // -------------------------------------------------------------
 
 class InventoryPage extends StatefulWidget {
-const InventoryPage({super.key});
+  const InventoryPage({super.key});
 
-@override
-State<InventoryPage> createState() => _InventoryPageState();
+  static final GlobalKey<_InventoryPageState> inventoryKey = GlobalKey<_InventoryPageState>();
+
+  @override
+  State<InventoryPage> createState() => _InventoryPageState();
 }
 
 class _InventoryPageState extends State<InventoryPage> {
- bool _isLoading = true;
+  bool _isLoading = true;
   // Variável local para armazenar o inventário selecionado
- InventoryModel? _currentInventory; 
+  InventoryModel? _currentInventory; 
 
- @override
- void initState() {
-  super.initState();
+  // controles da pesquisa
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
+  @override
+  void initState() {
+    super.initState();
   
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-   _checkAndFetchRecords();
-  });
- }
-
- Future<void> _checkAndFetchRecords() async {
-  final inventoryService = context.read<InventoryService>();
-  
-  // 1. Tenta obter o inventário selecionado do serviço
-  _currentInventory = inventoryService.selectedInventory;
-
-  if (_currentInventory == null) {
-   // Se não houver um inventário selecionado, talvez seja necessário buscar a lista
-   // ou mostrar uma tela de erro/vazia. 
-   // Por enquanto, apenas para evitar NullPointerException:
-   debugPrint("Erro: Nenhum inventário selecionado no Provider.");
-   if (mounted) {
-    setState(() {
-     _isLoading = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndFetchRecords();
     });
-   }
-   return;
+  }
+
+  Future<void> _checkAndFetchRecords() async {
+    final inventoryService = context.read<InventoryService>();
+  
+    // 1. Tenta obter o inventário selecionado do serviço
+    _currentInventory = inventoryService.selectedInventory;
+
+    if (_currentInventory == null) {
+    // Se não houver um inventário selecionado, talvez seja necessário buscar a lista
+    // ou mostrar uma tela de erro/vazia. 
+    // Por enquanto, apenas para evitar NullPointerException:
+    debugPrint("Erro: Nenhum inventário selecionado no Provider.");
+    if (mounted) {
+      setState(() {
+      _isLoading = false;
+      });
+    }
+    return;
   }
   
   final records = inventoryService.inventoryRecords;
@@ -278,12 +287,94 @@ class _InventoryPageState extends State<InventoryPage> {
   }
  }
 
+ Future<bool> handleFinishAction() async {
+    try {
+      final confirmed = await showConfirmDialog(
+        context: context,
+        message: "Deseja realmente finalizar a contagem #${_currentInventory?.inventCode}?",
+      );
+
+      if (confirmed) {
+        final inventoryService = context.read<InventoryService>();
+        
+        // Criamos uma nova instância com o status atualizado
+        // Se o seu model não tiver copyWith, você pode instanciar um novo InventoryModel
+        // passando os campos do 'inventory' atual.
+        final updatedInventory = _currentInventory?.copyWith(inventStatus: InventoryStatus.Finalizado);
+
+        if (updatedInventory != null)
+        {
+          // Chama o serviço para persistir no Banco de Dados
+          await inventoryService.createOrUpdateInventory(updatedInventory);
+        }
+        
+        if (context.mounted) {
+          MessageService.showSuccess("Inventário #${_currentInventory?.inventCode} finalizado com sucesso!");
+        }
+      }
+
+      return true;
+
+    } catch (e, stack) {
+      debugPrint("Erro na confirmação: $e");
+      debugPrint(stack.toString());
+      return false;
+    }
+  }
+
+  Future<bool> handleDeleteAction() async {
+    try {
+      if (_currentInventory == null) return false;
+
+      final confirmed = await showConfirmDialog(
+        context: context,
+        message: "Deseja realmente excluir todos os registros da contagem #${_currentInventory?.inventCode}?",
+      );
+
+      if (confirmed) {
+        final inventoryService = context.read<InventoryService>();
+        
+        // Chamada ao serviço para deletar todos os registros vinculados a este código
+        await inventoryService.deleteAllRecordsByInventCode(_currentInventory!.inventCode);
+
+        // Atualizar o cabeçalho se o seu serviço não fizer o refresh automático
+        // await inventoryService.refreshSelectedInventoryState(_currentInventory!.inventCode);
+        
+        if (context.mounted) {
+          MessageService.showSuccess("Todos os registros do inventário #${_currentInventory?.inventCode} foram excluídos!");
+        }
+      }
+
+      return true;
+
+    } catch (e, stack) {
+      debugPrint("Erro na exclusão total: $e");
+      if (context.mounted) {
+        MessageService.showError("Erro ao excluir registros.");
+      }
+      return false;
+    }
+  }
+
+  /// Função auxiliar para abrir o diálogo de confirmação
+  Future<bool> showConfirmDialog({
+    required BuildContext context,
+    required String message,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => ConfirmDialog(message: message),
+    );
+
+    return result ?? false; // Se o usuário fechar o diálogo, retorna false
+  }
+
   // -------------------------------------------------------------
  // Widget de Cabeçalho (STATUS, TOTAL DE ITENS, Registros)
  // -------------------------------------------------------------
  Widget _buildHeader(BuildContext context, InventoryModel inventory, int recordsCount) {
   final String statusText = inventory.inventStatus.name.toUpperCase();
-  Color statusColor = statusText == InventoryStatus.Finalizado ? Colors.orange : Colors.green;
+  Color statusColor = statusText == InventoryStatus.Finalizado ? Colors.green : Colors.orange;
 
   // O totalItems agora deve vir de inventTotal do InventoryModel
   double totalItems = inventory.inventTotal ?? 0;
@@ -302,32 +393,42 @@ class _InventoryPageState extends State<InventoryPage> {
     children: [
       // TÍTULO DO INVENTÁRIO (inventCode)
       Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Empurra um para cada lado
-        crossAxisAlignment: CrossAxisAlignment.baseline,   // Alinha as bases do texto
-        textBaseline: TextBaseline.alphabetic, 
         children: [
           // LADO ESQUERDO: Nome do Inventário
-          Text(
-            inventory.inventName ?? '',
-            style: const TextStyle(
-              fontSize: 20, 
-              fontWeight: FontWeight.bold, 
-              color: Colors.black87,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(
+                inventory.inventName ?? '',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           ),
-          
+
+          const SizedBox(width: 6), // respiro entre as duas colunas
+
           // LADO DIREITO: Código do Inventário
-          Text(
-            inventory.inventCode ?? '',
-            style: const TextStyle(
-              fontSize: 16, 
-              fontWeight: FontWeight.normal, 
-              color: Colors.black54,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true, // Começa o scroll da direita para a esquerda (alinhado ao fim)
+              child: Text(
+                inventory.inventCode ?? '',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.black54,
+                ),
+              ),
             ),
           ),
         ],
       ),
-     const SizedBox(height: 6),
+      const SizedBox(height: 6),
      
      // Conteúdo Original (TOTAL DE ITENS, STATUS, REGISTROS)
      Row(
@@ -341,7 +442,7 @@ class _InventoryPageState extends State<InventoryPage> {
          // Usa inventTotal do InventoryModel
          Text(formatQty(totalItems),
            style: const TextStyle(
-            fontSize: 33, fontWeight: FontWeight.bold)),
+            fontSize: 34, fontWeight: FontWeight.bold)),
         ],
        ),
        
@@ -366,7 +467,7 @@ class _InventoryPageState extends State<InventoryPage> {
            ),
           ),
          ),
-         const SizedBox(height: 8),
+         const SizedBox(height: 6),
          // Registros (Contagem dinâmica da lista de records)
          Text('Contagens', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
          Text(recordsCount.toString(), 
@@ -380,81 +481,198 @@ class _InventoryPageState extends State<InventoryPage> {
   );
  }
 
- @override
- Widget build(BuildContext context) {
-  // 2. Obtém o inventário selecionado e os registros usando watch
-  final inventoryService = context.watch<InventoryService>();
-  final InventoryModel? currentInventory = inventoryService.selectedInventory;
-  final records = inventoryService.inventoryRecords;
-  
-  // 3. Se o inventário selecionado for nulo, mostra um placeholder
-  if (currentInventory == null) {
-   return Scaffold(
-    appBar: AppBar(
-     title: const Text('Inventário'),
-     backgroundColor: Colors.blue.shade700,
-     foregroundColor: Colors.white,
-    ),
-    body: const Center(
-     child: Padding(
-      padding: EdgeInsets.all(32.0),
-      child: Text(
-       'Nenhum inventário selecionado. Por favor, selecione um na lista.',
-       textAlign: TextAlign.center,
-       style: TextStyle(fontSize: 18, color: Colors.grey),
+  /*
+  Widget _buildSearchField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.white,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value.toLowerCase();
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Pesquisar por produto ou código...',
+          prefixIcon: const Icon(Icons.search, color: Colors.indigo),
+          suffixIcon: _searchQuery.isNotEmpty 
+            ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() { _searchQuery = ""; });
+                },
+              ) 
+            : null,
+          filled: true,
+          fillColor: const Color(0xFFF1F5F9),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+        ),
       ),
-     ),
-    ),
-   );
+    );
   }
+  */
 
-  // 4. Se o inventário estiver disponível, renderiza a tela normalmente
-  return Scaffold(
-   /*floatingActionButton: FloatingActionButton(
-    onPressed: () {
-     // Ação para adicionar uma nova contagem
-     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Adicionar nova contagem')),
-     );
-    },
-    backgroundColor: Colors.blue,
-    child: const Icon(Icons.add, color: Colors.white),
-   ),*/
-   
-   body: Column(
-    children: [
-     // Cabeçalho de Resumo (passa o inventário obtido do Provider)
-     _buildHeader(context, currentInventory, records.length), 
-     
-     // Lista de Itens Contados
-     Expanded(
-      // Mostra o indicador de progresso
-      child: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        // Se não estiver carregando e a lista estiver vazia
-        : records.isEmpty
-          ? Center(
-            child: Text(
-             currentInventory.inventStatus.name.toUpperCase() == 'FINALIZADO'
-              ? 'O Inventário está Finalizado e não possui registros.'
-              : 'Nenhum registro de contagem encontrado. Use o FAB para adicionar.',
-             textAlign: TextAlign.center,
-             style: TextStyle(color: Colors.grey.shade600),
-            ),
-           )
-          // Se não estiver carregando e houver registros
-          : ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8.8),
-            itemCount: records.length, 
-            itemBuilder: (context, index) {
-             return _CountItemCard(recordItem: records[index], inventory: currentInventory); 
-            },
-           ),
-     ),
-    ],
-   ),
+Widget _buildSearchField() {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: TextField(
+      controller: _searchController,
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value.toLowerCase();
+        });
+      },
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: 'Pesquisar por produto ou código...',
+        hintStyle: TextStyle(
+          color: Colors.blueGrey[300],
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          color: Colors.indigo,
+          size: 22,
+        ),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded, size: 20),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchQuery = "";
+                  });
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        
+        // Borda padrão (arredondamento do fundo)
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        
+        // Borda quando não está focado (cinza claro)
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+        
+        // Borda quando ganha foco (índigo e mais quadrada conforme seu modelo)
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: Colors.indigo, width: 1),
+        ),
+      ),
+    ),
   );
- }
+}
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Obtém os dados do Provider
+    final inventoryService = context.watch<InventoryService>();
+    final InventoryModel? currentInventory = inventoryService.selectedInventory;
+    final allRecords = inventoryService.inventoryRecords;
+
+    // 2. Lógica de Filtragem reativa
+    // Filtra por Descrição, Código de Barras ou Código do Produto
+    final filteredRecords = allRecords.where((item) {
+      final searchLower = _searchQuery.toLowerCase();
+      final description = item.productDescription?.toLowerCase() ?? "";
+      final barcode = item.inventBarcode?.toLowerCase() ?? "";
+      final productCode = item.inventProduct?.toLowerCase() ?? "";
+
+      return description.contains(searchLower) ||
+            barcode.contains(searchLower) ||
+            productCode.contains(searchLower);
+    }).toList();
+
+    // 3. Verificação de Segurança (Inventário nulo)
+    if (currentInventory == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Inventário'),
+          backgroundColor: Colors.blue.shade700,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Text(
+              'Nenhum inventário selecionado. Por favor, selecione um na lista.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 4. Interface Principal
+    return Scaffold(
+      body: Column(
+        children: [
+          // Cabeçalho com informações fixas
+          _buildHeader(context, currentInventory, allRecords.length),
+          
+          // Campo de Pesquisa dinâmico
+          _buildSearchField(),
+          
+          // Área da Lista
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredRecords.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Text(
+                            _searchQuery.isEmpty
+                                ? (currentInventory.inventStatus.name.toUpperCase() == 'FINALIZADO'
+                                    ? 'O Inventário está Finalizado e não possui registros.'
+                                    : 'Nenhum registro de contagem encontrado.')
+                                : 'Nenhum resultado encontrado para "$_searchQuery"',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8.8),
+                        itemCount: filteredRecords.length,
+                        itemBuilder: (context, index) {
+                          return _CountItemCard(
+                            recordItem: filteredRecords[index],
+                            inventory: currentInventory,
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // -------------------------------------------------------------------
@@ -488,7 +706,7 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
   @override
   void initState() {
     super.initState();
-    _containerColor = widget.color ?? _defaultColor;
+    _containerColor = _defaultColor;
   }
 
   // Função que faz a "piscadinha"
@@ -497,9 +715,7 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
 
     setState(() {
       // Escurece a cor ao tocar
-      _containerColor = widget.color != null 
-          ? widget.color!.withOpacity(0.7) 
-          : _darkerColor;
+      _containerColor = _darkerColor;
     });
 
     // Pequeno delay para o olho humano perceber a mudança
@@ -507,7 +723,7 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
 
     if (mounted) {
       setState(() {
-        _containerColor = widget.color ?? _defaultColor;
+        _containerColor = _defaultColor;
       });
     }
 
@@ -531,9 +747,7 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
         child: Center(
           child: Icon(
             widget.icon,
-            color: isDisabled 
-                ? Colors.grey[400] 
-                : (widget.color != null ? Colors.white : _primaryIconColor),
+            color: isDisabled ? Colors.grey[400] : widget.color ?? _primaryIconColor,
             // Aumentado de 0.55 para 0.7 para o ícone ficar maior
             size: widget.size * 0.7, 
           ),

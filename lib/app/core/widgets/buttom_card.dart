@@ -60,7 +60,7 @@ class _ButtonCardState extends State<ButtonCard>
           ),
           clipBehavior: Clip.antiAlias,
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(12.0),
             child: Column(
               mainAxisSize: MainAxisSize.min, // evita overflow vertical
               mainAxisAlignment: MainAxisAlignment.center,
@@ -86,7 +86,7 @@ class _ButtonCardState extends State<ButtonCard>
                 Text(
                   widget.title,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,

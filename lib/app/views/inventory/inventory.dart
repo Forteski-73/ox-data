@@ -39,7 +39,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
   late final List<Widget> pageContents = [
     SearchInventoryPage(),
     InventoryItemPage(key: InventoryItemPage.inventoryKey),
-    InventoryPage(),
+    InventoryPage(key: InventoryPage.inventoryKey),
     const SynchronizeDBPage(),
   ];
 
@@ -439,8 +439,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
                 onTap: () async {
-                  final service = context.read<InventoryService>();
-                  service.clearDraft();
+                  final childState = InventoryItemPage.inventoryKey.currentState;
+
+                  if (childState != null) {
+                    childState.clearAllFields();
+                  }
                 },
               ),
 
@@ -451,8 +454,18 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 backgroundColor: Colors.redAccent,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () {
-                  // excluir
+                onTap: () async {
+                  // 1. Acessa o estado da página filha via GlobalKey
+                  final childState = InventoryPage.inventoryKey.currentState;
+
+                  if (childState != null) {
+                    // 2. Chama o método da filha e espera o resultado
+                    bool proceed = await childState.handleDeleteAction();
+                    
+                    // Se a filha disser que não está ok (validação falhou), para aqui
+                    if (!proceed) return;
+                  }
+                
                 },
               ),
 
@@ -463,8 +476,17 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 backgroundColor: Colors.green,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () {
-                  // finalizar
+                onTap: () async {
+                  // 1. Acessa o estado da página filha via GlobalKey
+                  final childState = InventoryPage.inventoryKey.currentState;
+
+                  if (childState != null) {
+                    // 2. Chama o método da filha e espera o resultado
+                    bool proceed = await childState.handleFinishAction();
+                    
+                    // Se a filha disser que não está ok (validação falhou), para aqui
+                    if (!proceed) return;
+                  }
                 },
               ),
 
@@ -476,8 +498,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
         
-
-                  onTap: () async {
+                onTap: () async {
                   // 1. Acessa o estado da página filha via GlobalKey
                   final childState = InventoryItemPage.inventoryKey.currentState;
 

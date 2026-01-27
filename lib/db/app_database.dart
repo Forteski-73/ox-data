@@ -16,6 +16,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 part 'app_database.g.dart';
 
+// Classe para adicionar o nomedo produto na lista para mostrar natela
+class InventoryRecordWithProduct {
+  final InventoryRecord record;
+  final String? productName;
+
+  InventoryRecordWithProduct(this.record, this.productName);
+}
+
 @DriftDatabase(
   tables: [
     Products,
@@ -159,6 +167,13 @@ Future<void> insertOrUpdateInventoryOffline(
   }
 }
 
+  // deleta contagens
+  Future<int> deleteRecordsByInventCode(String inventCode) {
+    return (delete(inventoryRecords)
+          ..where((tbl) => tbl.inventCode.equals(inventCode)))
+        .go();
+  }
+
 
   Future<List<InventoryData>> getAllLocalInventories() {
     return select(inventory).get();
@@ -171,6 +186,15 @@ Future<void> insertOrUpdateInventoryOffline(
         .get();
   }
 
+  /// Busca um inventário específico pelo código, desde que não esteja sincronizado
+  Future<List<InventoryData>> getPendingInventoryByCode(String inventCode) {
+    return (select(inventory)
+          ..where((tbl) => 
+            tbl.inventCode.equals(inventCode) & 
+            tbl.isSynced.equals(false)
+          ))
+        .get();
+  }
 
   // Marcar como sincronizado após sucesso na API
   Future<void> markInventoryAsSynced(String inventCode) {
@@ -183,62 +207,6 @@ Future<void> insertOrUpdateInventoryOffline(
       ),
     );
   }
-
-
-  /*
-    Future<void> insertOrUpdateInventoryRecordOffline(
-      InventoryRecordModel model, {
-      bool synced = false,
-    }) async {
-
-    }
-  */
-
-  // ----------------------------------------------------------------------
-  // INVENTORY RECORD (OFFLINE)
-  // ----------------------------------------------------------------------
-  /// Insere ou atualiza um item contado no inventário
-  /*Future<void> insertOrUpdateInventoryRecordOffline(
-    InventoryModel inventory,
-    InventoryRecordInput input, {
-    bool synced = false,
-  }) async {
-    try {
-      final total = (input.qtdPorPilha * input.numPilhas) + input.qtdAvulsa;
-      const String username = "Diones";
-
-      final productLocal = await findProductByCode(input.product);
-      if (productLocal == null) {
-        throw Exception('Produto não encontrado: ${input.product}');
-      }
-
-      await into(inventoryRecords).insertOnConflictUpdate(
-        InventoryRecordsCompanion.insert(
-          id: input.id != null ? Value(input.id!) : const Value.absent(),
-          inventCode: inventory.inventCode,
-          inventCreated: Value(DateTime.now()),
-          inventUser: const Value(username),
-          inventUnitizer: Value(input.unitizer),
-          inventLocation: Value(input.position),
-          inventProduct: productLocal.productId,
-          inventBarcode: Value(productLocal.barcode),
-          inventStandardStack: Value(input.qtdPorPilha.toInt()),
-          inventQtdStack: Value(input.numPilhas.toInt()),
-          inventQtdIndividual: Value(input.qtdAvulsa),
-          inventTotal: Value(total),
-          isSynced: Value(synced),
-          lastSyncAttempt: Value(DateTime.now()),
-        ),
-      );
-
-      debugPrint('InventoryRecord salvo com sucesso (offline)');
-    } catch (e, stack) {
-      debugPrint('Erro ao salvar InventoryRecord offline: $e');
-      debugPrint(stack.toString());
-      rethrow; // 👈 importante: deixa a camada acima decidir
-    }
-  }
-*/
 
   Future<StatusResult> insertOrUpdateInventoryRecordOffline(
     InventoryModel inventoryModel,
@@ -357,8 +325,6 @@ Future<void> insertOrUpdateInventoryOffline(
   // ----------------------------------------------------------------------
   /// Verifica se já existe um registro no banco local para o mesmo
   /// inventário, unitizador, posição e produto.
-// ----------------------------------------------------------------------
-  // VERIFICAÇÃO DE DUPLICIDADE (VERSÃO RESILIENTE)
   // ----------------------------------------------------------------------
   Future<InventoryRecord?> checkDuplicateRecord({
     required String inventCode,
@@ -401,6 +367,33 @@ Future<void> insertOrUpdateInventoryOffline(
     // Se houver apenas um, retorna ele mesmo
     return results.single;
   }
+
+  /// Busca registros pendentes vinculando o nome do produto via JOIN
+  Future<List<InventoryRecordWithProduct>> getPendingRecordsWithDescription({String? inventCode}) async {
+    // Consulta unindo as duas tabelas
+    final query = select(inventoryRecords).join([
+      leftOuterJoin(
+        products, 
+        products.productId.equalsExp(inventoryRecords.inventProduct)
+      ),
+    ]);
+
+    query.where(inventoryRecords.isSynced.equals(false));
+    if (inventCode != null) {
+      query.where(inventoryRecords.inventCode.equals(inventCode));
+    }
+
+    final rows = await query.get();
+
+    // Mapeia o resultado para a classe junto com o nome do produto
+    return rows.map((row) {
+      return InventoryRecordWithProduct(
+        row.readTable(inventoryRecords),           // Pega os dados da contagem
+        row.readTableOrNull(products)?.productName, // Pega o nome do produto
+      );
+    }).toList();
+  }
+
 }
 
 LazyDatabase _openConnection() {
@@ -415,10 +408,3 @@ LazyDatabase _openConnection() {
   });
 }
 
-/*LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'app.sqlite'));
-    return NativeDatabase(file);
-  });
-}*/

@@ -46,7 +46,7 @@ class FieldInfoPopup extends StatelessWidget {
               _buildSectionHeader(title, icon),
               const SizedBox(height: 24),
               _buildFieldWidget(context),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               _buildOkButton(context),
             ],
           ),
@@ -278,7 +278,7 @@ class FieldInfoPopup extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 4),
                 _buildValue(value, isValid, hasValue),
                 const SizedBox(height: 4),
                 // 1. Widget de Status de Validação

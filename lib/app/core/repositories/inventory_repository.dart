@@ -309,34 +309,29 @@ class InventoryRepository {
   }
   
 
-  /// DELETE: Exclui um Inventário principal.
-  ///
   /// Rota: DELETE v1/Inventory/Inventory/{inventCode}
+  /// DELETE: Exclui o Inventário e todos os seus Records (Cascata na API)
   Future<ApiResponse<String>> deleteInventory(String inventCode) async {
     try {
+      // Rota: DELETE v1/Inventory/Inventory/{inventCode}
       final route = '${ApiRoutes.inventory}/Inventory/$inventCode';
       final response = await apiClient.deleteAuth(route);
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        final body = json.decode(response.body);
+        // Se a API retornar um JSON com a mensagem de sucesso
+        final body = response.body.isNotEmpty ? json.decode(response.body) : null;
         return ApiResponse(
           success: true,
-          data: body['message'] ?? 'Inventário excluído com sucesso.',
+          data: (body != null ? body['message'] : null) ?? 'Inventário excluído com sucesso.',
         );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Inventário não encontrado.');
       } else {
         return ApiResponse(
           success: false,
-          message:
-              'Erro ao excluir Inventário: ${response.statusCode} - ${response.body}',
+          message: 'Erro ao excluir na API: ${response.statusCode}',
         );
       }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de exclusão de Inventário: $e',
-      );
+    } catch (e) {
+      return ApiResponse(success: false, message: 'Falha na requisição: $e');
     }
   }
 

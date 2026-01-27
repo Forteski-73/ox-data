@@ -159,6 +159,7 @@ class InventoryService with ChangeNotifier {
 
       if (result.status == 1) {
         _draft = null;
+        await fetchRecordsByInventCode(_selectedInventory!.inventCode);
         notifyListeners();
       }
       return result;
@@ -375,7 +376,7 @@ class InventoryService with ChangeNotifier {
   }
 
 
-  Future<void> startSyncInventory() async {
+  Future<void> startSyncInventory([String? inventCode]) async {
     isSyncing = true;
     progressSynchronize = 0.0;
     infoSynchronize = "Verificando conexão...";
@@ -391,11 +392,13 @@ class InventoryService with ChangeNotifier {
         return;
       }
 
-      // 2. Busca Inventários pai pendentes
-      final List<InventoryData> pendingInventories = await database.getPendingInventories();
+      // Se inventCode for null, buscamos todos os pendentes
+      final List<InventoryData> pendingInventories = (inventCode == null) 
+        ? await database.getPendingInventories() 
+        : await database.getPendingInventoryByCode(inventCode);
       
-      // 3. Busca Records (filhos) pendentes (de qualquer inventário)
-      final List<InventoryRecord> allPendingRecords = await database.getPendingRecords();
+      // Busca Records (filhos) pendentes (de qualquer inventário)
+      final List<InventoryRecord> allPendingRecords = await database.getPendingRecords(inventCode: inventCode);
 
       if (pendingInventories.isEmpty && allPendingRecords.isEmpty) {
         progressSynchronize = 1.0;
@@ -550,14 +553,16 @@ class InventoryService with ChangeNotifier {
           synced: true,
         );
 
-        await fetchAllInventories();
+        //await fetchAllInventories();
+        await _updateLocalList(inventory);
+        
         return;
       }
 
       // Se falhou online, faz fallback offline
       debugPrint('Falha online, salvando offline: ${response.message}');
     }
-
+    
     // -----------------------------
     // OFFLINE (ou fallback)
     // -----------------------------
@@ -566,8 +571,32 @@ class InventoryService with ChangeNotifier {
       synced: false,
     );
     
-    await fetchAllInventories();
+    //await fetchAllInventories();
+ 
+    await _updateLocalList(inventory);
+    
+
     debugPrint('Inventário salvo OFFLINE (${inventory.inventCode})');
+  }
+
+  Future<void> _updateLocalList(InventoryModel item) async {
+    // Localiza pelo código único do inventário
+    final index = _allInventories.indexWhere((element) => 
+      element.inventCode == item.inventCode || 
+      element.inventGuid == item.inventGuid
+    );
+
+    if (index != -1) {
+      // Se encontrou, substitui o item antigo pelo novo (com status/sync atualizados)
+      _allInventories[index] = item;
+    } else {
+      // Se for um inventário novo que não estava na lista, adiciona
+      _allInventories.add(item);
+    }
+    
+    _inventories = List.from(_allInventories);
+
+    notifyListeners();
   }
 
   Future<void> setDecrementSequence() async {
@@ -736,7 +765,9 @@ class InventoryService with ChangeNotifier {
             inventTotal: newTotal ?? _selectedInventory!.inventTotal,
           );
 
-          notifyListeners();
+          await _updateLocalList(_selectedInventory!);
+
+          //notifyListeners();
         }
 
         // Retorna a mensagem vinda do C#
@@ -753,7 +784,7 @@ class InventoryService with ChangeNotifier {
   }
 
   /// GET: Busca todos os Records de um dado InventCode e atualiza a lista local.
-  Future<void> fetchRecordsByInventCode(String inventCode) async {
+  /*Future<void> fetchRecordsByInventCode(String inventCode) async {
     final ApiResponse<List<InventoryRecordModel>> response =
         await inventoryRepository.getRecordsByInventCode(inventCode);
 
@@ -764,7 +795,118 @@ class InventoryService with ChangeNotifier {
       debugPrint('Erro ao buscar Records por código $inventCode: ${response.message}');
     }
     notifyListeners();
+  }*/
+
+  /*
+  Future<void> fetchRecordsByInventCode(String inventCode) async {
+    try {
+      List<InventoryRecordModel> records = [];
+
+      // Se tiver internet, busca da API
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+
+      if (hasInternet) {
+        final ApiResponse<List<InventoryRecordModel>> response =
+            await inventoryRepository.getRecordsByInventCode(inventCode);
+
+        if (response.success && response.data != null) {
+          records = response.data!;
+        }
+      }
+
+      // Busca registros locais NÃO sincronizados (Drift)
+      final List<InventoryRecord> localPending =
+          await database.getPendingRecords(inventCode: inventCode);
+
+      final List<InventoryRecordModel> localModels =
+          localPending.map((r) => InventoryRecordModel.fromLocal(r)).toList();
+
+      // Junta API + locais pendentes
+      records.addAll(localModels);
+
+      // Remove duplicados (caso exista o mesmo ID)
+      final Map<int?, InventoryRecordModel> uniqueMap = {
+        for (var r in records) r.id: r
+      };
+
+      _inventoryRecords = uniqueMap.values.toList();
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Erro em fetchRecordsByInventCode: $e");
+
+      // fallback: só local
+      final localPending =
+          await database.getPendingRecords(inventCode: inventCode);
+
+      _inventoryRecords =
+          localPending.map((r) => InventoryRecordModel.fromLocal(r)).toList();
+
+      notifyListeners();
+    }
   }
+  */
+
+
+  Future<void> fetchRecordsByInventCode(String inventCode) async {
+    try {
+      List<InventoryRecordModel> apiRecords = [];
+
+      // 1. Busca remota (API)
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+      if (hasInternet) {
+        final response = await inventoryRepository.getRecordsByInventCode(inventCode);
+        if (response.success && response.data != null) {
+          apiRecords = response.data!;
+        }
+      }
+
+      // 2. Busca local performática (JOIN)
+      // Retorna a classe InventoryRecordWithProduct que criamos no AppDatabase
+      final localData = await database.getPendingRecordsWithDescription(inventCode: inventCode);
+
+      // 3. Mapeia os locais injetando a descrição
+      final List<InventoryRecordModel> localModels = localData.map((item) {
+        return InventoryRecordModel.fromLocal(item.record).copyWith(
+          productDescription: item.productName,
+          isSynced: false,
+        );
+      }).toList();
+
+      // 4. Consolidação inteligente (API + Locais)
+      // Usamos um Map para garantir unicidade e facilitar a mesclagem
+      final Map<String, InventoryRecordModel> mergedMap = {};
+
+      // Primeiro adicionamos os da API
+      for (var r in apiRecords) {
+        // Opcional: Se a API não manda descrição, você poderia buscar aqui também
+        mergedMap[r.id.toString()] = r; 
+      }
+
+      // Depois adicionamos os locais (se houver conflito de ID, o local pendente "vence" para mostrar a edição atual)
+      for (var r in localModels) {
+        mergedMap[r.id.toString()] = r;
+      }
+
+      // 5. Ordenação (Opcional, mas profissional: os mais novos primeiro)
+      _inventoryRecords = mergedMap.values.toList()
+        ..sort((a, b) => (b.inventCreated ?? DateTime(0))
+            .compareTo(a.inventCreated ?? DateTime(0)));
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Erro em fetchRecordsByInventCode: $e");
+      
+      // Fallback Seguro
+      final localData = await database.getPendingRecordsWithDescription(inventCode: inventCode);
+      _inventoryRecords = localData.map((item) => 
+        InventoryRecordModel.fromLocal(item.record).copyWith(productDescription: item.productName)
+      ).toList();
+      
+      notifyListeners();
+    }
+  }
+
 
   /// GET: Busca InventoryRecord por ID.
   Future<InventoryRecordModel?> getRecordById(int id) async {
@@ -813,10 +955,11 @@ class InventoryService with ChangeNotifier {
       // Filtra _allInventories
       _inventories = _allInventories.where((item) {
         final codeMatch = item.inventCode?.toLowerCase().contains(lowerCaseSearch) ?? false;
-        final guidMatch = item.inventGuid?.toLowerCase().contains(lowerCaseSearch) ?? false;
+        final nameMatch = item.inventName?.toLowerCase().contains(lowerCaseSearch) ?? false;
+        final sectorMatch = item.inventSector?.toLowerCase().contains(lowerCaseSearch) ?? false;
         
         // Retorna true se corresponder ao código ou ao GUID
-        return codeMatch || guidMatch;
+        return codeMatch || nameMatch || sectorMatch;
       }).toList();
     }
     // Notifica a UI com a lista filtrada/completa
@@ -827,35 +970,122 @@ class InventoryService with ChangeNotifier {
   Future<void> deleteInventoryRecord(int id) async {
     final ApiResponse<String> response =
         await inventoryRepository.deleteInventoryRecord(id);
+        
+        // remover do banco local drift
 
     if (response.success) {
       // Remove da lista local e notifica
-      _inventoryRecords.removeWhere((r) => r.id == id);
-      notifyListeners();
+      final index = _inventoryRecords.indexWhere((r) => r.id == id);
+
+      if (index != -1) {
+        final InventoryRecordModel removedRecord =
+            _inventoryRecords.removeAt(index);
+
+        // DESCONTAR DO INVENTÁRIO PAI
+        if (_selectedInventory != null &&
+            removedRecord.inventCode == _selectedInventory!.inventCode) {
+
+          final double recordTotal = removedRecord.inventTotal ?? 0;
+
+          final double newTotal =
+              (_selectedInventory!.inventTotal ?? 0) - recordTotal;
+
+          // Atualiza selectedInventory
+          _selectedInventory = _selectedInventory!.copyWith(
+            inventTotal: newTotal < 0 ? 0 : newTotal,
+          );
+
+          // Atualiza lista completa (_allInventories)
+          final invIndex = _allInventories.indexWhere(
+            (i) => i.inventCode == removedRecord.inventCode,
+          );
+
+          if (invIndex != -1) {
+            _allInventories[invIndex] =
+                _allInventories[invIndex].copyWith(
+              inventTotal: newTotal < 0 ? 0 : newTotal,
+            );
+          }
+
+          // Atualiza lista exibida (_inventories)
+          final invIndex2 = _inventories.indexWhere(
+            (i) => i.inventCode == removedRecord.inventCode,
+          );
+
+          if (invIndex2 != -1) {
+            _inventories[invIndex2] =
+                _inventories[invIndex2].copyWith(
+              inventTotal: newTotal < 0 ? 0 : newTotal,
+            );
+          }
+        }
+        notifyListeners();
+      }
+
+      //_inventoryRecords.removeWhere((r) => r.id == id);
+      //notifyListeners();
+
     } else {
       debugPrint('Erro ao excluir Registro: ${response.message}');
       throw Exception('Erro ao excluir Registro: ${response.message}');
     }
   }
 
-  // ----------------------------------------------------------------------
-  // MÉTODO: Inicializa o ID Único do Dispositivo (device_uuid)
-  // ----------------------------------------------------------------------
-  /*Future<void> initializeDeviceId() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? id = prefs.getString("device_uuid");
 
-    if (id == null) {
-      // Se não existir, gera um novo UUID v4
-      id = const Uuid().v4();
-      await prefs.setString("device_uuid", id);
+  /// Deleta todos os registros de um inventário específico e atualiza a UI
+/// Deleta todos os registros de um inventário específico (Online e Offline) e limpa o estado local
+  Future<void> deleteAllRecordsByInventCode(String inventCode) async {
+    try {
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+
+      // 1. Tenta deletar na API se houver conexão
+      if (hasInternet) {
+        // Assume-se que seu repository tem um método para deletar por código
+        // Se não tiver um endpoint específico de lote, você pode precisar ajustar
+        final response = await inventoryRepository.deleteInventory(inventCode);
+        
+        if (!response.success) {
+          debugPrint("Aviso API: ${response.message}");
+          // Opcional: throw Exception(response.message); 
+          // Dependendo se você quer bloquear a exclusão local caso a API falhe
+        }
+      }
+
+      // 2. Remove do Banco de Dados Local (Drift)
+      // Certifique-se de que o método deleteRecordsByInventCode existe no seu AppDatabase
+      await database.deleteRecordsByInventCode(inventCode);
+      
+      // 3. Limpa a lista de registros em memória para a UI atualizar instantaneamente
+      _inventoryRecords.clear();
+      
+      // 4. Atualiza o cabeçalho do Inventário (Zerar o total)
+      // Buscamos o inventário no banco local (que agora terá total 0 após o deleteRecords e refresh)
+      await refreshSelectedInventoryState(inventCode);
+      
+      // 5. Atualiza o estado das listas locais em memória para garantir consistência total
+      if (_selectedInventory != null && _selectedInventory!.inventCode == inventCode) {
+        _selectedInventory = _selectedInventory!.copyWith(inventTotal: 0);
+      }
+
+      final indexAll = _allInventories.indexWhere((i) => i.inventCode == inventCode);
+      if (indexAll != -1) {
+        _allInventories[indexAll] = _allInventories[indexAll].copyWith(inventTotal: 0);
+      }
+
+      final indexInv = _inventories.indexWhere((i) => i.inventCode == inventCode);
+      if (indexInv != -1) {
+        _inventories[indexInv] = _inventories[indexInv].copyWith(inventTotal: 0);
+      }
+
+      // 6. Notifica os widgets ouvintes
+      notifyListeners();
+      
+      debugPrint("Sucesso: Todos os registros do inventário $inventCode foram removidos localmente e o estado foi zerado.");
+    } catch (e) {
+      debugPrint("Erro ao deletar todos os registros no InventoryService: $e");
+      rethrow;
     }
-    
-    // Atualiza o estado interno e notifica os listeners
-    _deviceId = id;
-    notifyListeners();
   }
-  */
 
   Future<void> initializeDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
