@@ -153,8 +153,9 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
       if (confirmed)
       {
         if (!(_controllerLocked['unitizer'] ?? false)) {
-          
           _controllers['unitizer']?.clear();
+        }
+        if (!(_controllerLocked['position'] ?? false)) {
           _controllers['position']?.clear();
         }
       }
