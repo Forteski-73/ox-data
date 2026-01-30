@@ -12,6 +12,7 @@ import 'package:oxdata/app/core/widgets/product_search_local.dart';
 import 'package:oxdata/app/core/utils/mask_validate.dart';
 import 'package:oxdata/db/enums/mask_field_name.dart';
 import 'package:oxdata/db/app_database.dart';
+import 'package:oxdata/app/views/inventory/inventory_confirm_popup.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
@@ -108,11 +109,21 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
           qtdAvulsa: double.tryParse(qtdAvulsa) ?? 0,
         ),
       );
+      
+      if (!mounted) return false; // garanto que o estado esta ok
 
       if (result.status == 1) {
         MessageService.showSuccess(result.message);
-        _resetFormAfterSuccess(); 
+
+      final confirmed = await showConfirmDialog(
+        context: context,
+        message: "Encerrar contagem desse Unitizador?",
+      );
+
+        _resetFormAfterSuccess(confirmed); 
+
         return true;
+
       } else {
         MessageService.showError(result.message);
         return false;
@@ -137,14 +148,26 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     _applySmartFocus();
   }
 
-  void _resetFormAfterSuccess() {
+  void _resetFormAfterSuccess(bool confirmed) {
     setState(() {
+      if (confirmed)
+      {
+        if (!(_controllerLocked['unitizer'] ?? false)) {
+          
+          _controllers['unitizer']?.clear();
+          _controllers['position']?.clear();
+        }
+      }
+      
+      FocusScope.of(context).requestFocus(_nodes['unitizer']);
+
       _controllers['product']?.clear();
       _controllers['qtdPilha']?.clear();
       _controllers['numPilhas']?.clear();
       _controllers['qtdAvulsa']?.clear();
       _isProductBlink = false;
       _productName = " ";
+
     });
     _applySmartFocus();
   }

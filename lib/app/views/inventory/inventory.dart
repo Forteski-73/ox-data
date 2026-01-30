@@ -8,7 +8,7 @@ import 'package:oxdata/app/views/inventory/inventory_page.dart';
 import 'package:oxdata/app/views/inventory/inventory_item_page.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/views/inventory/synchronide_database.dart';
-import 'package:oxdata/app/core/models/dto/status_result.dart';
+import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/widgets/buttom_item.dart';
 import 'package:oxdata/app/views/inventory/inventory_popup.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
@@ -386,11 +386,16 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
 
     // Instancia o InventoryItemPage para que possamos acessar o bottom bar
     // É seguro fazer o cast pois sabemos o que tem no índice 2
-    final inventoryItemPage = pageContents[_inventoryItemPageIndex] as InventoryItemPage;
+    //final inventoryItemPage = pageContents[_inventoryItemPageIndex] as InventoryItemPage;
     final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final isSyncing = context.select<InventoryService, bool>(
       (s) => s.isSyncing,
     );
+
+    final currentStatus = context.select<InventoryService, InventoryStatus>(
+      (s) => s.inventoryStatus, 
+    );
+
     return Scaffold(
       // 🔑 SOLUÇÃO APLICADA: Evita o redimensionamento do Scaffold quando o teclado abre
       resizeToAvoidBottomInset: false, 
@@ -473,10 +478,10 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
               BottomItem(
                 icon: Icons.done_all_rounded,
                 label: "Finalizar",
-                backgroundColor: Colors.green,
+                backgroundColor: currentStatus == InventoryStatus.Finalizado ? Colors.grey : Colors.green,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () async {
+                onTap: currentStatus == InventoryStatus.Finalizado ? null : () async {
                   // 1. Acessa o estado da página filha via GlobalKey
                   final childState = InventoryPage.inventoryKey.currentState;
 
@@ -494,11 +499,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
               BottomItem(
                 icon: Icons.check,
                 label: "Confirmar",
-                backgroundColor: Colors.green,
+                backgroundColor: currentStatus == InventoryStatus.Finalizado ? Colors.grey : Colors.green,
                 iconColor: Colors.white,
                 textColor: Colors.white,
         
-                onTap: () async {
+                onTap: currentStatus == InventoryStatus.Finalizado ? null : () async {
                   // 1. Acessa o estado da página filha via GlobalKey
                   final childState = InventoryItemPage.inventoryKey.currentState;
 

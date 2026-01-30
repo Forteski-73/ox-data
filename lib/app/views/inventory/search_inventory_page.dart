@@ -102,7 +102,7 @@ class _InventoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isFinalizado = inventory.inventStatus.name == 'Finalizado';
+    final bool isFinalizado = inventory.inventStatus == InventoryStatus.Finalizado;
     final Color statusColor = isFinalizado ? Colors.green : Colors.orange;
 
     final String dateText = inventory.inventCreated != null ? _dateFormatter.format(inventory.inventCreated!.toLocal()) : "--/--/----";
@@ -114,7 +114,14 @@ class _InventoryCard extends StatelessWidget {
           final service = context.read<InventoryService>();
           service.setSelectedInventory(inventory);
           service.fetchRecordsByInventCode(inventory.inventCode);
-          context.read<LoadService>().setPage(1);
+          if(inventory.inventStatus == InventoryStatus.Iniciado)
+          {
+            context.read<LoadService>().setPage(1);
+          }
+          else
+          {
+            context.read<LoadService>().setPage(2);
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(

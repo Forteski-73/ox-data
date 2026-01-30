@@ -39,6 +39,7 @@ class InventoryService with ChangeNotifier {
   List<InventoryRecordModel> _inventoryRecords = [];
   List<InventoryGuidModel> _inventoryGuids = [];
   InventoryModel? _selectedInventory;
+  InventoryStatus inventoryStatus = InventoryStatus.Finalizado;
 
   // 🔑 Produtos filtrados
   List<Product> _searchResults = [];
@@ -596,6 +597,8 @@ class InventoryService with ChangeNotifier {
     
     _inventories = List.from(_allInventories);
 
+    _selectedInventory = item;
+
     notifyListeners();
   }
 
@@ -679,7 +682,7 @@ class InventoryService with ChangeNotifier {
 
   void setSelectedInventory(InventoryModel inventory) {
     _selectedInventory = inventory;
-
+    inventoryStatus = _selectedInventory!.inventStatus;
     
     notifyListeners(); 
   }

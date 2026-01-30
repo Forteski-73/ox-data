@@ -373,7 +373,7 @@ class _InventoryPageState extends State<InventoryPage> {
  // Widget de Cabeçalho (STATUS, TOTAL DE ITENS, Registros)
  // -------------------------------------------------------------
  Widget _buildHeader(BuildContext context, InventoryModel inventory, int recordsCount) {
-  final String statusText = inventory.inventStatus.name.toUpperCase();
+  final InventoryStatus statusText = inventory.inventStatus;
   Color statusColor = statusText == InventoryStatus.Finalizado ? Colors.green : Colors.orange;
 
   // O totalItems agora deve vir de inventTotal do InventoryModel
@@ -459,7 +459,7 @@ class _InventoryPageState extends State<InventoryPage> {
             border: Border.all(color: statusColor.withOpacity(0.2)),
           ),
           child: Text(
-           statusText, // Status vindo do ENUM
+           statusText.name, // Status vindo do ENUM
            style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -649,7 +649,7 @@ Widget _buildSearchField() {
                           padding: const EdgeInsets.all(20.0),
                           child: Text(
                             _searchQuery.isEmpty
-                                ? (currentInventory.inventStatus.name.toUpperCase() == 'FINALIZADO'
+                                ? (currentInventory.inventStatus == InventoryStatus.Finalizado
                                     ? 'O Inventário está Finalizado e não possui registros.'
                                     : 'Nenhum registro de contagem encontrado.')
                                 : 'Nenhum resultado encontrado para "$_searchQuery"',
