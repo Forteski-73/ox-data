@@ -161,9 +161,9 @@ class ProductRepository {
     required String finalidade,
     required List<String> base64Images,
   }) async {
-    if (base64Images.isEmpty) {
+    /*if (base64Images.isEmpty) {
       return ApiResponse(success: false, message: 'Nenhuma imagem selecionada.');
-    }
+    }*/
 
     try {
       // Cria o objeto de requisição com as imagens

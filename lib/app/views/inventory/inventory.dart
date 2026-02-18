@@ -284,76 +284,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     }
   }
 
-  /*
-  Widget _buildBottomItem({required IconData icon, required String label, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, // Centraliza verticalmente
-        children: [
-          Icon(icon, color: Colors.white, size: 26), // Ícone direto (sem o IconButton para evitar o padding)
-          const SizedBox(height: 2), // Espaço mínimo entre ícone e texto
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  */
- /*
-  Widget _buildBottomItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color backgroundColor,   // fundo do bloco
-    required Color iconColor,         // cor do ícone
-    required Color iconBgColor,       // fundo do ícone
-    required Color textColor,         // cor do texto
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: double.infinity,
-          color: backgroundColor,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(0),
-                decoration: BoxDecoration(
-                  color: iconBgColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 34,
-                ),
-              ),
-              //const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-*/
-
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -386,15 +316,13 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
 
     // Instancia o InventoryItemPage para que possamos acessar o bottom bar
     // É seguro fazer o cast pois sabemos o que tem no índice 2
-    //final inventoryItemPage = pageContents[_inventoryItemPageIndex] as InventoryItemPage;
     final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final isSyncing = context.select<InventoryService, bool>(
       (s) => s.isSyncing,
     );
-
-    final currentStatus = context.select<InventoryService, InventoryStatus>(
-      (s) => s.inventoryStatus, 
-    );
+    
+    final inventory = context.watch<InventoryService>().selectedInventory;
+    final currentStatus = inventory?.inventStatus ?? InventoryStatus.Finalizado;
 
     return Scaffold(
       // 🔑 SOLUÇÃO APLICADA: Evita o redimensionamento do Scaffold quando o teclado abre
@@ -405,7 +333,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
             : 'INVENTÁRIO',
       ),
 
-      //bottomNavigationBar: currentPageIndex != 0 ? BottomAppBar(
       bottomNavigationBar: isKeyboardVisible 
         ? null  // Se o teclado estiver ativo, removemos o widget e o espaço dele
         : BottomAppBar(
@@ -460,15 +387,16 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
                 onTap: () async {
-                  // 1. Acessa o estado da página filha via GlobalKey
+                  // Acessa o estado da página filha via GlobalKey
                   final childState = InventoryPage.inventoryKey.currentState;
 
                   if (childState != null) {
-                    // 2. Chama o método da filha e espera o resultado
                     bool proceed = await childState.handleDeleteAction();
                     
                     // Se a filha disser que não está ok (validação falhou), para aqui
                     if (!proceed) return;
+
+                    navigateToPageByIndex(0);
                   }
                 
                 },
@@ -482,14 +410,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 iconColor: Colors.white,
                 textColor: Colors.white,
                 onTap: currentStatus == InventoryStatus.Finalizado ? null : () async {
-                  // 1. Acessa o estado da página filha via GlobalKey
+                  // Acessa o estado da página filha via GlobalKey
                   final childState = InventoryPage.inventoryKey.currentState;
 
                   if (childState != null) {
-                    // 2. Chama o método da filha e espera o resultado
                     bool proceed = await childState.handleFinishAction();
-                    
-                    // Se a filha disser que não está ok (validação falhou), para aqui
                     if (!proceed) return;
                   }
                 },
@@ -504,14 +429,11 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 textColor: Colors.white,
         
                 onTap: currentStatus == InventoryStatus.Finalizado ? null : () async {
-                  // 1. Acessa o estado da página filha via GlobalKey
+                  // Acessa o estado da página filha via GlobalKey
                   final childState = InventoryItemPage.inventoryKey.currentState;
 
                   if (childState != null) {
-                    // 2. Chama o método da filha e espera o resultado
                     bool proceed = await childState.handleConfirmAction();
-                    
-                    // Se a filha disser que não está ok (validação falhou), para aqui
                     if (!proceed) return;
                   }
                 },
@@ -532,8 +454,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
           ],
         ),
       ),
-    //: null,
-
 
       body: SafeArea(
         child: Stack(
@@ -546,26 +466,13 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
             ),
             PageView.builder(
               controller: _pageController,
-              itemCount: pageTitles.length, // Usa pageTitles.length
+              itemCount: pageTitles.length,
               onPageChanged: (index) {
                 _loadService.setPage(index);
               },
               itemBuilder: (context, index) => _buildPageItem(index),
             ),
             
-            // 🔑 NOVO: Exibição condicional do Bottom Bar da página de Inventário
-            /*if (currentPageIndex == _inventoryItemPageIndex)
-              Align(
-                  alignment: Alignment.bottomCenter,
-                  child: buildInventoryBottomBar(
-                    context,
-                    onPressed: () {
-                      // Acessamos o estado da página de inventário pela chave e chamamos o save
-                      InventoryItemPage.inventoryKey.currentState?.saveInventory();
-                    },
-                  ),
-                ),
-              */
             Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
@@ -576,7 +483,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
             
             // Floating menu items (botões de navegação)
             ...List.generate(pageTitles.length, (index) {
-              // Usa pageTitles.length
               double angle = startAngle + angleStep * index;
               return AnimatedBuilder(
                 animation: _menuAnimations[index],
@@ -652,7 +558,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   if (isDragging) {
                     setState(() {
                       final media = MediaQuery.of(context);
-                      //final safeTop = media.padding.top;
                       final safeBottom = media.padding.bottom+10;
 
                       final double maxTopAllowed =
@@ -674,25 +579,6 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                     });
                   }
                 },
-
-
-                /*
-                onLongPressMoveUpdate: (details) {
-                  if (isDragging) {
-                    setState(() {
-                      final safeTop = MediaQuery.of(context).padding.top;
-                      final safeBottom = MediaQuery.of(context).padding.bottom;
-                      const double extraPadding = 8.0;
-                      floatingLeft = (details.globalPosition.dx - dragStartX)
-                          .clamp(extraPadding, screenWidth - buttonSize - extraPadding);
-                      floatingTop = (details.globalPosition.dy - dragStartY).clamp(
-                        safeTop + extraPadding,
-                        screenHeight - buttonSize - safeBottom - extraPadding,
-                      );
-                    });
-                  }
-                },
-                */
                 onLongPressEnd: (details) {
                   isDragging = false;
                 },

@@ -345,7 +345,7 @@ class _InventoryPageState extends State<InventoryPage> {
         }
       }
 
-      return true;
+      return confirmed;
 
     } catch (e, stack) {
       debugPrint("Erro na exclusão total: $e");

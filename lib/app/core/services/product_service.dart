@@ -79,7 +79,7 @@ class ProductService with ChangeNotifier {
   Future<bool> uploadProductImagesBase64(
       String productId, String finalidade, List<String> base64Images) async {
     
-    if (base64Images.isEmpty) return false;
+    //if (base64Images.isEmpty) return false;
     
     // A lista de Base64 já pronta, passado diretamente
     final ApiResponse<bool> response = await productRepository.updateProductImagesBase64(
