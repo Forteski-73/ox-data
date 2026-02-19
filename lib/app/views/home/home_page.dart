@@ -19,9 +19,9 @@ class _HomePageState extends State<HomePage> {
       'imagePath': 'assets/images/product.png',
     },
     {
-      'title': 'TAGS',
-      'routeName': RouteGenerator.tagsPage,
-      'imagePath': 'assets/images/tag.png',
+      'title': 'MONTAGEM',
+      'routeName': RouteGenerator.packagingPage,
+      'imagePath': 'assets/images/packaging.png',
     },
     {
       'title': 'PALLETS',
@@ -30,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     },
     {
       'title': 'CARGAS',
-      'routeName': RouteGenerator.TESTE,
+      'routeName': RouteGenerator.loadPage,
       'imagePath': 'assets/images/truck.png',
     },
     {

@@ -11,6 +11,7 @@ import 'package:oxdata/app/views/product/product_page.dart';
 import 'package:oxdata/app/views/pallet/search_pallet_page.dart';
 import 'package:oxdata/app/views/pallet/pallet_builder_page.dart';
 import 'package:oxdata/app/views/pallet/pallet_receive_page.dart';
+import 'package:oxdata/app/views/packaging/packagingPage.dart';
 import 'package:oxdata/app/views/inventory/inventory.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/views/load/load.dart';
@@ -23,11 +24,11 @@ class RouteGenerator {
   static const String productsPage      = 'productsPage';
   static const String productPage       = 'productPage';
   static const String inventoriesPage   = 'inventoriesPage';
-  static const String tagsPage          = 'inventoriesPage';
+  static const String packagingPage     = 'packagingPage';
   static const String palletsPage       = 'palletsPage';
   static const String palletBuilderPage = 'palletBuilderPage';
   static const String palletReceivePage = 'palletReceivePage';
-  static const String TESTE             = 'CustomAnimatedPageView';
+  static const String loadPage          = 'CustomAnimatedPageView';
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -43,7 +44,9 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const HomePage());
       case productsPage:
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
-      case TESTE:
+      case packagingPage:
+        return MaterialPageRoute(builder: (context) => const PackagingPage());
+      case loadPage:
         return MaterialPageRoute(builder: (context) => CustomAnimatedPageView());
       case productPage: // Rota para a página de detalhes do produto
         if (args is String) {
