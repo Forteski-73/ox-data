@@ -832,25 +832,6 @@ class _PalletBuilderPageState extends State<PalletBuilderPage> {
                     if (_statusController != 'M' && _statusController != 'R')
                       Row(
                         children: [
-                          /*Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: _productIdController,
-                              decoration: InputDecoration(
-                                labelText: 'Produto',
-                                labelStyle: const TextStyle(fontSize: 14),
-                                border: const OutlineInputBorder(),
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 5, horizontal: 5),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.search, size: 32, color: Colors.indigo),
-                                  onPressed: () async {
-                                    await _openProductSearch(context);
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),*/
                           Expanded(
                             flex: 3,
                             child: ProductTextFieldWithActions(

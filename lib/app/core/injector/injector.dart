@@ -8,6 +8,7 @@ import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/repositories/product_repository.dart';
 import 'package:oxdata/app/core/repositories/pallet_repository.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
+import 'package:oxdata/app/core/repositories/product_packing_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart'; 
 import 'package:oxdata/app/core/repositories/ftp_repository.dart'; 
 import 'package:oxdata/app/core/services/auth_service.dart';
@@ -17,6 +18,7 @@ import 'package:oxdata/app/core/services/pallet_service.dart';
 import 'package:oxdata/app/core/services/load_service.dart'; 
 import 'package:oxdata/app/core/services/image_cache_service.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
+import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/repositories/pallet_load_repository.dart';
 import 'package:oxdata/db/app_database.dart';
 
@@ -65,13 +67,20 @@ class Injector {
       Provider<FtpRepository>(
         create: (context) => FtpRepository(apiClient: context.read<ApiClient>()),
       ),
+
+      // 7. Registra o ProductPackingRepository, que depende do ApiClient.
+      Provider<ProductPackingRepository>(
+        create: (context) => ProductPackingRepository(
+          apiClient: context.read<ApiClient>(),
+        ),
+      ),
       
-      // 7. Registra o ImageCacheService.
+      // 8. Registra o ImageCacheService.
       ChangeNotifierProvider<ImageCacheService>(
         create: (_) => ImageCacheService(),
       ),
 
-      // 8. Registra o FtpService, que depende do FtpRepository.
+      // 9. Registra o FtpService, que depende do FtpRepository.
       Provider<FtpService>(
         create: (context) => FtpService(
           ftpRepository: context.read<FtpRepository>(),
@@ -79,36 +88,43 @@ class Injector {
         ),
       ),
 
-      // 9. Registra o AuthService, que depende do AuthRepository.
+      // 10. Registra o AuthService, que depende do AuthRepository.
       ChangeNotifierProvider<AuthService>(
         create: (context) => AuthService(context.read<AuthRepository>(), context.read<ApiClient>()),
       ),
       
-      // 10. Registra o LoadingService.
+      // 11. Registra o LoadingService.
       ChangeNotifierProvider<LoadingService>(
         create: (_) => LoadingService(),
       ),
 
-      // 11. Registra o ProductService.
+      // 12. Registra o ProductService.
       ChangeNotifierProvider<ProductService>(
         create: (context) => ProductService(productRepository: context.read<ProductRepository>()),
       ),
       
-      // 12. Registra o PalletService.
+      // 13. Registra o PalletService.
       ChangeNotifierProvider<PalletService>(
         create: (context) => PalletService(palletRepository: context.read<PalletRepository>()),
       ),
 
-      // 13. Registra o LoadService.
+      // 14. Registra o LoadService.
       ChangeNotifierProvider<LoadService>(
         create: (context) => LoadService(loadRepository: context.read<LoadRepository>()),
       ),
 
-      // 14. Registra o InventoryService, injetando Repository e o Database
+      // 15. Registra o InventoryService, injetando Repository e o Database
       ChangeNotifierProvider<InventoryService>(
         create: (context) => InventoryService(
           inventoryRepository: context.read<InventoryRepository>(),
           database: db,
+        ),
+      ),
+
+      // 16. Registra o ProductPackingService
+      ChangeNotifierProvider<ProductPackingService>(
+        create: (context) => ProductPackingService(
+          repository: context.read<ProductPackingRepository>(),
         ),
       ),
     ];

@@ -40,4 +40,8 @@ class ApiRoutes {
   // Rotas para o INVENTÁRIO
   static String inventory             = 'Inventory';
 
+  // Rotas para o EMBALAGEM
+  static String productPacking        = 'ProductPacking';
+  static String productPackImage      = 'ProductPacking/Images';
+
 }
