@@ -43,5 +43,6 @@ class ApiRoutes {
   // Rotas para o EMBALAGEM
   static String productPacking        = 'ProductPacking';
   static String productPackImage      = 'ProductPacking/Images';
+  static String image                 = 'Image';
 
 }

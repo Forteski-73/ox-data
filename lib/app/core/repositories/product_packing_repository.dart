@@ -142,4 +142,75 @@ class ProductPackingRepository {
     }
   }
 
+  Future<ApiResponse<bool>> packImagesUpdate(
+    int packId,
+    List<String> base64Images,
+  ) async {
+    try {
+      final body = {
+        "codeId": packId.toString(),
+        "createdUser": "APP",
+        "base64Images": base64Images,
+      };
+
+      final response = await apiClient.postAuth(
+        '${ApiRoutes.image}/UpdateImages/Base64',
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse(
+          success: true,
+          data: true,
+          message: 'Imagens atualizadas com sucesso.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao atualizar imagens: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erro na requisição: $e',
+      );
+    }
+  }
+
+  Future<ApiResponse<bool>> replacePackImages(
+    int packId,
+    List<ImagePackBase64> images,
+  ) async {
+    try {
+      final body = jsonEncode(
+        images.map((e) => {
+          "codeId": e.codeId,
+          "imagePath": e.imagePath,
+          "sequence": e.sequence,
+          "imagesBase64": e.imagesBase64,
+        }).toList(),
+      );
+
+      final response = await apiClient.postAuth1(
+        '${ApiRoutes.productPackImage}/replace/$packId',
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse(success: true, data: true);
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao enviar imagens: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erro na requisição: $e',
+      );
+    }
+  }
+
 }

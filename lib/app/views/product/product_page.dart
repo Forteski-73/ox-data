@@ -347,26 +347,25 @@ class _ProductPageState extends State<ProductPage> {
                                 } else if (imageSnapshot.hasData &&
                                     imageSnapshot.data != null) {
                                   final String dataUri = imageSnapshot.data!;
-                                  final String base64Image =
-                                      dataUri.split(',').last;
-return GestureDetector( // <--- NOVO: Detecta o duplo clique
-  onDoubleTap: () {
-    // CHAMAR O MÉTODO DE TELA CHEIA AQUI
-    _openFullScreenImage(base64Image); 
-  },
-  child: InteractiveViewer(
-    // Configurações de zoom e pan (já existentes)
-    minScale: 0.8,
-    maxScale: 4.0,
-    clipBehavior: Clip.none,
-    child: Image.memory(
-      base64Decode(base64Image),
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) =>
-          const Icon(Icons.broken_image, size: 150),
-    ),
-  ),
-);
+                                  final String base64Image = dataUri.split(',').last;
+                                  return GestureDetector( // <--- NOVO: Detecta o duplo clique
+                                    onDoubleTap: () {
+                                      // CHAMAR O MÉTODO DE TELA CHEIA AQUI
+                                      _openFullScreenImage(base64Image); 
+                                    },
+                                    child: InteractiveViewer(
+                                      // Configurações de zoom e pan (já existentes)
+                                      minScale: 0.8,
+                                      maxScale: 4.0,
+                                      clipBehavior: Clip.none,
+                                      child: Image.memory(
+                                        base64Decode(base64Image),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.broken_image, size: 150),
+                                      ),
+                                    ),
+                                  );
                                 } else {
                                   return const Icon(Icons.image_not_supported,
                                       size: 150, color: Colors.grey);

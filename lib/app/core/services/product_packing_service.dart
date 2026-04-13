@@ -70,6 +70,29 @@ class ProductPackingService with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> addOrUpdatePackImages(List<ImagePackBase64> images, ProductPackingModel pkg,) async {
+    _packImages.addAll(images);
+    notifyListeners();
+
+    await _savePackImages(pkg);
+  }
+
+  Future<void> _savePackImages(ProductPackingModel pkg) async {
+    final base64List = _packImages
+        .map((e) => e.imagesBase64)
+        .whereType<String>()
+        .toList();
+
+    final response = await repository.packImagesUpdate(
+      pkg.packId,
+      base64List,
+    );
+
+    if (!response.success) {
+      print('Erro ao salvar imagens: ${response.message}');
+    }
+  }
+
   // No método setSelectedPacking, chama a busca de imagens
   void setSelectedPacking(ProductPackingModel pkg) {
     _selectedPacking = pkg;

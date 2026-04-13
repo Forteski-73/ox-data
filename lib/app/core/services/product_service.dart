@@ -33,7 +33,7 @@ class ProductService with ChangeNotifier {
   List<ProductLine>? getLines(String brandId) => _linesCache[brandId];
   List<ProductDecoration>? getDecorations(String brandId, String lineId) => _decorationsCache['$brandId-$lineId'];
 
-
+  /*
   Future<void> performSearch(Map<String, dynamic> activeFilters) async {
     final ApiProductResponse<List<ProductModel>> response =
         await productRepository.searchProducts(activeFilters);
@@ -45,6 +45,45 @@ class ProductService with ChangeNotifier {
       _searchResults = [];
       _totalProducts = 0;
     }
+    notifyListeners();
+  }
+  */
+
+  Future<void> performSearch(Map<String, dynamic> activeFilters, {bool isNextPage = false}) async {
+    // Primeira chamada
+    if (!isNextPage) {
+      _searchResults = [];
+      _totalProducts = 0;
+      // notifyListeners() para mostrar um loader na tela toda
+    }
+
+    // Prepara lógica de paginação (offset/skip)
+    // O offset é exatamente a quantidade de itens que já temos na lista
+    final Map<String, dynamic> paginationFilters = Map.from(activeFilters);
+    paginationFilters['offset'] = _searchResults.length; 
+    paginationFilters['limit'] = 20; // Se a API permitir definir o tamanho da página
+
+    // Chamada ao repositório
+    final ApiProductResponse<List<ProductModel>> response =
+        await productRepository.searchProducts(paginationFilters);
+
+    if (response.success && response.data != null) {
+      if (isNextPage) {
+        // Adiciona a nova página nalista atual
+        _searchResults.addAll(response.data!);
+      } else {
+        // Se for nova busca, SUBSTITUÍ a lista
+        _searchResults = response.data!;
+      }
+      _totalProducts = response.totalCount;
+    } else {
+      // Caso de erro ou lista vazia em nova busca
+      /*if (!isNextPage) {
+        _searchResults = [];
+        _totalProducts = 0;
+      }*/
+    }
+
     notifyListeners();
   }
 

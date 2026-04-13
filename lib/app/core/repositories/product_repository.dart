@@ -30,13 +30,15 @@ class ProductRepository {
       'decorationId': <String>[],
       'tag'         : <String>[],
       'YesNoImage'  : <String>[],
+      'offset': 0,  // Valor padrão
+      'limit': 20,  // Valor padrão
     };
 
     // Preenche o corpo da requisição com os filtros ativos
     filters.forEach((key, value) {
       if (requestBody.containsKey(key)) {
         // Para 'name', atribui diretamente o valor da string
-        if (key == 'name') {
+        if (key == 'name' || key == 'offset' || key == 'limit') {
           requestBody[key] = value;
         } else {
           // Para os outros campos (List<String>), atribui a lista

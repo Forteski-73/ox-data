@@ -14,8 +14,11 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/views/pages/search_image_dialog.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
+import 'package:archive/archive.dart';
 
 // Novos Imports
 import 'package:oxdata/app/core/models/product_packing_model.dart';
@@ -233,7 +236,7 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
     );
   }
 
-// --- ABA 2: IMAGENS (Ajustada para PageView / Slide) ---
+  // --- ABA 2: IMAGENS (Ajustada para PageView / Slide) ---
   Widget _buildImagesTab(ProductPackingService service) {
     final selected = service.selectedPacking;
     if (selected == null) return _buildNoSelectionState("Selecione uma montagem primeiro.");
@@ -668,7 +671,7 @@ Widget _buildFullScreenPhoto(
           elevation: 4,
           shape: const CircleBorder(),
           
-          onPressed: () => _showAddImageOptions(),
+          onPressed: () => _showAddImageOptions(service, service.selectedPacking!),
 
           /*
           onPressed: () async {
@@ -690,7 +693,7 @@ Widget _buildFullScreenPhoto(
     return null;
   }
 
-  Future<void> _showAddImageOptions() async {
+  Future<void> _showAddImageOptions(ProductPackingService service, ProductPackingModel pkg) async {
     final loadingService = context.read<LoadingService>();
 
     await showDialog(
@@ -698,20 +701,21 @@ Widget _buildFullScreenPhoto(
       builder: (context) => SearchImageDialog(
         onSourceSelected: (source) {
           // Aqui você executa a lógica de imagem que ficou na sua tela
-          _executeImageAction(loadingService, source);
+          _executeImageAction(loadingService, source, service, pkg);
         },
       ),
     );
   }
 
   // Processa a imagem
-  void _executeImageAction(LoadingService loadingService, ImageSource source) {
+  void _executeImageAction(LoadingService loadingService, ImageSource source, ProductPackingService service, ProductPackingModel pkg) {
     CallAction.run(
       action: () async {
         loadingService.show();
-        final path = await _pickImage(source);
-        if (path != null) {
-          await _processNewImage(path);
+        final files = await _pickImages(source);
+
+        if (files.isNotEmpty) {
+          await _processNewImage(files, service, pkg);
         }
       },
       onFinally: () => loadingService.hide(),
@@ -731,7 +735,7 @@ Widget _buildFullScreenPhoto(
     return Center(child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.touch_app_outlined, size: 60, color: Colors.indigo.withOpacity(0.2)),
+        Icon(Icons.touch_app_outlined, size: 60, color: Colors.indigo.withValues(alpha: 0.2),),
         const SizedBox(height: 16),
         Text(msg, style: TextStyle(color: Colors.blueGrey[300])),
       ],
@@ -739,7 +743,23 @@ Widget _buildFullScreenPhoto(
   }
 
   Widget _buildEmptyState(String msg) {
-    return Center(child: Text(msg, style: TextStyle(color: Colors.blueGrey[300])));
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_search_rounded,
+            size: 60,
+            color: Colors.indigo.withValues(alpha: 0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            msg,
+            style: TextStyle(color: Colors.blueGrey[300]),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmDelete(ProductPackingModel pkg, ProductPackingService service) {
@@ -931,17 +951,88 @@ Widget _buildFullScreenPhoto(
     }
   }
 
-  Future<String?> _pickImage(ImageSource source) async {
+  Future<List<XFile>> _pickImages(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, imageQuality: 80);
-    return picked?.path;
+
+    if (source == ImageSource.camera) {
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 80,
+      );
+
+      return picked != null ? [picked] : [];
+    } else {
+      final pickedList = await picker.pickMultiImage(
+        imageQuality: 80,
+      );
+
+      return pickedList;
+    }
   }
 
-    Future<void> _processNewImage(String? path) async {
+  Future<void> _processNewImage(
+    List<XFile> files,
+    ProductPackingService service,
+    ProductPackingModel pkg,
+  ) async {
+    if (files.isEmpty) return;
 
-      return;
-    
+    try {
+      List<ImagePackBase64> newImages = [];
+
+      for (final fileX in files) {
+        final file = File(fileX.path);
+        if (!await file.exists()) continue;
+
+        final originalBytes = await file.readAsBytes();
+
+        final img.Image? decodedImage = img.decodeImage(originalBytes);
+        if (decodedImage == null) continue;
+
+        final img.Image resizedImage = img.copyResize(
+          decodedImage,
+          width: 300,
+          height: 300,
+          interpolation: img.Interpolation.linear,
+        );
+
+        final Uint8List resizedBytes =
+            Uint8List.fromList(img.encodeJpg(resizedImage, quality: 85));
+
+        final base64Image = await _zipAndEncode(
+          resizedBytes,
+          fileX.name,
+        );
+
+        final newImage = ImagePackBase64(
+          codeId: pkg.packId.toString(),
+          imagePath: fileX.name,
+          sequence: service.packImages.length + newImages.length + 1,
+          imagesBase64: base64Image,
+        );
+
+        newImages.add(newImage);
+      }
+
+      // Envia tudo de uma vez
+      if (newImages.isNotEmpty) {
+        await service.addOrUpdatePackImages(newImages, pkg);
+      }
+
+    } catch (e) {
+      print('Erro ao processar imagem: $e');
     }
+  }
+
+  Future<String> _zipAndEncode(Uint8List bytes, String fileName) async {
+    final archive = Archive();
+
+    archive.addFile(ArchiveFile(fileName, bytes.length, bytes));
+
+    final zippedBytes = ZipEncoder().encode(archive);
+
+    return base64Encode(zippedBytes!);
+  }
 
 }
 

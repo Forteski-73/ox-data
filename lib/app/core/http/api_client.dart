@@ -7,6 +7,9 @@ import 'package:http_interceptor/http_interceptor.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/interceptors/auth_interceptor.dart';
 
+import 'package:oxdata/app/core/utils/logger.dart';
+import 'dart:developer';
+
 /// Classe responsável por fazer todas as requisições HTTP da API.
 /// Usa o Interceptor para centralizar a lógica de cabeçalhos e tokens.
 class ApiClient {
@@ -93,12 +96,34 @@ class ApiClient {
         body: body != null ? json.encode(body) : null,
       );
       
+      //logger.d("BODY JSON: ${json.encode(body)}");
+      //logger.d("Base64 length: ${base64Zip.length}");
+
+      logger.d("******************************************************************************************************");
+
+      //printFull(json.encode(body));
+      log(json.encode(body));
+      logger.d("******************************************************************************************************");
+
+      logger.d("STATUS: ${response.statusCode}");
+      logger.d("RESPONSE: ${response.body}");
+
       return response;
     } on Exception catch (e) {
       throw Exception('Erro de rede: $e');
     }
   }
 
+  void printFull(String text) {
+    const int chunkSize = 100000;
+
+    for (int i = 0; i < text.length; i += chunkSize) {
+      print(text.substring(
+        i,
+        i + chunkSize > text.length ? text.length : i + chunkSize,
+      ));
+    }
+  }
   /// Método para requisições POST com autenticação.
   /// body aceita Map, List
   Future<http.Response> postAuth1(

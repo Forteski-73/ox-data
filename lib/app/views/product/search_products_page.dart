@@ -35,6 +35,12 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
   // Controlador para o campo de texto de pesquisa
   final TextEditingController _searchController = TextEditingController();
 
+  // ScrollController
+  final ScrollController _scrollController = ScrollController();
+  
+  // Variável de controle para evitar múltiplas chamadas simultâneas
+  bool _isLoadingMore = false;
+
   // Mapa para armazenar os filtros ativos e seus valores (chave: tipo do filtro, valor: lista de IDs)
   Map<String, dynamic> _activeFilters = {};
 
@@ -44,9 +50,17 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
   final FocusNode _searchFocusNode = FocusNode(); 
 
   @override
+  void initState() {
+    super.initState();
+    // 2. Adicione o listener no initState
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
     _searchFocusNode.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -148,6 +162,29 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
           _applyFilter('decorationId', selectedDecoration.decorationId);
         }
       });
+    }
+  }
+
+  // Método que detecta o final da lista
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      // O '- 200' serve para começar a carregar um pouco antes de chegar ao fim "seco"
+      _loadMoreProducts();
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    final productService = context.read<ProductService>();
+    
+    // Só carrega se não estiver carregando e se ainda houver produtos para buscar
+    if (!_isLoadingMore && (productService.searchResults.length < (productService.totalProducts ?? 0))) {
+      setState(() => _isLoadingMore = true);
+
+      // Chame o método no seu service. 
+      // Dica: Você precisará adaptar o 'performSearch' para aceitar paginação ou criar um 'fetchNextPage'
+      await productService.performSearch(_activeFilters, isNextPage: true);
+
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -263,105 +300,124 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                 return searchResults.isEmpty
                   ? Center(child: Text(_activeFilters.isEmpty ? 'Use a barra de pesquisa.' : 'Nenhum produto encontrado com os filtros ativos.'))
                   : ListView.builder(
-                      itemCount: searchResults.length,
+                      controller: _scrollController,
+                      itemCount: searchResults.length + (_isLoadingMore ? 1 : 0), // Adiciona espaço para o loader
                       itemBuilder: (context, index) {
-                        final ProductModel productData = searchResults[index];
-                        return Card(
-                          color: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(0),
-                          ),
-                          margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
-                          child: InkWell(
-                            onTap: () async {
-                              if (widget.shouldNavigate) {
-                                await CallAction.run(
-                                  action: () async {
-                                    loadingService.show();
+                        if (index < searchResults.length) {
+                          final ProductModel productData = searchResults[index];
+                          return Card(
+                            color: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(0),
+                            ),
+                            margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
+                            child: InkWell(
+                              onTap: () async {
+                                if (widget.shouldNavigate) {
+                                  await CallAction.run(
+                                    action: () async {
+                                      loadingService.show();
 
-                                    await productService.fetchProductComplete(productData.productId);
+                                      await productService.fetchProductComplete(productData.productId);
 
-                                    Navigator.of(context).pushNamed(
-                                      RouteGenerator.productPage,
-                                      arguments: productData.productId,
-                                    );
-                                  },
-                                  onFinally: () {
-                                    loadingService.hide();
-                                  },
-                                );
-                              }
-                              else {
-                                Navigator.pop(
-                                  context,
-                                  {
-                                    'productId'   : productData.productId,
-                                    'barcode'     : productData.barcode,
-                                    'productName' : productData.name,
-                                  },
-                                );
-                              }
-                            },
-                            splashColor: const Color.fromARGB(255, 65, 65, 65).withAlpha((255 * 0.2).round()),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                              child: Row(
-                                children: [
-                                  FutureBuilder<List<String>?>(
-                                    future: _decodeAndExtractImage(productData.imageZipBase64),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
-                                        return const SizedBox(
-                                          width: 85,
-                                          height: 85,
-                                          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                        );
-                                      } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
-                                        final String dataUri = snapshot.data!.first;
-                                        final String base64Image = dataUri.split(',').last;
-                                        return Image.memory(
-                                          base64Decode(base64Image),
-                                          width: 85,
-                                          height: 85,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
-                                        );
-                                      } else {
-                                        return const Icon(Icons.image_outlined, size: 85, color: Colors.grey,);
-                                      }
+                                      Navigator.of(context).pushNamed(
+                                        RouteGenerator.productPage,
+                                        arguments: productData.productId,
+                                      );
                                     },
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Text(
-                                            productData.name,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            softWrap: false, // Impede a quebra de linha
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('Cód. Barras: ${productData.barcode}'),
-                                            const SizedBox(height: 4),
-                                            Text('Código: ${productData.productId}'),
-                                          ],
-                                        ),
-                                      ],
+                                    onFinally: () {
+                                      loadingService.hide();
+                                    },
+                                  );
+                                }
+                                else {
+                                  Navigator.pop(
+                                    context,
+                                    {
+                                      'productId'   : productData.productId,
+                                      'barcode'     : productData.barcode,
+                                      'productName' : productData.name,
+                                    },
+                                  );
+                                }
+                              },
+                              splashColor: const Color.fromARGB(255, 65, 65, 65).withAlpha((255 * 0.2).round()),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    FutureBuilder<List<String>?>(
+                                      future: _decodeAndExtractImage(productData.imageZipBase64),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const SizedBox(
+                                            width: 85,
+                                            height: 85,
+                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                          );
+                                        } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                                          final String dataUri = snapshot.data!.first;
+                                          final String base64Image = dataUri.split(',').last;
+                                          return Image.memory(
+                                            base64Decode(base64Image),
+                                            width: 85,
+                                            height: 85,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60),
+                                          );
+                                        } else {
+                                          return const Icon(Icons.image_outlined, size: 85, color: Colors.grey,);
+                                        }
+                                      },
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: Text(
+                                              productData.name,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                              softWrap: false, // Impede a quebra de linha
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Cód. Barras: ${productData.barcode}'),
+                                              const SizedBox(height: 4),
+                                              Text('Código: ${productData.productId}'),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
+                          );
+                        }
+                        else {
+                          // Mostra o loader
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 18.0),
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,  // Controle de largura
+                                height: 24, // Controle de altura
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+                                  strokeWidth: 2.5, // Deixa o traço mais fino
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                       },
                     );
               },
