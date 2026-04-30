@@ -3,6 +3,7 @@ import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_packing_model.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
+import 'package:oxdata/app/core/models/product_pack_item.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 
 /// Repositório responsável pela comunicação com a API de Embalagens/Packs.
@@ -209,6 +210,75 @@ class ProductPackingRepository {
       return ApiResponse(
         success: false,
         message: 'Erro na requisição: $e',
+      );
+    }
+  }
+
+  /// Adiciona um item a uma embalagem
+  Future<ApiResponse<bool>> addItemToPack(int packId, String productId, String user) async {
+    try {
+      final Map<String, dynamic> jsonRequest = {
+        "packId": packId,
+        "packProductId": productId,
+        "packUser": user,
+      };
+
+      // Nota: Verifique se em ApiRoutes existe o caminho '/Items' 
+      // ou se deve concatenar como abaixo:
+      final response = await apiClient.postAuth(
+        ApiRoutes.productPackItem, 
+        body: jsonRequest,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return ApiResponse(
+          success: true,
+          data: true,
+          message: 'Item adicionado com sucesso.'
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao adicionar item: Código ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na comunicação ao adicionar item: $e',
+      );
+    }
+  }
+
+  /// Busca a lista de itens vinculados a uma embalagem e retorna tipado como ProductPackItemModel
+  Future<ApiResponse<List<ProductPackItem>>> getPackItems(int packId) async {
+    try {
+      // Faz a chamada autenticada
+      final response = await apiClient.getAuth('${ApiRoutes.productPackItem}/$packId');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        
+        // Mapeia cada item do JSON para o seu Model usando o factory fromJson
+        final List<ProductPackItem> items = jsonList
+            .map((json) => ProductPackItem.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        return ApiResponse(
+          success: true, 
+          data: items,
+          message: 'Itens carregados com sucesso.'
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar itens: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de itens: $e',
       );
     }
   }

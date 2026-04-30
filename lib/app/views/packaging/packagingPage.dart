@@ -528,8 +528,10 @@ Widget _buildFullScreenPhoto(
                 icon: Icons.add,
                 size: 50,
                 color: Colors.green,
-                onPressed: () {
+                onPressed: () async {
                   if (_productController.text.isNotEmpty) {
+                      final username = await _storage.read(key: 'username');
+                     await service.addItemToSelectedPack(_productController.text, username.toString());
                     // Chamar service.addItemToPacking se existir
                     _productController.clear();
                   }
@@ -553,10 +555,16 @@ Widget _buildFullScreenPhoto(
                 child: ListTile(
                   contentPadding: const EdgeInsets.only(left: 16, right: 4),
                   leading: const Icon(Icons.qr_code_rounded, color: Colors.indigo),
-                  title: Text(selected.items[index].toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    "${selected.items[index].packProductId} - ${selected.items[index].productName ?? 'Sem Descrição'}",
+                    style: const TextStyle(fontWeight: FontWeight.bold)
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                    onPressed: () { /* Lógica de remover item */ },
+                    onPressed: () async {
+                      /* Lógica de remover item */
+                      
+                      },
                   ),
                 ),
               );
@@ -590,7 +598,8 @@ Widget _buildFullScreenPhoto(
           ),
         ),
       ),
-      body: Stack(
+      body: SafeArea( 
+        child: Stack(
         children: [
           // Conteúdo das Tabs
           TabBarView(
@@ -608,6 +617,7 @@ Widget _buildFullScreenPhoto(
             _buildDynamicBtnAdd(service)!, // O ! é porque sabemos que não é nulo aqui
           ],
         ],
+        ),
       ),
       // Na aba 0, você pode manter o FAB padrão se preferir
       floatingActionButton: _tabController.index == 0 ? _buildDynamicBtnAdd(service) : null,
@@ -626,16 +636,19 @@ Widget _buildFullScreenPhoto(
         elevation: hasImages ? 6 : 0,
         shape: const CircleBorder(),
         onPressed: hasImages 
-          ? () {
+          ? () async {
+
               final currentIndex = _currentPage;
-              setState(() {
-                service.packImages.removeAt(currentIndex);
-                if (_currentPage >= service.packImages.length && _currentPage > 0) {
+              await service.removeImage(currentIndex);
+
+              // Ajusta a página do PageView/Carrossel
+              if (_currentPage >= service.packImages.length && _currentPage > 0) {
+                setState(() {
                   _currentPage--;
-                }
-              });
+                });
+              }
             }
-          : null, 
+          : null,
         child: Icon(
           Icons.delete_forever_rounded, 
           color: hasImages ? Colors.white : Colors.grey[500], 
