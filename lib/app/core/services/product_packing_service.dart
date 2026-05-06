@@ -237,23 +237,68 @@ class ProductPackingService with ChangeNotifier {
     );
 
     if (response.success) {
-      // Em vez de recarregar tudo da API, você pode adicionar o item 
-      // manualmente na lista local para uma UI mais rápida
-      /*
-      _selectedPacking!.items.add(ProductPackItemModel(
-        packId: _selectedPacking!.packId,
-        packProductId: productId,
-        packUser: username,
-      ));
-      */
-      
-      // Ou, para garantir integridade, recarrega da API:
-      await fetchSelectedPackItems(_selectedPacking!.packId);
+      // 1. Recarrega os itens atualizados da API para o selecionado
+      final updatedItems = await fetchSelectedPackItems(_selectedPacking!.packId);
+      _selectedPacking!.items = updatedItems;
+
+      _selectedPacking!.items = List.from(updatedItems);
+
+      // 2. Sincroniza com a lista global (_allPackings)
+      _updateLocalListWithSelected();
     }
 
     _isLoading = false;
     notifyListeners();
     return response;
+  }
+
+  // Remove itens
+  Future<void> removeItem(int index) async {
+    if (_selectedPacking == null) return;
+
+    // Pega o item que será removido
+    final item = _selectedPacking!.items[index];
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await repository.deleteItemFromPack(item.packId, item.packProductId);
+
+      if (response.success) {
+        // 1. Remove da lista do objeto selecionado
+        _selectedPacking!.items.removeAt(index);
+
+
+        //_selectedPacking!.items = currentItems;
+
+        // 2. Sincroniza com a lista global (_allPackings)
+        _updateLocalListWithSelected();
+      } else {
+        debugPrint(response.message);
+      }
+
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Método auxiliar para refletir as mudanças do _selectedPacking na lista principal
+  void _updateLocalListWithSelected() {
+    if (_selectedPacking == null) return;
+
+    // Encontra o índice do pack na lista principal
+    final index = _allPackings.indexWhere((p) => p.packId == _selectedPacking!.packId);
+    
+    if (index != -1) {
+      // Atualiza a referência na lista principal
+      _allPackings[index] = _selectedPacking!;
+      
+      // Se houver um filtro ativo, atualiza a lista filtrada também
+      _filteredPackings = List.from(_allPackings); 
+      // Nota: Se quiser manter o termo da pesquisa atual, chame filterPackings novamente em vez de redefinir.
+    }
   }
 
 }

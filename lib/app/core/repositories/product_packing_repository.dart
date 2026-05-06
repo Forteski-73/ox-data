@@ -283,4 +283,32 @@ class ProductPackingRepository {
     }
   }
 
+  /// Remove um item específico de uma embalagem (DELETE: /v1/ProductPacking/Items/{packId}/{sku})
+  Future<ApiResponse<bool>> deleteItemFromPack(int packId, String productId) async {
+    try {
+      // Monta a URL conforme definido na API: v1/ProductPacking/Items/1/SKU123
+      final String url = '${ApiRoutes.productPackItem}/$packId/$productId';
+      
+      final response = await apiClient.deleteAuth(url);
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return ApiResponse(
+          success: true,
+          data: true,
+          message: 'Item removido com sucesso.'
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao deletar item: Código ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na comunicação ao deletar item: $e',
+      );
+    }
+  }
+
 }

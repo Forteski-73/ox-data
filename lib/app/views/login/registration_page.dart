@@ -2,6 +2,7 @@
 // app/views/login/registration_page.dart
 // -----------------------------------------------------------
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
@@ -30,12 +31,27 @@ class _RegistrationPageState extends State<RegistrationPage> {
   // Variáveis de estado para controlar a visibilidade das senhas
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool isFromLogin = false;
+  String user = '';
 
   @override
   void initState() {
     super.initState();
     _storageService.clearAuthToken();
     _storageService.clearCredentials();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+
+    if (args is Map<String, dynamic>) {
+      isFromLogin = args['isFromLogin'] ?? false;
+      user = args['user'] ?? '';
+      _nameController.text = user;
+    }
   }
 
   @override
@@ -100,10 +116,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 ),
 
                 const SizedBox(height: 32),
-
-                const Text(
-                  'Crie sua conta',
-                  style: TextStyle(
+                Text(
+                  isFromLogin 
+                      ? 'Crie sua conta' 
+                      : 'Recuperação de Senha',
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -111,8 +128,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Preencha seus dados para começar',
+                Text(
+                  isFromLogin
+                  ? 'Preencha seus dados para começar'
+                  : 'Informe seu E-Mail e a nova Senha',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.black54,
@@ -124,8 +143,16 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 // Campo de Nome
                 TextFormField(
                   controller: _nameController,
+                  inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                      TextInputFormatter.withFunction((oldValue, newValue) {
+                        return newValue.copyWith(
+                          text: newValue.text.toLowerCase(),
+                        );
+                      }),
+                    ],
                   decoration: InputDecoration(
-                    labelText: 'Nome',
+                    labelText: 'Usuário',
                     prefixIcon: const Icon(Icons.person_outline),
                     filled: true,
                     fillColor: Colors.grey[100],
@@ -210,7 +237,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
                   decoration: InputDecoration(
-                    labelText: 'Senha',
+                    labelText: isFromLogin ? 'Senha' : 'Nova Senha',
                     prefixIcon: const Icon(Icons.lock_outline),
                     filled: true,
                     fillColor: Colors.grey[100],

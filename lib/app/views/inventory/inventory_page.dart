@@ -154,7 +154,7 @@ class _CountItemCard extends StatelessWidget {
                         id: recordItem.id,
                         unitizer: recordItem.inventUnitizer ?? '',
                         position: recordItem.inventLocation ?? '',
-                        product: recordItem.inventProduct,
+                        product: recordItem.inventBarcode ?? '',
                         qtdPorPilha: recordItem.inventStandardStack?.toDouble(),
                         numPilhas: recordItem.inventQtdStack?.toDouble(),
                         qtdAvulsa: recordItem.inventQtdIndividual,

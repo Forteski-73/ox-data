@@ -190,6 +190,13 @@ class _LoginPageState extends State<LoginPage> {
                   TextButton(
                     onPressed: () {
                       // Implementar navegação para a tela de recuperação de senha
+                      Navigator.of(context).pushNamed(
+                        RouteGenerator.loginReg,
+                        arguments: {
+                          'isFromLogin': false,
+                          'user': _emailController.text,
+                        },
+                      );
                     },
                     child: const Text('Esqueceu a senha?'),
                   ),
@@ -243,7 +250,13 @@ class _LoginPageState extends State<LoginPage> {
                   const Text("Não tem uma conta?"),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).pushNamed(RouteGenerator.loginReg);
+                      Navigator.of(context).pushNamed(
+                        RouteGenerator.loginReg,
+                        arguments: {
+                          'isFromLogin': true,
+                          'user': '',
+                        },
+                      );
                     },
                     child: const Text('Cadastre-se'),
                   ),

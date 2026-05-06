@@ -217,13 +217,26 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     
     final service = context.read<InventoryService>();
     final existingRecord = await service.checkExistingRecord(unitizer, position, product);
-    if (existingRecord != null) {
-      setState(() {
-        _controllers['qtdPilha']!.text = existingRecord.inventStandardStack.toString();
-        _controllers['numPilhas']!.text = existingRecord.inventQtdStack.toString();
-        _controllers['qtdAvulsa']!.text = existingRecord.inventQtdIndividual.toString();
-      });
-      MessageService.showInfo("Contagem anterior carregada.");
+
+    if (existingRecord == null) {
+        final remoteRecord = await service.checkExistingRecordRemote(unitizer, position, product);
+        if (remoteRecord != null) {
+          // Converte o model da API para o que a tela espera ou usa os dados direto
+          setState(() {
+            _controllers['qtdPilha']!.text = remoteRecord.inventStandardStack.toString();
+            _controllers['numPilhas']!.text = remoteRecord.inventQtdStack.toString();
+            _controllers['qtdAvulsa']!.text = remoteRecord.inventQtdIndividual.toString();
+          });
+          MessageService.showInfo("Contagem remota carregada.");
+          return;
+        }
+      } else {
+        setState(() {
+          _controllers['qtdPilha']!.text = existingRecord.inventStandardStack.toString();
+          _controllers['numPilhas']!.text = existingRecord.inventQtdStack.toString();
+          _controllers['qtdAvulsa']!.text = existingRecord.inventQtdIndividual.toString();
+        });
+        MessageService.showInfo("Contagem anterior carregada.");
     }
   }
 
@@ -241,7 +254,11 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
         _isProductBlink = true;
       }
     });
-    if (product != null) FocusScope.of(context).requestFocus(_nodes['qtdPilha']);
+    if (product != null) 
+    {
+      _contagemJaExiste();
+      FocusScope.of(context).requestFocus(_nodes['qtdPilha']);
+    }
   }
 
   Future<void> _validateField(String key, MaskFieldName field) async {

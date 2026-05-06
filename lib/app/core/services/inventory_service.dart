@@ -139,6 +139,34 @@ class InventoryService with ChangeNotifier {
     );
   }
 
+  Future<InventoryRecordModel?> checkExistingRecordRemote(String unitizer, String position, String product) async {
+    if (selectedInventory == null) return null;
+
+    final hasInternet = await NetworkUtils.hasInternetConnection();
+    if (!hasInternet) return null;
+
+    try {
+      // Busca todos os registros deste inventário na API
+      final response = await inventoryRepository.getRecordsByInventCode(selectedInventory!.inventCode);
+      
+      if (response.success && response.data != null) {
+        // Procura na lista da API se existe o trio (Unitizador, Posição e Produto)
+        try {
+          return response.data!.firstWhere((r) => 
+            r.inventUnitizer == unitizer && 
+            r.inventLocation == position && 
+            r.inventBarcode == product
+          );
+        } catch (e) {
+          return null;
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao verificar registro remoto: $e");
+    }
+    return null;
+  }
+
   void clearDraft() {
     _draft = null;
     notifyListeners();
