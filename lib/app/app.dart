@@ -8,6 +8,7 @@ import 'package:oxdata/app/core/widgets/loading_overlay.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:oxdata/app/core/injector/injector.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:flutter/gestures.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -20,6 +21,13 @@ class MyApp extends StatelessWidget {
         scaffoldMessengerKey: MessageService.messengerKey,
         title: 'ACEP',
         debugShowCheckedModeBanner: false,
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+          },
+        ),
         theme: ThemeData(
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,

@@ -177,6 +177,14 @@ class InventoryService with ChangeNotifier {
     final hasInternet = await NetworkUtils.hasInternetConnection();
 
     if (hasInternet) {
+
+      final inventory = _selectedInventory;
+      if (inventory != null) {
+        if (!(inventory.isSynced ?? false)) {
+          await createOrUpdateInventory(inventory);
+        }
+      }
+      
       // Passamos draft1, que é o que veio da tela
       final result = await saveInventoryRecord(draft1);
 
@@ -453,12 +461,11 @@ class InventoryService with ChangeNotifier {
         infoSynchronize = "Enviando registros do inventário: $inventCode";
         notifyListeners();
 
-        // Lote para a API conforme o cURL/BatchRequest
+        // Lote para a API conforme o cURL/BatchRequest  //id: r.id,
         final batchRequest = InventoryBatchRequest(
           inventGuid: _deviceId ?? "", // Usando o deviceId guardado no service
           inventCode: inventCode,
           records: records.map((r) => InventoryRecordModel(
-            id: r.id,
             inventCode: r.inventCode,
             inventCreated: r.inventCreated,
             inventUser: r.inventUser ?? "Diones",
@@ -477,6 +484,10 @@ class InventoryService with ChangeNotifier {
           // Envia para: https://oxfordonline.com.br/API/v1/Inventory/Record
           final response = await inventoryRepository.createOrUpdateInventoryRecords([batchRequest]);
           
+          if (!response.success) {
+            throw Exception(response.message); 
+          }
+
           // Se a API retornou sucesso (String de confirmação)
           // Marcar cada item do lote como sincronizado no Drift
           for (var r in records) {

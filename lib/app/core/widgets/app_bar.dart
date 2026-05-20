@@ -29,7 +29,7 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
           iconSize: 20, 
           icon: const Icon(Icons.home),
           onPressed: () {
-            Navigator.of(context).pushNamed(RouteGenerator.homePage);
+            Navigator.of(context).pushNamedAndRemoveUntil(RouteGenerator.homePage, (route) => false,);
           },
         ),
         

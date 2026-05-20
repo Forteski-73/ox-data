@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_packing_model.dart';
@@ -255,6 +256,8 @@ class ProductPackingRepository {
     try {
       // Faz a chamada autenticada
       final response = await apiClient.getAuth('${ApiRoutes.productPackItem}/$packId');
+      
+      debugPrint("Erro ao carregar itens: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);

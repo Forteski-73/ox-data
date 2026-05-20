@@ -259,7 +259,13 @@ Future<void> insertOrUpdateInventoryOffline(
 
         // 5. CALCULA O SUM E ATUALIZA A TABELA INVENTORY
         // Criamos uma expressão de soma para a coluna inventTotal da tabela inventoryRecords
-        final totalSumExpression = inventoryRecords.inventTotal.sum();
+        var totalSumExpression = inventoryRecords.inventTotal.sum();
+
+        if (inventoryModel.isSynced ?? false)
+        {
+          totalSumExpression = totalSumExpression + Variable(inventoryModel.inventTotal ?? 0.0);
+
+        }
 
         final query = selectOnly(inventoryRecords)
           ..addColumns([totalSumExpression])

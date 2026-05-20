@@ -38,6 +38,16 @@ class _HomePageState extends State<HomePage> {
       'routeName': RouteGenerator.inventoriesPage,
       'imagePath': 'assets/images/invent.png',
     },
+    {
+      'title': 'IA',
+      'routeName': RouteGenerator.aiPage,
+      'imagePath': 'assets/images/object.png',
+    },
+    {
+      'title': 'ADMINISTRADOR',
+      'routeName': RouteGenerator.adminPage,
+      'imagePath': 'assets/images/admin.png',
+    },
   ];
 
   @override

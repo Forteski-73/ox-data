@@ -210,15 +210,16 @@ class ProductPackingService with ChangeNotifier {
   }
 
   Future<List<ProductPackItem>> fetchSelectedPackItems(int packId) async {
-    // 1. Chama o repositório que retorna ApiResponse<List<ProductPackItemModel>>
+    // Chama o repositório que retorna ApiResponse<List<ProductPackItemModel>>
+    debugPrint("packId: $packId");
     final response = await repository.getPackItems(packId);
     
-    // 2. Se deu sucesso, retorna os dados (a lista real)
+    // Se deu sucesso, retorna os dados (a lista real)
     if (response.success && response.data != null) {
       return response.data!;
     } 
     
-    // 3. Se deu erro, retorna lista vazia para não quebrar o contrato do método
+    // Se deu erro, retorna lista vazia para não quebrar o contrato do método
     debugPrint("Erro ao carregar itens: ${response.message}");
     return [];
   }

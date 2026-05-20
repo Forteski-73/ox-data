@@ -11,6 +11,8 @@ import 'package:oxdata/app/core/models/dto/mask_db_local.dart';
 import 'package:oxdata/app/core/models/dto/product_db_local.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
+import 'package:oxdata/app/core/utils/logger.dart';
+import 'dart:developer';
 
 /// Repositório responsável pela comunicação com a API de Inventário.
 class InventoryRepository {
@@ -406,6 +408,17 @@ Future<ApiResponse<String>> createOrUpdateInventoryRecords(
       List<InventoryBatchRequest> records) async {
     try {
       final requestBody = records.map((r) => r.toJson()).toList();
+
+      // --- LOG DO REQUEST ---
+      // Usamos jsonEncode para transformar a lista em String para o log
+      final String jsonBody = json.encode(requestBody); 
+      
+      logger.d("🚀 POST REQUEST: ${ApiRoutes.inventory}/Record");
+      logger.d("--- INÍCIO DO BODY JSON ---");
+      // O 'log' do dart:developer permite strings gigantes sem cortar no console
+      log(jsonBody); 
+      logger.d("--- FIM DO BODY JSON ---");
+      // ----------------------
 
       final response = await apiClient.postAuth1(
         '${ApiRoutes.inventory}/Record',

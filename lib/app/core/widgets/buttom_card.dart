@@ -46,7 +46,7 @@ class _ButtonCardState extends State<ButtonCard>
     _controller.dispose();
     super.dispose();
   }
-
+/*
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -92,6 +92,61 @@ class _ButtonCardState extends State<ButtonCard>
                   textAlign: TextAlign.center,
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }*/
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleTap,
+      child: SizedBox(
+        width: 128,
+        height: 128,
+        child: ScaleTransition(
+          scale: _animation,
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.imagePath != null)
+                    Flexible(
+                      child: Image.asset(
+                        widget.imagePath!,
+                        width: 62,
+                        height: 62,
+                        fit: BoxFit.contain,
+                      ),
+                    )
+                  else if (widget.icon != null)
+                    Flexible(
+                      child: Icon(
+                        widget.icon,
+                        size: 62,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
