@@ -77,7 +77,7 @@ Future<String> treinarImagem({
       final response = await http.post(
         _urlTreinar,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(payload),
+        body: jsonEncode(payload), 
       );
 
       if (response.statusCode == 200) {
