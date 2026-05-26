@@ -15,6 +15,7 @@ import 'package:oxdata/app/views/packaging/packagingPage.dart';
 import 'package:oxdata/app/views/inventory/inventory.dart';
 import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
+import 'package:oxdata/app/views/tools/tools_page.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/views/load/load.dart';
 
@@ -33,6 +34,7 @@ class RouteGenerator {
   static const String loadPage          = 'CustomAnimatedPageView';
   static const String adminPage         = 'adminPage';
   static const String aiPage            = 'aiPage';
+  static const String toolsPage         = 'toolsPage';
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -54,6 +56,8 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const AdminPage());
       case aiPage:
         return MaterialPageRoute(builder: (context) => const AIPage());
+      case toolsPage:
+        return MaterialPageRoute(builder: (context) => const ToolsPage());
       case loadPage:
         return MaterialPageRoute(builder: (context) => CustomAnimatedPageView());
       case productPage: // Rota para a página de detalhes do produto

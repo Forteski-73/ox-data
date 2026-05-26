@@ -48,6 +48,11 @@ class _HomePageState extends State<HomePage> {
       'routeName': RouteGenerator.adminPage,
       'imagePath': 'assets/images/admin.png',
     },
+    {
+      'title': 'FERRAMENTAS',
+      'routeName': RouteGenerator.toolsPage,
+      'imagePath': 'assets/images/tools.png',
+    },
   ];
 
   @override

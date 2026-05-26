@@ -205,4 +205,26 @@ class ProductService with ChangeNotifier {
   }
   /// =========================================================================================
 
+  // =========================================================
+  // IMPORTAR IMAGENS VIA URL
+  // =========================================================
+  Future<bool> importImagesByUrl({
+    required String finalidade,
+    required List<Map<String, String>> images,
+  }) async {
+
+    final response = await productRepository.importImagesByUrl(
+      finalidade: finalidade,
+      images: images,
+    );
+
+    if (response.success && response.data == true) {
+      return true;
+    }
+
+    throw Exception(
+      'Erro ao importar imagens via URL: ${response.message}',
+    );
+  }
+
 }

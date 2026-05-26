@@ -324,4 +324,47 @@ class ProductRepository {
     }
   }
   /// =========================================================================================
+  /// 
+
+  // =========================================================
+  // IMPORTAR IMAGENS VIA URL
+  // =========================================================
+  Future<ApiResponse<bool>> importImagesByUrl({
+    required String finalidade,
+    required List<Map<String, String>> images,
+  }) async {
+    try {
+      final requestBody = {
+        'finalidade': finalidade,
+        'images': images,
+      };
+
+      final response = await apiClient.postAuth(
+        'Image/ImportImagesByUrl',
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse(
+          success: true,
+          data: true,
+          message: 'Imagens importadas com sucesso.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          data: false,
+          message:
+              'Erro ao importar imagens: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        data: false,
+        message: 'Falha ao importar imagens: $e',
+      );
+    }
+  }
+
 }
