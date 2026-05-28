@@ -1004,8 +1004,8 @@ Widget _buildFullScreenPhoto(
 
         final img.Image resizedImage = img.copyResize(
           decodedImage,
-          width: 300,
-          height: 300,
+          width: 400,
+          height: 400,
           interpolation: img.Interpolation.linear,
         );
 

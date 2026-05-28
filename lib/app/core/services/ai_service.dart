@@ -101,4 +101,38 @@ Future<String> treinarImagem({
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+
+  /// Lista todas as categorias cadastradas na IA
+  Future<Map<String, dynamic>> listarCategorias() async {
+    try {
+      final url = Uri.parse('https://oxfordonline.com.br/AI/listarCategorias');
+
+      final headers = {
+        "accept": "application/json",
+      };
+
+      // Requisição GET
+      final response = await http.get(
+        url,
+        headers: headers,
+      );
+
+      // HTTP OK
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData;
+      }
+
+      // Erro HTTP
+      throw Exception(
+        'Erro no servidor ao listar categorias: Código ${response.statusCode}',
+      );
+    } catch (e) {
+      throw Exception(
+        e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+  
 }

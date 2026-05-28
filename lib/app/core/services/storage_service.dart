@@ -3,15 +3,22 @@
 // -----------------------------------------------------------
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:oxdata/app/core/models/menu_item_model.dart';
+import 'dart:convert';
 
 // Classe de serviço para operações de armazenamento das credênciais
 class StorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
+  static const _token     = 'jwt_token';
+  static const _username  = 'username';
+  static const _password  = 'password';
+  static const _menu      = 'menu';
+
   /// Limpa o token de autenticação salvo.
   Future<void> clearAuthToken() async {
     try {
-      await _storage.delete(key: 'jwt_token');
+      await _storage.delete(key: _token);
     } catch (e) {
       MessageService.showError('Erro ao remover credencial: $e');
     }
@@ -20,7 +27,7 @@ class StorageService {
   /// Lê e retorna o token de autenticação salvo, se existir.
   Future<String?> readAuthToken() async {
     try {
-      String? token = await _storage.read(key: 'jwt_token');
+      String? token = await _storage.read(key: _token);
       return token;
     } catch (e) {
       return null;
@@ -30,7 +37,7 @@ class StorageService {
   /// Salva o token de autenticação no armazenamento seguro.
   Future<void> writeAuthToken(String token) async {
     try {
-      await _storage.write(key: 'jwt_token', value: token);
+      await _storage.write(key: _token, value: token);
     } catch (e) {
       MessageService.showError('Erro ao registrar credencial: $e');
     }
@@ -38,19 +45,59 @@ class StorageService {
 
   // Usuário e senha
   Future<void> writeCredentials(String username, String password) async {
-    await _storage.write(key: 'username', value: username);
-    await _storage.write(key: 'password', value: password);
+    await _storage.write(key: _username, value: username);
+    await _storage.write(key: _password, value: password);
   }
 
   Future<Map<String, String?>> readCredentials() async {
-    final username = await _storage.read(key: 'username');
-    final password = await _storage.read(key: 'password');
+    final username = await _storage.read(key: _username);
+    final password = await _storage.read(key: _password);
     return {"username": username, "password": password};
   }
 
   Future<void> clearCredentials() async {
-    await _storage.delete(key: 'username');
-    await _storage.delete(key: 'password');
+    await _storage.delete(key: _username);
+    await _storage.delete(key: _password);
+  }
+
+  Future<void> writeMenus(List<MenuItemModel> menus) async {
+    final jsonMenus = jsonEncode(
+      menus.map((e) => {
+            'title': e.title,
+            'routeName': e.routeName,
+            'imagePath': e.imagePath,
+          }).toList(),
+    );
+
+    await _storage.write(
+      key: _menu,
+      value: jsonMenus,
+    );
+  }
+
+  Future<List<MenuItemModel>> readMenus() async {
+    final data = await _storage.read(key: _menu);
+
+    if (data == null || data.isEmpty) {
+      return [];
+    }
+
+    final List<dynamic> decoded = jsonDecode(data);
+
+    return decoded
+        .map((e) => MenuItemModel.fromJson(e))
+        .toList();
+  }
+
+  Future<void> clearMenus() async {
+    await _storage.delete(key: _menu);
+  }
+
+  Future<void> clearStorage() async {
+    await _storage.delete(key: _token);
+    await _storage.delete(key: _username);
+    await _storage.delete(key: _password);
+    await _storage.delete(key: _menu);
   }
 
   // -----------------------------------------------------------

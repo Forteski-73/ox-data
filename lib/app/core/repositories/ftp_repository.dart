@@ -248,11 +248,11 @@ class FtpRepository {
             continue; // Pula para a próxima imagem
           }
 
-          // 3. Redimensiona para caber dentro de 300x300, mantendo a proporção.
+          // 3. Redimensiona para caber dentro de 512x512, mantendo a proporção.
           final img.Image resizedImage = img.copyResize(
             decodedImage,
-            width: 350,
-            height: 350,
+            width: 512,
+            height: 512,
             // Usa 'Interpolation.linear' ou 'Interpolation.average' para melhor qualidade
             interpolation: img.Interpolation.linear,
           );

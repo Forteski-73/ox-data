@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
+import 'package:oxdata/app/core/models/dto/login_response.dart';
 
 // Classe para o response da API.
 class ApiResponse<T> {
@@ -43,53 +44,47 @@ class AuthRepository {
   AuthRepository({required this.apiClient});
 
   // O método de login usa o postAuth para enviar o token fixo.
-  Future<ApiResponse<String>> login({
+  Future<ApiResponse<LoginResponse>> login({
     required String username,
     required String password,
     bool lembrarMe = false, 
   }) async {
     try {
       final response = await apiClient.postAuth(
-        ApiRoutes.login,
+        ApiRoutes.loginUser,
         body: {
-          'user':     username,
+          'user': username,
           'password': password,
         },
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final token = data['token'] as String?;
 
-        if (token != null) {
+        final loginResponse = LoginResponse.fromJson(data);
 
-          apiClient.updateToken(token);
+        apiClient.updateToken(loginResponse.token);
 
-          // Salva as credenciais
-          if (lembrarMe) {
-            final storage = StorageService();
+        // Salva credenciais
+        if (lembrarMe) {
+          final storage = StorageService();
 
-            await storage.writeAuthToken(token);
-            await storage.writeCredentials(username, password);
-          }
-
-          return ApiResponse(success: true, data: token);
-        } else {
-          // A API retornou 200, mas sem token.
-          return ApiResponse(
-            success: false,
-            message: 'Token não encontrado na resposta da API.',
-          );
+          await storage.writeAuthToken(loginResponse.token);
+          await storage.writeCredentials(username, password);
+          await storage.writeMenus(loginResponse.menus);
         }
+
+        return ApiResponse(
+          success: true,
+          data: loginResponse,
+        );
       } else {
-        // Retorno de erro da API.
         return ApiResponse(
           success: false,
           message: 'Falha no login: ${response.body}',
         );
       }
     } on Exception catch (e) {
-      // Captura erros de rede ou outros problemas.
       return ApiResponse(
         success: false,
         message: 'Erro de rede: $e',
@@ -114,10 +109,10 @@ class AuthRepository {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-          return ApiResponse(
-            success: true,
-            message: 'Seu cadastro foi feito com sucesso!',
-          );
+        return ApiResponse(
+          success: true,
+          message: 'Seu cadastro foi feito com sucesso!',
+        );
       } else {
         // Retorno de erro da API.
         return ApiResponse(

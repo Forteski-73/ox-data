@@ -1,4 +1,126 @@
 import 'package:flutter/material.dart';
+import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/widgets/app_footer.dart';
+import 'package:oxdata/app/core/widgets/buttom_card.dart';
+import 'package:oxdata/app/core/models/menu_item_model.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
+import 'package:oxdata/app/core/routes/route_generator.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+
+  final StorageService _storage = StorageService();
+
+  List<MenuItemModel> _menuOptions = [];
+
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadMenus();
+  }
+
+  Future<void> _loadMenus() async {
+
+    final menus = await _storage.readMenus();
+
+    setState(() {
+      _menuOptions = menus;
+      _isLoading = false;
+    });
+  }
+
+  String getRealRoute(String dbRoute) {
+    switch (dbRoute) {
+      case 'PRODUTO':       return RouteGenerator.productsPage;
+      case 'MONTAGEM':      return RouteGenerator.packagingPage;
+      case 'PALLET':        return RouteGenerator.palletsPage;
+      case 'CARGA':         return RouteGenerator.loadPage;
+      case 'INVENTARIO':    return RouteGenerator.inventoriesPage;
+      case 'IA':            return RouteGenerator.aiPage;
+      case 'FERRAMENTA':    return RouteGenerator.toolsPage;
+      case 'ADMINISTRADOR': return RouteGenerator.adminPage;
+      default:              return '/'; // Rota padrão caso dê ruim
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+    return Scaffold(
+      appBar: const AppBarCustom(title: 'ACEP'),
+
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+
+                  int crossAxisCount = 2;
+
+                  if (constraints.maxWidth >= 1200) {
+                    crossAxisCount = 6;
+                  } else if (constraints.maxWidth >= 900) {
+                    crossAxisCount = 5;
+                  } else if (constraints.maxWidth >= 600) {
+                    crossAxisCount = 4;
+                  } else {
+                    crossAxisCount = 2;
+                  }
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(8.0),
+
+                    gridDelegate:
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 16.0,
+                      mainAxisSpacing: 16.0,
+                      childAspectRatio: 1.2,
+                    ),
+
+                    itemCount: _menuOptions.length,
+
+                    itemBuilder: (context, index) {
+
+                      final option = _menuOptions[index];
+
+                      return ButtonCard(
+                        imagePath: option.imagePath,
+                        title: option.title,
+                        onTap: () {
+                          Navigator.of(context).pushNamed(
+                            getRealRoute(option.routeName),
+                          );
+                        },
+                        
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+
+      bottomNavigationBar: const AppFooter(),
+    );
+  }
+}
+
+
+/*
+import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/widgets/app_footer.dart';
@@ -61,24 +183,39 @@ class _HomePageState extends State<HomePage> {
       appBar: const AppBarCustom(title: 'ACEP'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: GridView.builder(
-          padding: const EdgeInsets.all(8.0),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16.0,
-            mainAxisSpacing: 16.0,
-            childAspectRatio: 1.2,
-          ),
-          itemCount: _menuOptions.length,
-          itemBuilder: (context, index) {
-            final option = _menuOptions[index];
+        child: LayoutBuilder(
+          builder: (context, constraints) {
 
-            return ButtonCard(
-              imagePath: option['imagePath'] as String?,
-              icon: option['icon'] as IconData?,
-              title: option['title'] as String,
-              onTap: () {
-                Navigator.of(context).pushNamed(option['routeName'] as String);
+            int crossAxisCount = 2;
+            if (constraints.maxWidth >= 1200) {
+              crossAxisCount = 6; // Desktop grande
+            } else if (constraints.maxWidth >= 900) {
+              crossAxisCount = 5; // Desktop/tablet grande
+            } else if (constraints.maxWidth >= 600) {
+              crossAxisCount = 4; // Tablet
+            } else {
+              crossAxisCount = 2; // Celular
+            }
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(8.0),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 16.0,
+                mainAxisSpacing: 16.0,
+                childAspectRatio: 1.2,
+              ),
+              itemCount: _menuOptions.length,
+              itemBuilder: (context, index) {
+                final option = _menuOptions[index];
+                return ButtonCard(
+                  imagePath: option['imagePath'] as String?,
+                  icon: option['icon'] as IconData?,
+                  title: option['title'] as String,
+                  onTap: () {
+                    Navigator.of(context).pushNamed(option['routeName'] as String);
+                  },
+                );
               },
             );
           },
@@ -87,4 +224,5 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: const AppFooter(),
     );
   }
-}
+  
+  */

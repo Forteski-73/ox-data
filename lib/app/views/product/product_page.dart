@@ -1093,11 +1093,11 @@ class _ProductPageState extends State<ProductPage> {
       throw Exception('Não foi possível decodificar a imagem para redimensionar.');
     }
 
-    // Redimensiona para caber dentro de 300x300, mantendo a proporção.
+    // Redimensiona para caber dentro de 512x512, mantendo a proporção.
     final img.Image resizedImage = img.copyResize(
       decodedImage,
-      width: 300,
-      height: 300,
+      width: 512,
+      height: 512,
       // Mantém a proporção e preenche o espaço extra, se necessário.
       interpolation: img.Interpolation.linear,
     );
