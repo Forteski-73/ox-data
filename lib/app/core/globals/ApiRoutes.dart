@@ -5,6 +5,9 @@ class ApiRoutes {
   static String loginRegister            = 'User/register';
   static String users                    = 'User/Users';
   static String profiles                 = 'User/Profiles';
+  static String profilesMenu             = 'User/ProfilesMenu';
+  static String updateUserProfile        = 'User/UpdateUserProfile';
+  static String updateProfileMenus       = 'User/UpdateProfileMenus';
   static String products                 = 'Oxford/Products';
   static String productsSearch           = 'Product/AppSearch';
   static String appProduct               = 'Product/AppProduct';

@@ -216,7 +216,7 @@ class ProductPackingRepository {
   }
 
   /// Adiciona um item a uma embalagem
-  Future<ApiResponse<bool>> addItemToPack(int packId, String productId, String user) async {
+  Future<ApiResponse<ProductPackItem>> addItemToPack(int packId, String productId, String user) async {
     try {
       final Map<String, dynamic> jsonRequest = {
         "packId": packId,
@@ -224,17 +224,21 @@ class ProductPackingRepository {
         "packUser": user,
       };
 
-      // Nota: Verifique se em ApiRoutes existe o caminho '/Items' 
-      // ou se deve concatenar como abaixo:
       final response = await apiClient.postAuth(
         ApiRoutes.productPackItem, 
         body: jsonRequest,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        // Decodifica a string JSON do body para um Map
+        final Map<String, dynamic> jsonMap = jsonDecode(response.body);
+        
+        // Transforma o Map no seu objeto mapeado
+        final productPackItem = ProductPackItem.fromJson(jsonMap);
+
         return ApiResponse(
           success: true,
-          data: true,
+          data: productPackItem, // Retorna o objeto
           message: 'Item adicionado com sucesso.'
         );
       } else {

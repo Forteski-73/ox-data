@@ -187,7 +187,7 @@ class ProductPackingService with ChangeNotifier {
   }
 
   /// Add itens relacionados com a embalagem
-  Future<ApiResponse<bool>> addItemToSelectedPack(String productId, String username) async {
+  Future<ApiResponse<ProductPackItem>> addItemToSelectedPack(String productId, String username) async {
     if (_selectedPacking == null) {
       return ApiResponse(success: false, message: "Selecione uma embalagem primeiro.");
     }
@@ -202,30 +202,23 @@ class ProductPackingService with ChangeNotifier {
         username,
       );
       
+      if (response.success && response.data != null) {
+        // Inicializa a lista caso ela esteja nula por segurança
+        _selectedPacking!.items ??= []; 
+        
+        // Adiciona o item no contexto local
+        _selectedPacking!.items.add(response.data!);
+      }
+
       return response;
     } finally {
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); // Garante que a tela vai se reconstruir com o novo item na lista
     }
   }
 
-  Future<List<ProductPackItem>> fetchSelectedPackItems(int packId) async {
-    // Chama o repositório que retorna ApiResponse<List<ProductPackItemModel>>
-    debugPrint("packId: $packId");
-    final response = await repository.getPackItems(packId);
-    
-    // Se deu sucesso, retorna os dados (a lista real)
-    if (response.success && response.data != null) {
-      return response.data!;
-    } 
-    
-    // Se deu erro, retorna lista vazia para não quebrar o contrato do método
-    debugPrint("Erro ao carregar itens: ${response.message}");
-    return [];
-  }
-
   /// Quando adicionar um novo item com sucesso, você também pode atualizar localmente
-  Future<ApiResponse<bool>> addItem(String productId, String username) async {
+  /*Future<ApiResponse<bool>> addItem(String productId, String username) async {
     if (_selectedPacking == null) return ApiResponse(success: false);
 
     _isLoading = true;
@@ -251,6 +244,22 @@ class ProductPackingService with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
     return response;
+  }
+  */
+
+  Future<List<ProductPackItem>> fetchSelectedPackItems(int packId) async {
+    // Chama o repositório que retorna ApiResponse<List<ProductPackItemModel>>
+    debugPrint("packId: $packId");
+    final response = await repository.getPackItems(packId);
+    
+    // Se deu sucesso, retorna os dados (a lista real)
+    if (response.success && response.data != null) {
+      return response.data!;
+    } 
+    
+    // Se deu erro, retorna lista vazia para não quebrar o contrato do método
+    debugPrint("Erro ao carregar itens: ${response.message}");
+    return [];
   }
 
   // Remove itens

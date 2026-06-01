@@ -7,10 +7,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:oxdata/app/views/product/search_products_page.dart';
-import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
-import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/views/pages/search_image_dialog.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'dart:convert';
@@ -19,11 +17,11 @@ import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:archive/archive.dart';
-
-// Novos Imports
 import 'package:oxdata/app/core/models/product_packing_model.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
+
 
 class PackagingPage extends StatefulWidget {
   const PackagingPage({super.key});
@@ -508,6 +506,7 @@ Widget _buildFullScreenPhoto(
     final selected = service.selectedPacking;
     if (selected == null) return _buildNoSelectionState("Selecione uma montagem primeiro.");
 
+    final loadingService = context.read<LoadingService>();
     return Column(
       children: [
         _buildSelectionHeader(selected),
@@ -530,9 +529,11 @@ Widget _buildFullScreenPhoto(
                 color: Colors.green,
                 onPressed: () async {
                   if (_productController.text.isNotEmpty) {
-                      final username = await _storage.read(key: 'username');
+                    loadingService.show();
+                    final username = await _storage.read(key: 'username');
                      await service.addItemToSelectedPack(_productController.text, username.toString());
                     // Chamar service.addItemToPacking se existir
+                    loadingService.hide();
                     _productController.clear();
                   }
                 },
@@ -581,6 +582,7 @@ Widget _buildFullScreenPhoto(
     final service = context.watch<ProductPackingService>();
 
     return Scaffold(
+
       appBar: AppBarCustom(
         title: "ESQUEMA DE MONTAGEM",
         bottom: PreferredSize(
@@ -598,6 +600,7 @@ Widget _buildFullScreenPhoto(
           ),
         ),
       ),
+      
       body: SafeArea( 
         child: Stack(
         children: [

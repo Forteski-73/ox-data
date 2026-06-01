@@ -60,7 +60,6 @@ class AuthRepository {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-
         final loginResponse = LoginResponse.fromJson(data);
 
         apiClient.updateToken(loginResponse.token);
@@ -72,6 +71,7 @@ class AuthRepository {
           await storage.writeAuthToken(loginResponse.token);
           await storage.writeCredentials(username, password);
           await storage.writeMenus(loginResponse.menus);
+          
         }
 
         return ApiResponse(
