@@ -683,6 +683,38 @@ class InventoryService with ChangeNotifier {
   }
 
 
+  /// GET: Busca TODOS os inventários da API (sem mesclar com banco local).
+  /// Rota correspondente: GET v1/Inventory/All
+  Future<void> fetchAllInventoriesFromApiOnly() async {
+    final ApiResponse<List<InventoryModel>> response =
+        await inventoryRepository.getAllInventories();
+
+    if (response.success && response.data != null) {
+      // Substitui completamente as listas em memória com o que veio da API
+      _allInventories = response.data!
+        ..sort((a, b) => b.inventCreated?.compareTo(a.inventCreated ?? DateTime(0)) ?? 0);
+
+      _inventories = List.from(_allInventories);
+
+      // Define o primeiro da lista da API como selecionado
+      if (_allInventories.isNotEmpty) {
+        _selectedInventory = _allInventories.first;
+      } else {
+        _selectedInventory = null;
+      }
+    } else {
+      debugPrint('Falha ao buscar inventários diretamente da API: ${response.message}');
+      // Se a API falhar, LIMPA
+       _allInventories = [];
+       _inventories = [];
+       _selectedInventory = null;
+    }
+
+    // Atualiza a tela de qualquer forma (com os dados novos ou mantendo o estado anterior em caso de falha)
+    notifyListeners();
+  }
+
+
   /// GET: Busca Inventário por GUID e InventCode.
   Future<InventoryModel?> getInventoryByGuidInventCode(
       String guid, String inventCode) async {

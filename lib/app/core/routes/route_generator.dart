@@ -13,6 +13,7 @@ import 'package:oxdata/app/views/pallet/pallet_builder_page.dart';
 import 'package:oxdata/app/views/pallet/pallet_receive_page.dart';
 import 'package:oxdata/app/views/packaging/packagingPage.dart';
 import 'package:oxdata/app/views/inventory/inventory.dart';
+import 'package:oxdata/app/views/inventory/inventory_adm_page.dart';
 import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
 import 'package:oxdata/app/views/tools/tools_page.dart';
@@ -27,6 +28,7 @@ class RouteGenerator {
   static const String productsPage      = 'productsPage';
   static const String productPage       = 'productPage';
   static const String inventoriesPage   = 'inventoriesPage';
+  static const String inventoryAdmPage  = 'inventoryAdmPage';
   static const String packagingPage     = 'packagingPage';
   static const String palletsPage       = 'palletsPage';
   static const String palletBuilderPage = 'palletBuilderPage';
@@ -71,8 +73,10 @@ class RouteGenerator {
         return _errorRoute(); // Se o argumento não for do tipo esperado, retorna uma rota de erro
       case productsPage:
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
-      case inventoriesPage: // *** Futura rota para inventário ***
+      case inventoriesPage:
         return MaterialPageRoute(builder: (context) => const InventoriesPage());
+      case inventoryAdmPage:
+        return MaterialPageRoute(builder: (context) => const InventoryAdmPage());
       case palletsPage:
         return MaterialPageRoute(builder: (context) => const SearchPalletPage());
       case palletBuilderPage:

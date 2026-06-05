@@ -687,188 +687,192 @@ class _AIPageState extends State<AIPage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (_processedImageBase64 != null &&
-                                  _processedImageBase64!.isNotEmpty)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.06),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      )
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: Image.memory(
-                                      base64Decode(
-                                        _processedImageBase64!.split(',').last,
-                                      ),
-                                      width: 198,
-                                      height: 198,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Container(
-                                          width: 198,
-                                          height: 198,
-                                          color: const Color(0xFFF1F5F9),
-                                          child: const Icon(
-                                            Icons.broken_image_rounded,
-                                            size: 24,
-                                            color: Color(0xFF94A3B8),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
+Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: [
+    if (_processedImageBase64 != null &&
+        _processedImageBase64!.isNotEmpty)
+      Center(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.memory(
+              base64Decode(
+                _processedImageBase64!.split(',').last,
+              ),
+              width: 198,
+              height: 198,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 198,
+                  height: 198,
+                  color: const Color(0xFFF1F5F9),
+                  child: const Icon(
+                    Icons.broken_image_rounded,
+                    size: 24,
+                    color: Color(0xFF94A3B8),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
 
-                              if (_processedImageBase64 != null &&
-                                  _processedImageBase64!.isNotEmpty)
-                                const SizedBox(width: 16),
+    const SizedBox(height: 20),
 
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEEF2FF),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Text(
-                                        'IA SYSTEM',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF4F46E5),
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                    ),
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEF2FF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'IA SYSTEM',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF4F46E5),
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
 
-                                    const SizedBox(height: 6),
+        const SizedBox(height: 6),
 
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.9),
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(16),
-                                          bottomLeft: Radius.circular(16),
-                                          bottomRight: Radius.circular(16),
-                                          topLeft: Radius.circular(2),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.04),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          )
-                                        ],
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (_rankingProximidade.isNotEmpty) ...[
-                                            const SizedBox(height: 12),
-                                            ..._rankingProximidade
-                                                .asMap()
-                                                .entries
-                                                .map((entry) {
-                                              final index = entry.key;
-                                              final item = entry.value;
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(16),
+              bottomLeft: Radius.circular(16),
+              bottomRight: Radius.circular(16),
+              topLeft: Radius.circular(2),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_rankingProximidade.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ..._rankingProximidade
+                    .asMap()
+                    .entries
+                    .map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
 
-                                              final categoria = item['categoria'] ?? '';
-                                              final confianca = (item['confianca'] ?? 0).toDouble();
+                  final categoria = item['categoria'] ?? '';
+                  final confianca =
+                      (item['confianca'] ?? 0).toDouble();
 
-                                              return Container(
-                                                margin: const EdgeInsets.only(bottom: 8),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 8,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.indigo.withOpacity(0.06),
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(
-                                                      Icons.auto_awesome_rounded,
-                                                      size: index == 0 ? 24 : 14,
-                                                      color: const Color(0xFF4F46E5),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        categoria,
-                                                        style: TextStyle(
-                                                          fontWeight: index == 0 ? FontWeight.w800 : FontWeight.w600,
-                                                          fontSize: index == 0 ? 20 : 12,
-                                                          color: index == 0
-                                                              ? const Color(0xFF1E293B)
-                                                              : const Color(0xFF334155),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      "${confianca.toStringAsFixed(2)}%",
-                                                      style: TextStyle(
-                                                        fontWeight: index == 0 ? FontWeight.w900 : FontWeight.bold,
-                                                        fontSize: index == 0 ? 17 : 13,
-                                                        color: const Color(0xFF4F46E5),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ] else ...[
-                                            const SizedBox(height: 8),
-                                            Container(
-                                              width: double.infinity,
-                                              padding: const EdgeInsets.all(14),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withOpacity(0.05),
-                                                borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: Colors.red.withOpacity(0.15),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'A imagem não correspondeu a nenhuma decoração da nossa base de conhecimento.',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1E293B),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: index == 0 ? 24 : 14,
+                          color: const Color(0xFF4F46E5),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            categoria,
+                            style: TextStyle(
+                              fontWeight: index == 0
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                              fontSize: index == 0 ? 20 : 12,
+                              color: index == 0
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFF334155),
+                            ),
                           ),
+                        ),
+                        Text(
+                          "${confianca.toStringAsFixed(2)}%",
+                          style: TextStyle(
+                            fontWeight: index == 0
+                                ? FontWeight.w900
+                                : FontWeight.bold,
+                            fontSize: index == 0 ? 17 : 13,
+                            color: const Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ] else ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.red.withOpacity(0.15),
+                    ),
+                  ),
+                  child: const Text(
+                    'A imagem não correspondeu a nenhuma decoração da nossa base de conhecimento.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  ],
+),
 
                           const SizedBox(height: 16),
 

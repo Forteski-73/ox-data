@@ -120,51 +120,35 @@ class InventoryRepository {
     }
   }
 
-  // =========================================================================
-  // === MÉTODOS PARA INVENTORY (v1/Inventory/Inventory)
-  // =========================================================================
+  /// GET: Busca TODOS os inventários cadastrados na API.
+  /// Rota: GET v1/Inventory/All
+  Future<ApiResponse<List<InventoryModel>>> getAllInventories() async {
+    try {
+      final route = '${ApiRoutes.inventory}/All';
+      final response = await apiClient.getAuth(route);
 
-  /// POST: Cria ou atualiza um Inventário principal.
-  ///
-  /// Rota: POST v1/Inventory/Inventory
-    /*
-    Future<ApiResponse<InventoryModel>> createOrUpdateInventory(
-        InventoryModel inventory) async
-    {
-      try {
-        final response = await apiClient.postAuth1(
-          '${ApiRoutes.inventory}/Inventory',
-          body: inventory.toMap(),
-        );
-
-        final body = json.decode(response.body);
-
-        if (response.statusCode == 201) {
-          // 201 Created (Nova criação)
-          return ApiResponse(success: true, data: InventoryModel.fromMap(body));
-        } else if (response.statusCode == 200 && body['data'] != null) {
-          // 200 OK (Atualização)
-          return ApiResponse(
-            success: true,
-            message: body['message'],
-            data: InventoryModel.fromMap(body['data']),
-          );
-        } else {
-          return ApiResponse(
-            success: false,
-            message: body['message'] ??
-                'Erro ao salvar/atualizar Inventário: ${response.statusCode}',
-          );
-        }
-      } on Exception catch (e) {
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        
+        // Mapeamento para List<InventoryModel>
+        final List<InventoryModel> inventories = jsonList
+            .map((json) => InventoryModel.fromMap(json as Map<String, dynamic>))
+            .toList();
+            
+        return ApiResponse(success: true, data: inventories);
+      } else {
         return ApiResponse(
           success: false,
-          message: 'Falha no salvamento do Inventário: $e',
+          message: 'Erro ao buscar todos os Inventários: ${response.statusCode}',
         );
       }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de todos os Inventários: $e',
+      );
     }
-
-    */
+  }
 
   Future<ApiResponse<InventoryModel>> createOrUpdateInventory(
     InventoryModel inventory) async {

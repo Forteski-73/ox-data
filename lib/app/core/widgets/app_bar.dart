@@ -21,13 +21,16 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       centerTitle: true,
       
-      title: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 14, 
-          fontWeight: FontWeight.w900,
-          letterSpacing: 2.5,
-          color: Colors.white,
+      title: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 14, 
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2.5,
+            color: Colors.white,
+          ),
         ),
       ),
       
@@ -52,7 +55,7 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
             Navigator.of(context).pushNamedAndRemoveUntil(RouteGenerator.homePage, (route) => false);
           },
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 3),
         IconButton(
           iconSize: 22,
           icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent),
@@ -93,7 +96,7 @@ class AppBarCustom extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
           content: const Text(
-            'Deseja realmente desconectar este terminal do núcleo operacional?',
+            'Deseja realmente desconectar este terminal?',
             style: TextStyle(fontSize: 14, color: Colors.white70, height: 1.4),
           ),
           actions: <Widget>[
