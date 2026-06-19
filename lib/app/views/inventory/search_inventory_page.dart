@@ -112,7 +112,7 @@ class _InventoryCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: InkWell(
-        onTap: () {
+        /*onTap: () {
           final service = context.read<InventoryService>();
           service.setSelectedInventory(inventory);
           service.fetchRecordsByInventCode(inventory.inventCode);
@@ -121,6 +121,13 @@ class _InventoryCard extends StatelessWidget {
           } else {
             context.read<LoadService>().setPage(2);
           }
+        },*/
+        onTap: () {
+          final service = context.read<InventoryService>();
+          service.setSelectedInventory(inventory);
+          context.read<LoadService>().setPage(
+            inventory.inventStatus == InventoryStatus.Iniciado ? 1 : 2,
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -194,7 +201,7 @@ class _InventoryCard extends StatelessWidget {
                                 children: [
                                   _buildActionButton(context, isFinalizado),
                                   const SizedBox(height: 10),
-                                  _buildSincButton(context, isFinalizado, inventory.isSynced),
+                                  _buildSincButton(context, inventory.isSynced),
                                 ],
                               ),
                             ),
@@ -268,18 +275,18 @@ class _InventoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSincButton(BuildContext context, bool isFinalizado, bool? isSynced) {
+  Widget _buildSincButton(BuildContext context, bool? isSynced) {
     final bool synced = isSynced ?? false;
     return _ColorChangingButton(
       size: 50,
       icon: synced ? Icons.cloud_sync : Icons.cloud_sync_outlined,
       color: null,
-      onPressed: (isFinalizado) 
-          ? () => _showConfirmSyncDialog(context) 
-          : null,
+      onPressed: () => _showConfirmSyncDialog(context) ,
+          
     );
   }
 
+  /*
   void _showConfirmFinalizeDialog(BuildContext context) async {
     final confirmed = await showConfirmDialog(
       context: context,
@@ -288,10 +295,25 @@ class _InventoryCard extends StatelessWidget {
 
     if (confirmed) {
       final inventoryService = context.read<InventoryService>();
+
       final updatedInventory = inventory.copyWith(
         inventStatus: InventoryStatus.Finalizado,
       );
-      await inventoryService.createOrUpdateInventory(updatedInventory);
+
+      final syncResult = await inventoryService.startSyncInventory(inventory.inventCode);
+
+      if (syncResult.status == 0) {
+        MessageService.showError(syncResult.message);
+        return;
+      }
+
+      final saveResult = await inventoryService.createOrUpdateInventory(updatedInventory);
+
+      if (saveResult.status == 0) {
+        MessageService.showError(saveResult.message);
+        return;
+      }
+
       if (context.mounted) {
         final service = context.read<InventoryService>();
         final loadingService = context.read<LoadingService>();
@@ -300,11 +322,49 @@ class _InventoryCard extends StatelessWidget {
         await service.fetchAllInventories();
         loadingService.hide();
 
+        MessageService.showSuccess("Inventário #${inventory.inventCode} finalizado com sucesso!",);
+      }
+      
+    }
+  }
+  */
+
+  void _showConfirmFinalizeDialog(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context: context,
+      message: "Deseja realmente finalizar a contagem #${inventory.inventCode}?",
+    );
+
+    if (!confirmed) return;
+    if (!context.mounted) return;
+
+    final inventoryService = context.read<InventoryService>();
+    final loadingService = context.read<LoadingService>();
+
+    loadingService.show();
+
+    try {
+      final updatedInventory = inventory.copyWith(inventStatus: InventoryStatus.Finalizado);
+      final saveResult = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
+
+      if (!context.mounted) return;
+
+      if (saveResult.status == 0) {
+        MessageService.showError(saveResult.message, duration: const Duration(seconds: 5),);
+        return;
+      }
+
+      await inventoryService.fetchAllInventories();
+
+      if (context.mounted) {
         MessageService.showSuccess("Inventário #${inventory.inventCode} finalizado com sucesso!");
       }
+    } finally {
+      loadingService.hide();
     }
   }
 
+  /*
   void _showConfirmSyncDialog(BuildContext context) async {
     final confirmed = await showConfirmDialog(
       context: context,
@@ -332,6 +392,41 @@ class _InventoryCard extends StatelessWidget {
       loadingService.hide();
     }
   }
+  */
+
+  void _showConfirmSyncDialog(BuildContext context) async {
+    final confirmed = await showConfirmDialog(
+      context: context,
+      message: "Deseja sincronizar o inventário #${inventory.inventCode} com a nuvem?",
+    );
+
+    if (!confirmed) return;
+    if (!context.mounted) return;
+
+    final inventoryService = context.read<InventoryService>();
+    final loadingService = context.read<LoadingService>();
+
+    loadingService.show();
+
+    try {
+      final result = await inventoryService.startSyncInventory(inventory.inventCode);
+
+      if (!context.mounted) return;
+
+      if (result.status == 1) {
+        MessageService.showSuccess("Inventário #${inventory.inventCode} sincronizado!");
+      } else {
+        MessageService.showError(result.message);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        MessageService.showError("Falha na sincronização: $e");
+      }
+    } finally {
+      loadingService.hide();
+    }
+  }
+
 }
 
 // ---------------------------------------------------------------------------------------------------

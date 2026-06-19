@@ -421,21 +421,25 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
               ),
 
             if (currentPageIndex == 1)
-              BottomItem(
-                icon: Icons.check,
-                label: "Confirmar",
-                backgroundColor: currentStatus == InventoryStatus.Finalizado ? Colors.grey : Colors.green,
-                iconColor: Colors.white,
-                textColor: Colors.white,
-        
-                onTap: currentStatus == InventoryStatus.Finalizado ? null : () async {
-                  // Acessa o estado da página filha via GlobalKey
-                  final childState = InventoryItemPage.inventoryKey.currentState;
-
-                  if (childState != null) {
-                    bool proceed = await childState.handleConfirmAction();
-                    if (!proceed) return;
-                  }
+              ValueListenableBuilder<bool>(
+                valueListenable: InventoryItemPage.inventoryKey.currentState?.canConfirm
+                    ?? ValueNotifier(false),
+                builder: (context, canConfirm, _) {
+                  final isDisabled = currentStatus == InventoryStatus.Finalizado || canConfirm;
+                  return BottomItem(
+                    icon: Icons.check,
+                    label: "Confirmar",
+                    backgroundColor: isDisabled ? Colors.grey : Colors.green,
+                    iconColor: Colors.white,
+                    textColor: Colors.white,
+                    onTap: isDisabled ? null : () async {
+                      final childState = InventoryItemPage.inventoryKey.currentState;
+                      if (childState != null) {
+                        bool proceed = await childState.handleConfirmAction();
+                        if (!proceed) return;
+                      }
+                    },
+                  );
                 },
               ),
               if (currentPageIndex == 3)

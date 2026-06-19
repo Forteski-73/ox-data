@@ -15,18 +15,23 @@ class DownloadInventoryDialog extends StatefulWidget {
 
 class _DownloadInventoryDialogState extends State<DownloadInventoryDialog> {
   final Map<String, String> columns = const {
-    "inventUnitizer": "Unitizador",
-    "inventLocation": "Localização",
-    "inventBarcode": "Cód. Barras",
-    "inventProduct": "Cód. Produto",
-    "productDescription": "Nome do Produto",
-    "inventStandardStack": "Qtd. por Pilhas",
-    "inventQtdStack": "Qtd. Pilhas",
-    "inventQtdIndividual": "Qtd. Avulsa",
-    "inventTotal": "Total de Itens",
+    "inventUnitizer":       "Unitizador",
+    "inventLocation":       "Localização",
+    "inventBarcode":        "Cód. Barras",
+    "inventProduct":        "Cód. Produto",
+    "productDescription":   "Nome do Produto",
+    "inventStandardStack":  "Qtd. por Pilhas",
+    "inventQtdStack":       "Qtd. Pilhas",
+    "inventQtdIndividual":  "Qtd. Avulsa",
+    "inventTotal":          "Total de Itens",
   };
 
-  final Set<String> selectedColumns = {};
+  final Set<String> selectedColumns = {
+    "inventUnitizer",
+    "inventLocation",
+    "inventBarcode",
+    "inventTotal"
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +101,14 @@ class _DownloadInventoryDialogState extends State<DownloadInventoryDialog> {
           icon: const Icon(Icons.download_rounded),
           label: const Text("Baixar"),
           onPressed: () {
-            Navigator.pop(context, selectedColumns.toList());
+            // paramanter a ordem de clic do usuário
+            // Navigator.pop(context, selectedColumns.toList());
+
+            final orderedSelection = columns.keys
+                .where((key) => selectedColumns.contains(key))
+                .toList();
+
+            Navigator.pop(context, orderedSelection);
           },
         ),
       ],

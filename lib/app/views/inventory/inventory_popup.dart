@@ -78,7 +78,7 @@ class _NewInventoryPopupState extends State<NewInventoryPopup> {
         inventTotal: 0,
       );
 
-      await inventoryService.createOrUpdateInventory(inventory);
+      await inventoryService.createOrUpdateInventoryCurr(inventory);
       MessageService.showSuccess("Inventário ${inventory.inventName} criado com sucesso!");
       
       if (mounted) Navigator.pop(context);

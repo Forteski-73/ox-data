@@ -88,10 +88,21 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
 
         final line = selectedColumns.map((col) {
           final value = jsonMap[col];
-          return (value == null) ? "" : value.toString();
+          if (value == null) return "";
+          
+          String strValue = value.toString();
+          
+          // Remove o zero à esquerda apenas na penúltima coluna
+          final colIndex = selectedColumns.indexOf(col);
+          if (colIndex == selectedColumns.length - 2) {
+            strValue = strValue.replaceFirst(RegExp(r'^0+'), '');
+          }
+          
+          return strValue;
         }).join(";");
 
-        buffer.writeln(line);
+        buffer.write(line);
+        buffer.write('\r\n');
       }
 
       final txtContent = buffer.toString();
@@ -109,6 +120,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
     }
   }
 
+  /*
   Future<void> _confirmDelete(InventoryModel inventory) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -128,6 +140,44 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
 
     if (confirmed == true) {
       MessageService.showSuccess("Inventário excluído com sucesso.");
+    }
+  }
+  */
+
+  Future<void> _confirmDelete(InventoryModel inventory) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirmar Exclusão"),
+        content: Text("Deseja realmente excluir o inventário '${inventory.inventName}'? Esta ação não pode ser desfeita."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancelar")),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Excluir"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final inventoryService = context.read<InventoryService>();
+
+        await inventoryService.deleteAllRecordsByInventCode(inventory.inventCode);
+        await inventoryService.refreshSelectedInventoryState(inventory.inventCode);
+
+        if (mounted) {
+          await _fetchInventories(); // Atualiza a lista da página
+          MessageService.showSuccess("Inventário '${inventory.inventName}' excluído com sucesso!");
+        }
+      } catch (e) {
+        debugPrint("Erro ao excluir inventário: $e");
+        if (mounted) {
+          MessageService.showError("Erro ao excluir o inventário.");
+        }
+      }
     }
   }
 
@@ -158,7 +208,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: const AppBarCustom(title: 'Adm. do Inventário'),
+      appBar: const AppBarCustom(title: 'Apuração do Inventário'),
       body: Column(
         children: [
           _buildSearchField(isDesktop),
@@ -290,6 +340,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                     _selectedDateRange = null;
                   }),
                 ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Colors.indigo),
+                tooltip: 'Atualizar Lista',
+                onPressed: _isLoading ? null : () => _fetchInventories(),
+              ),
             ],
           ),
         ),
@@ -302,7 +357,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
 
     final cards = [
       _buildKPIItem("Total Contagens", files.toDouble(), Icons.folder_open_rounded, Colors.indigo,),
-      _buildKPIItem("Total Itens", items.toDouble(), Icons.playlist_add_check_rounded, Colors.teal,),
+      _buildKPIItem("Total Itens", items.toDouble(), Icons.playlist_add_check_rounded, Colors.teal, 2,),
     ];
 
     return Container(
@@ -333,29 +388,48 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
     );
   }
 
-  Widget _buildKPIItem(String title, double? value, IconData icon, Color color) {
+  Widget _buildKPIItem(String title, double? value, IconData icon, Color color, [int decimalDigits = 0,]) {
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF1F5F9))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 26)),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 26),
+          ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(title, style: TextStyle(fontSize: 14, color: Colors.grey.shade700, fontWeight: FontWeight.w500)),
               Text(
-                NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2)
-                    .format(value ?? 0.0),
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                NumberFormat.decimalPatternDigits(
+                  locale: 'pt_BR',
+                  decimalDigits: decimalDigits,
+                ).format(value ?? 0.0),
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 18, 
-                  fontWeight: FontWeight.bold, 
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                   color: Color(0xFF0F172A),
                 ),
-              ),                       
+              ),
             ],
           )
         ],
@@ -392,7 +466,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                   ),
                 ),
                 Expanded(
-                  flex: 4,
+                  flex: 3,
                   child: Text(
                     "Nome",
                     style: TextStyle(
@@ -412,7 +486,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                   ),
                 ),
                 Expanded(
-                  flex: 1,
+                  flex: 2,
                   child: Text(
                     "Quantidade",
                     style: TextStyle(
@@ -476,7 +550,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                         ),
                       ),
                       Expanded(
-                        flex: 4,
+                        flex: 3,
                         child: Text(
                           item.inventName ?? '',
                           overflow: TextOverflow.ellipsis,
@@ -490,7 +564,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                         ),
                       ),
                       Expanded(
-                        flex: 1,
+                        flex: 2,
                         child: Text(
                           NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.inventTotal ?? 0.0),
                           overflow: TextOverflow.ellipsis,
@@ -572,222 +646,158 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
     );
   }
 
-
-  /*
-  Widget _buildWebGridTable(List<InventoryModel> list) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 24),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: const Row(
-              children: [
-                Expanded(flex: 4, child: Text("Código", style: TextStyle(fontWeight: FontWeight.w600))),
-                Expanded(flex: 3, child: Text("Nome", style: TextStyle(fontWeight: FontWeight.w600))),
-                Expanded(flex: 1, child: Text("Setor", style: TextStyle(fontWeight: FontWeight.w600))),
-                Expanded(flex: 2, child: Text("Status", style: TextStyle(fontWeight: FontWeight.w600))),
-                SizedBox(width: 200, child: Text("Ações", textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600))),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.separated(
-              itemCount: list.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final item = list[index];
-                final isFinalizado = item.inventStatus.toString().toLowerCase().contains('finalizado');
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  child: Row(
-                    children: [
-                      Expanded(flex: 4, child: Text(item.inventCode ?? '')),
-                      Expanded(flex: 3, child: Text(item.inventName ?? '')),
-                      Expanded(flex: 1, child: Text(item.inventSector ?? '')),
-                      Expanded(flex: 2, child: Text(isFinalizado ? "CONCLUÍDO" : "EM ANDAMENTO")),
-                      SizedBox(
-                        width: 200,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(icon: const Icon(Icons.file_download_rounded, size: 20), onPressed: isFinalizado ? () => _downloadInventoryTxt(item) : null),
-                            IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20), onPressed: () => _confirmDelete(item)),
-                            IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: Colors.indigo, size: 20), onPressed: () => _selectInventoryRow(item)),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  */
-
   Widget _buildMobileCardsList(List<InventoryModel> list) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final item = list[index];
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final item = list[index];
 
-        final isFinalizado =
-            item.inventStatus.toString().toLowerCase().contains('finalizado');
+          final isFinalizado =
+              item.inventStatus.toString().toLowerCase().contains('finalizado');
 
-        final statusColor =
-            isFinalizado ? Colors.green : Colors.orange;
+          final statusColor = isFinalizado ? Colors.green : Colors.orange;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _selectInventoryRow(item),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(12),
-                          bottomLeft: Radius.circular(12),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.inventCode ?? '',
-                                    style: const TextStyle(
-                                      color: Colors.indigo,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    isFinalizado
-                                        ? 'CONCLUÍDO'
-                                        : 'EM ANDAMENTO',
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            Text(
-                              item.inventName ?? '',
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2D3142),
-                              ),
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.factory_rounded,
-                                  size: 16,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    item.inventSector ?? 'Geral',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.file_download_rounded,
-                                    size: 20,
-                                  ),
-                                  onPressed: isFinalizado
-                                      ? () => _downloadInventoryTxt(item)
-                                      : null,
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _confirmDelete(item),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.arrow_forward_rounded,
-                                    color: Colors.indigo,
-                                    size: 20,
-                                  ),
-                                  onPressed: () => _selectInventoryRow(item),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10), 
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _selectInventoryRow(item),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            bottomLeft: Radius.circular(12),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          // Padding interno mais compacto (10 horizontal, 8 vertical)
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.inventCode ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.indigo,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2, // Tag de status mais fininha
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      isFinalizado ? 'CONCLUÍDO' : 'EM ANDAMENTO',
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 4), // Reduzido de 6 para 4
+
+                              Text(
+                                item.inventName ?? '',
+                                style: const TextStyle(
+                                  fontSize: 15, // Reduzido de 17 para 15
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2D3142),
+                                ),
+                              ),
+
+                              // Linha combinada: Setor na esquerda e Botões na direita
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.factory_rounded,
+                                    size: 16, // Reduzido de 16
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      item.inventSector ?? 'Geral',
+                                      style: const TextStyle(fontSize: 12),
+                                      maxLines: 1, // Previne quebra de linha indesejada
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // Usando constraints para remover o padding gigante do IconButton
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 32, minHeight: 32),
+                                    icon: const Icon(Icons.file_download_rounded, size: 22),
+                                    onPressed: isFinalizado
+                                        ? () => _downloadInventoryTxt(item)
+                                        : null,
+                                  ),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 32, minHeight: 32),
+                                    icon: const Icon(Icons.delete_outline_rounded,
+                                        color: Colors.red, size: 22),
+                                    onPressed: () => _confirmDelete(item),
+                                  ),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 32, minHeight: 32),
+                                    icon: const Icon(Icons.arrow_forward_rounded,
+                                        color: Colors.indigo, size: 22),
+                                    onPressed: () => _selectInventoryRow(item),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    }
 
   void _selectInventoryRow(InventoryModel inventory) {
     context.read<InventoryService>().setSelectedInventory(inventory);

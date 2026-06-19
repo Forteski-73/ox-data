@@ -22,11 +22,20 @@ class _CountItemCard extends StatelessWidget {
 
   const _CountItemCard({required this.recordItem, required this.inventory,});
 
+  /*
   String _formatTime() {
     if (recordItem.inventCreated != null) {
       return DateFormat('HH:mm').format(recordItem.inventCreated!.toLocal());
     }
     return '--:--';
+  }
+  */
+
+  String _formatTime() {
+    if (recordItem.inventCreated != null) {
+      return DateFormat('dd/MM/yyyy HH:mm').format(recordItem.inventCreated!.toLocal());
+    }
+    return '';
   }
 
   @override
@@ -85,7 +94,7 @@ class _CountItemCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 1),
                       
                       // Código e Badge de Hora
                       Row(
@@ -94,7 +103,21 @@ class _CountItemCard extends StatelessWidget {
                           Text(
                             '${recordItem.inventProduct}  •  ${recordItem.inventBarcode?.replaceFirst(RegExp(r'^0+'), '') ?? ""}',
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${recordItem.inventUnitizer}  •  ${recordItem.inventLocation}',
+                            style: const TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Colors.indigo,
                             ),
@@ -165,7 +188,7 @@ class _CountItemCard extends StatelessWidget {
         
                       },
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     _ColorChangingButton(
                       size: 45,
                       icon: Icons.delete_forever_rounded,
@@ -189,7 +212,7 @@ class _CountItemCard extends StatelessWidget {
   // Widget auxiliar para a hora (seguindo o padrão visual do _buildStatusBadge)
   Widget _buildTimeBadge(String time) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.08),
         borderRadius: BorderRadius.circular(6),
@@ -198,10 +221,10 @@ class _CountItemCard extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.access_time, size: 12, color: Colors.grey),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           Text(
             time,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
           ),
         ],
       ),
@@ -297,15 +320,19 @@ class _InventoryPageState extends State<InventoryPage> {
       if (confirmed) {
         final inventoryService = context.read<InventoryService>();
         
-        // Criamos uma nova instância com o status atualizado
-        // Se o seu model não tiver copyWith, você pode instanciar um novo InventoryModel
-        // passando os campos do 'inventory' atual.
+        // nova instância com o status atualizado
         final updatedInventory = _currentInventory?.copyWith(inventStatus: InventoryStatus.Finalizado);
 
-        if (updatedInventory != null)
-        {
-          // Chama o serviço para persistir no Banco de Dados
-          await inventoryService.createOrUpdateInventory(updatedInventory);
+        if (updatedInventory != null) {
+
+          final result = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
+
+          if (result.status == 0) {
+            if (context.mounted) {
+              MessageService.showError(result.message);
+            }
+            return false;
+          }
         }
         
         if (context.mounted) {
@@ -338,7 +365,7 @@ class _InventoryPageState extends State<InventoryPage> {
         await inventoryService.deleteAllRecordsByInventCode(_currentInventory!.inventCode);
 
         // Atualizar o cabeçalho se o seu serviço não fizer o refresh automático
-        // await inventoryService.refreshSelectedInventoryState(_currentInventory!.inventCode);
+        await inventoryService.refreshSelectedInventoryState(_currentInventory!.inventCode);
         
         if (context.mounted) {
           MessageService.showSuccess("Todos os registros do inventário #${_currentInventory?.inventCode} foram excluídos!");

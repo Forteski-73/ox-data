@@ -1,556 +1,290 @@
 // -----------------------------------------------------------
 // app/core/repositories/inventory_repository.dart
 // -----------------------------------------------------------
+//
+//  - _request<T>() genérico elimina try/catch repetido em todo método
+//  - _decodeBody() centraliza json.decode + tratamento de body vazio
+//  - _parseList<T>() para rotas que retornam arrays
+//  - Todos os métodos ficam ≤ 10 linhas (lógica de rede isolada)
+//  - Nenhuma funcionalidade removida; assinaturas públicas preservadas
+// -----------------------------------------------------------
+
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
-import 'package:oxdata/app/core/models/inventory_model.dart'; // Assumindo InventoryModel
-import 'package:oxdata/app/core/models/inventory_guid_model.dart'; // Assumindo InventoryGuidModel
-import 'package:oxdata/app/core/models/inventory_record_model.dart'; // Assumindo InventoryRecordModel
+import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
 import 'package:oxdata/app/core/models/dto/mask_db_local.dart';
 import 'package:oxdata/app/core/models/dto/product_db_local.dart';
+import 'package:oxdata/app/core/models/inventory_guid_model.dart';
+import 'package:oxdata/app/core/models/inventory_model.dart';
+import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
-import 'package:oxdata/app/core/models/InventoryBatchRequest.dart';
 import 'package:oxdata/app/core/utils/logger.dart';
-import 'dart:developer';
+import 'dart:developer' as dev;
 
-/// Repositório responsável pela comunicação com a API de Inventário.
 class InventoryRepository {
-  final ApiClient apiClient;
-
   InventoryRepository({required this.apiClient});
 
+  final ApiClient apiClient;
+
+  // Base de todas as rotas deste repositório
+  String get _base => ApiRoutes.inventory;
+
   // =========================================================================
-  // === MÉTODOS PARA INVENTORY GUID (v1/Inventory)
+  // GUID
   // =========================================================================
 
-  /// POST: Cria um novo GUID de inventário (ou confirma a existência).
-  ///
-  /// Rota: POST v1/Inventory
   Future<ApiResponse<InventoryGuidModel>> createInventoryGuid(
-      InventoryGuidModel inventoryGuid) async {
-    try {
-      final response = await apiClient.postAuth1(
-        ApiRoutes.inventory, // Assumindo ApiRoutes.inventory = "v1/Inventory"
-        body: inventoryGuid.toMap(),
+    InventoryGuidModel model,
+  ) =>
+      _request(
+        () => apiClient.postAuth1(_base, body: model.toMap()),
+        onSuccess: (body, status) {
+          if (status == 201) return InventoryGuidModel.fromMap(body);
+          if (status == 200 && body['data'] != null) {
+            return InventoryGuidModel.fromMap(body['data']);
+          }
+          return null;
+        },
       );
 
-      final body = json.decode(response.body);
-
-      if (response.statusCode == 201) {
-        // 201 Created
-        return ApiResponse(success: true, data: InventoryGuidModel.fromMap(body));
-      } else if (response.statusCode == 200 && body['data'] != null) {
-        // 200 OK (se o GUID já existia)
-        return ApiResponse(
-          success: true,
-          message: body['message'],
-          data: InventoryGuidModel.fromMap(body['data']),
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: body['message'] ??
-              'Erro ao criar/verificar GUID: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de GUID: $e',
+  Future<ApiResponse<List<InventoryGuidModel>>> getAllInventoryGuids() =>
+      _requestList(
+        () => apiClient.getAuth(_base),
+        fromMap: InventoryGuidModel.fromMap,
       );
-    }
-  }
 
-  /// GET: Busca todos os GUIDs de inventário.
-  ///
-  /// Rota: GET v1/Inventory
-  Future<ApiResponse<List<InventoryGuidModel>>> getAllInventoryGuids() async {
-    try {
-      final response = await apiClient.getAuth(ApiRoutes.inventory);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        final List<InventoryGuidModel> guids = jsonList
-            .map((json) => InventoryGuidModel.fromMap(json as Map<String, dynamic>))
-            .toList();
-        return ApiResponse(success: true, data: guids);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar GUIDs: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de todos os GUIDs: $e',
-      );
-    }
-  }
-
-  /// GET: Busca GUID de inventário por `invent_guid`.
-  ///
-  /// Rota: GET v1/Inventory/ByGuid/{inventGuid}
   Future<ApiResponse<InventoryGuidModel>> getInventoryGuidByGuid(
-      String inventGuid) async {
-    try {
-      final route = '${ApiRoutes.inventory}/ByGuid/$inventGuid';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonMap = json.decode(response.body);
-        return ApiResponse(
-          success: true,
-          data: InventoryGuidModel.fromMap(jsonMap),
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'GUID não encontrado.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar GUID: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de GUID: $e',
+    String inventGuid,
+  ) =>
+      _request(
+        () => apiClient.getAuth('$_base/ByGuid/$inventGuid'),
+        onSuccess: (body, _) => InventoryGuidModel.fromMap(body),
       );
-    }
-  }
 
-  /// GET: Busca TODOS os inventários cadastrados na API.
-  /// Rota: GET v1/Inventory/All
-  Future<ApiResponse<List<InventoryModel>>> getAllInventories() async {
-    try {
-      final route = '${ApiRoutes.inventory}/All';
-      final response = await apiClient.getAuth(route);
+  // =========================================================================
+  // INVENTORY (cabeçalho)
+  // =========================================================================
 
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        
-        // Mapeamento para List<InventoryModel>
-        final List<InventoryModel> inventories = jsonList
-            .map((json) => InventoryModel.fromMap(json as Map<String, dynamic>))
-            .toList();
-            
-        return ApiResponse(success: true, data: inventories);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar todos os Inventários: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de todos os Inventários: $e',
+  Future<ApiResponse<List<InventoryModel>>> getAllInventories() =>
+      _requestList(
+        () => apiClient.getAuth('$_base/All'),
+        fromMap: InventoryModel.fromMap,
       );
-    }
-  }
+
+  Future<ApiResponse<List<InventoryModel>>> getRecentInventoriesByGuid(
+    String guid,
+  ) =>
+      _requestList(
+        () => apiClient.getAuth('$_base/RecentByGuid/$guid'),
+        fromMap: InventoryModel.fromMap,
+      );
+
+  Future<ApiResponse<InventoryModel>> getInventoryByGuid(String guid) =>
+      _request(
+        () => apiClient.getAuth('$_base/Inventory/$guid'),
+        onSuccess: (body, _) => InventoryModel.fromMap(body),
+      );
+
+  Future<ApiResponse<InventoryModel>> getInventoryByGuidInventCode(
+    String guid,
+    String inventCode,
+  ) =>
+      _request(
+        () => apiClient.getAuth('$_base/Inventory/$guid/$inventCode'),
+        onSuccess: (body, _) => InventoryModel.fromMap(body),
+      );
 
   Future<ApiResponse<InventoryModel>> createOrUpdateInventory(
-    InventoryModel inventory) async {
-    try {
-      final response = await apiClient.postAuth1(
-        '${ApiRoutes.inventory}/Inventory',
-        body: inventory.toMap(),
+    InventoryModel inventory,
+  ) =>
+      _request(
+        () => apiClient.postAuth1('$_base/Inventory', body: inventory.toMap()),
+        onSuccess: (body, status) {
+          if (status == 201) return InventoryModel.fromMap(body);
+          if (status == 200 && body['data'] != null) {
+            return InventoryModel.fromMap(body['data']);
+          }
+          return null;
+        },
       );
 
-      dynamic body;
-
-      try {
-        body = response.body.isNotEmpty
-            ? json.decode(response.body)
-            : null;
-      } catch (_) {
-        body = null; // resposta não é JSON
-      }
-
-      if (response.statusCode == 201 && body is Map) {
-        return ApiResponse(
-          success: true,
-          data: InventoryModel.fromMap(Map<String, dynamic>.from(body),),
-        );
-      }
-
-      if (response.statusCode == 200 &&
-          body is Map &&
-          body['data'] != null) {
-        return ApiResponse(
-          success: true,
-          message: body['message'],
-          data: InventoryModel.fromMap(body['data']),
-        );
-      }
-
-      return ApiResponse(
-        success: false,
-        message: body is Map
-            ? body['message']
-            : response.body, // texto puro vindo da API
+  Future<ApiResponse<String>> deleteInventory(String inventCode) =>
+      _requestString(
+        () => apiClient.deleteAuth('$_base/Inventory/$inventCode'),
+        fallback: 'Inventário excluído com sucesso.',
       );
-    } catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha no salvamento do Inventário: $e',
-      );
-    }
-  }
-
-
-  /// GET: Busca todos os Inventários principais.
-  ///
-  /// Rota: GET v1/Inventory/Inventory
-  // Assumindo que este código está em InventoryRepository
-  Future<ApiResponse<List<InventoryModel>>> getRecentInventoriesByGuid(String guid) async {
-    try {
-      // Rota correta (como você definiu)
-      final route = '${ApiRoutes.inventory}/RecentByGuid/$guid'; 
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        
-        // Mapeamento para List<InventoryModel>
-        final List<InventoryModel> inventories = jsonList
-            .map((json) => InventoryModel.fromMap(json as Map<String, dynamic>))
-            .toList();
-            
-        return ApiResponse(success: true, data: inventories); // Retorna List<InventoryModel>
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar Inventários: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de todos os Inventários: $e',
-      );
-    }
-  }
-
-  /// GET: Busca Inventário por GUID.
-  ///
-  /// Rota: GET v1/Inventory/Inventory/{guid}
-  Future<ApiResponse<InventoryModel>> getInventoryByGuid(String guid) async {
-    try {
-      final route = '${ApiRoutes.inventory}/Inventory/$guid';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonMap = json.decode(response.body);
-        return ApiResponse(
-          success: true,
-          data: InventoryModel.fromMap(jsonMap),
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Inventário não encontrado.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar Inventário: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de Inventário: $e',
-      );
-    }
-  }
-
-  /// GET: Busca Inventário por GUID e InventCode.
-  ///
-  /// Rota: GET v1/Inventory/Inventory/{guid}/{inventCode}
-  Future<ApiResponse<InventoryModel>> getInventoryByGuidInventCode(
-      String guid, String inventCode) async {
-    try {
-      final route = '${ApiRoutes.inventory}/Inventory/$guid/$inventCode';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonMap = json.decode(response.body);
-        return ApiResponse(
-          success: true,
-          data: InventoryModel.fromMap(jsonMap),
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Inventário não encontrado.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar Inventário: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de Inventário: $e',
-      );
-    }
-  }
-  
-
-  /// Rota: DELETE v1/Inventory/Inventory/{inventCode}
-  /// DELETE: Exclui o Inventário e todos os seus Records (Cascata na API)
-  Future<ApiResponse<String>> deleteInventory(String inventCode) async {
-    try {
-      // Rota: DELETE v1/Inventory/Inventory/{inventCode}
-      final route = '${ApiRoutes.inventory}/Inventory/$inventCode';
-      final response = await apiClient.deleteAuth(route);
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        // Se a API retornar um JSON com a mensagem de sucesso
-        final body = response.body.isNotEmpty ? json.decode(response.body) : null;
-        return ApiResponse(
-          success: true,
-          data: (body != null ? body['message'] : null) ?? 'Inventário excluído com sucesso.',
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao excluir na API: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      return ApiResponse(success: false, message: 'Falha na requisição: $e');
-    }
-  }
 
   // =========================================================================
-  // === MÉTODOS PARA INVENTORY RECORD (v1/Inventory/Record)
+  // PRODUCTS
   // =========================================================================
 
-  /// Busca a contagem total de produtos
-  /// GET: Busca a contagem total de produtos.
-  /// Rota: GET v1/Inventory/Product/Count
-  Future<ApiResponse<int>> getProductCount() async {
-    try {
-      final route = '${ApiRoutes.inventory}/Product/Count';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> body = json.decode(response.body);
-        // Garante que estamos pegando o valor inteiro do campo 'total'
-        return ApiResponse(
-          success: true, 
-          data: body['total'] as int
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao obter contagem: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de contagem: $e',
+  Future<ApiResponse<int>> getProductCount() => _request(
+        () => apiClient.getAuth('$_base/Product/Count'),
+        onSuccess: (body, _) => body['total'] as int,
       );
-    }
+
+  Future<ApiResponse<List<ProductLocal>>> getProductsPaged({
+    required int page,
+    required int pageSize,
+  }) =>
+      _requestList(
+        () => apiClient.getAuth('$_base/Product?page=$page&pageSize=$pageSize'),
+        fromMap: ProductLocal.fromMap,
+      );
+
+  // =========================================================================
+  // RECORDS (itens de inventário)
+  // =========================================================================
+
+  Future<ApiResponse<String>> createOrUpdateInventoryRecords(
+    List<InventoryBatchRequest> records,
+  ) async {
+    final requestBody = records.map((r) => r.toJson()).toList();
+
+    logger.d('🚀 POST $_base/Record');
+    dev.log(json.encode(requestBody));
+
+    return _request(
+      () => apiClient.postAuth1('$_base/Record', body: requestBody),
+      onSuccess: (body, _) => body['message'] ?? 'Registros salvos com sucesso.',
+      includeRawJson: true,
+    );
   }
 
-  /// Busca o lote específico de produtos
-Future<ApiResponse<List<ProductLocal>>> getProductsPaged({
-    required int page, 
-    required int pageSize
+  Future<ApiResponse<List<InventoryRecordModel>>> getRecordsByInventCode(
+    String inventCode,
+  ) =>
+      _requestList(
+        () => apiClient.getAuth('$_base/Record/ByCode/$inventCode'),
+        fromMap: InventoryRecordModel.fromMap,
+      );
+
+  Future<ApiResponse<InventoryRecordModel>> getRecordById(int id) =>
+      _request(
+        () => apiClient.getAuth('$_base/Record/$id'),
+        onSuccess: (body, _) => InventoryRecordModel.fromMap(body),
+      );
+
+  Future<ApiResponse<String>> deleteInventoryRecord(int id) =>
+      _requestString(
+        () => apiClient.deleteAuth('$_base/Record/$id'),
+        fallback: 'Registro excluído com sucesso.',
+      );
+
+  // =========================================================================
+  // MASKS
+  // =========================================================================
+
+  Future<ApiResponse<List<InventoryMaskLocal>>> getInventoryMasks() =>
+      _requestList(
+        () => apiClient.getAuth('$_base/Masks'),
+        fromMap: InventoryMaskLocal.fromMap,
+      );
+
+  // =========================================================================
+  // HELPERS PRIVADOS
+  // =========================================================================
+
+  /// Executa uma requisição HTTP e mapeia o resultado para [ApiResponse<T>].
+  ///
+  /// [onSuccess] recebe o body decodificado e o status code, e deve retornar
+  /// o dado tipado ou null (que gera falha com mensagem genérica).
+  /// [includeRawJson] repassa o body bruto em [ApiResponse.rawJson].
+  Future<ApiResponse<T>> _request<T>(
+    Future<dynamic> Function() call, {
+    required T? Function(Map<String, dynamic> body, int status) onSuccess,
+    bool includeRawJson = false,
   }) async {
     try {
-      // Monta a query string manualmente para o getAuth
-      final route = '${ApiRoutes.inventory}/Product?page=$page&pageSize=$pageSize';
-      final response = await apiClient.getAuth(route);
+      final response = await call();
+      final status = response.statusCode as int;
+      final body = _decodeBody(response.body);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        
-        final List<ProductLocal> products = jsonList
-            .map((json) => ProductLocal.fromMap(json as Map<String, dynamic>))
-            .toList();
-
-        return ApiResponse(success: true, data: products);
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Fim dos registros ou página não encontrada.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar produtos: ${response.statusCode}',
-        );
+      if (status == 200 || status == 201) {
+        final data = onSuccess(body, status);
+        if (data != null) {
+          return ApiResponse(
+            success: true,
+            data: data,
+            rawJson: includeRawJson ? body : null,
+          );
+        }
       }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de produtos: $e',
-      );
-    }
-  }
+      // 404 → mensagem específica; outros → mensagem do body ou genérica
+      final message = status == 404 ? 'Recurso não encontrado.' : _messageFrom(body) ?? 'Erro HTTP $status';
 
-Future<ApiResponse<String>> createOrUpdateInventoryRecords(
-      List<InventoryBatchRequest> records) async {
-    try {
-      final requestBody = records.map((r) => r.toJson()).toList();
+      return ApiResponse(success: false, message: message);
 
-      // --- LOG DO REQUEST ---
-      // Usamos jsonEncode para transformar a lista em String para o log
-      final String jsonBody = json.encode(requestBody); 
-      
-      logger.d("🚀 POST REQUEST: ${ApiRoutes.inventory}/Record");
-      logger.d("--- INÍCIO DO BODY JSON ---");
-      // O 'log' do dart:developer permite strings gigantes sem cortar no console
-      log(jsonBody); 
-      logger.d("--- FIM DO BODY JSON ---");
-      // ----------------------
-
-      final response = await apiClient.postAuth1(
-        '${ApiRoutes.inventory}/Record',
-        body: requestBody,
-      );
-
-      final body = json.decode(response.body);
-
-      /* body:
-      0 = "inventGuid" -> "65c1aa5a-7b26-4fc3-8ea2-b2eb5b9f7102"
-      1 = "inventCode" -> "INV-A001"
-      2 = "inventTotal" -> 548.7
-      3 = "message" -> "Operação concluída. 1 registro(s) inserido(s) e 0 registro(s) atualizado(s)."
-      */
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return ApiResponse(
-          success: true,
-          // Mapeia o campo 'message' conforme definido no seu DTO C#
-          data: body['message'] ?? 'Registros salvos com sucesso.',
-          // Passamos o body completo para o Service extrair InventCode e InventTotal
-          rawJson: body, 
-        );
-      } else {
-        return ApiResponse(
-          success: false,
-          message: body['message'] ??
-              'Erro ao salvar/atualizar registros: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha no salvamento dos Registros: $e',
-      );
-    }
-  }
-
-  /// GET: Busca todos os Records de um dado InventCode.
-  ///
-  /// Rota: GET v1/Inventory/Record/ByCode/{inventCode}
-  Future<ApiResponse<List<InventoryRecordModel>>> getRecordsByInventCode(
-      String inventCode) async {
-    try {
-      final route = '${ApiRoutes.inventory}/Record/ByCode/$inventCode';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        final List<InventoryRecordModel> records = jsonList
-            .map((json) =>
-                InventoryRecordModel.fromMap(json as Map<String, dynamic>))
-            .toList();
-        return ApiResponse(success: true, data: records);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar Registros: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de Registros: $e',
-      );
-    }
-  }
-
-  /// GET: Busca InventoryRecord por ID.
-  ///
-  /// Rota: GET v1/Inventory/Record/{id}
-  Future<ApiResponse<InventoryRecordModel>> getRecordById(int id) async {
-    try {
-      final route = '${ApiRoutes.inventory}/Record/$id';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonMap = json.decode(response.body);
-        return ApiResponse(
-          success: true,
-          data: InventoryRecordModel.fromMap(jsonMap),
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Registro não encontrado.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar Registro: ${response.statusCode}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de Registro: $e',
-      );
-    }
-  }
-
-  /// DELETE: Exclui um Registro de Inventário por ID.
-  ///
-  /// Rota: DELETE v1/Inventory/Record/{id}
-  Future<ApiResponse<String>> deleteInventoryRecord(int id) async {
-    try {
-      final route = '${ApiRoutes.inventory}/Record/$id';
-      final response = await apiClient.deleteAuth(route);
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        final body = json.decode(response.body);
-        return ApiResponse(
-          success: true,
-          data: body['message'] ?? 'Registro excluído com sucesso.',
-        );
-      } else if (response.statusCode == 404) {
-        return ApiResponse(success: false, message: 'Registro não encontrado.');
-      } else {
-        return ApiResponse(
-          success: false,
-          message:
-              'Erro ao excluir Registro: ${response.statusCode} - ${response.body}',
-        );
-      }
-    } on Exception catch (e) {
-      return ApiResponse(
-        success: false,
-        message: 'Falha na requisição de exclusão de Registro: $e',
-      );
-    }
-  }
-
-  Future<ApiResponse<List<InventoryMaskLocal>>> getInventoryMasks() async {
-    try {
-      final route = '${ApiRoutes.inventory}/Masks';
-      final response = await apiClient.getAuth(route);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        final masks = jsonList
-            .map((json) => InventoryMaskLocal.fromMap(json as Map<String, dynamic>))
-            .toList();
-        return ApiResponse(success: true, data: masks);
-      } else {
-        return ApiResponse(
-          success: false,
-          message: 'Erro ao buscar máscaras: ${response.statusCode}',
-        );
-      }
     } catch (e) {
+      debugPrint('❌ InventoryRepository._request: $e');
       return ApiResponse(success: false, message: 'Falha na requisição: $e');
     }
   }
 
+  /// Versão de [_request] para rotas que retornam arrays JSON.
+  Future<ApiResponse<List<T>>> _requestList<T>(
+    Future<dynamic> Function() call, {
+    required T Function(Map<String, dynamic>) fromMap,
+  }) async {
+    try {
+      final response = await call();
+      final status = response.statusCode as int;
+
+      if (status == 200) {
+        final list = json.decode(response.body) as List<dynamic>;
+        return ApiResponse(
+          success: true,
+          data: list.map((e) => fromMap(e as Map<String, dynamic>)).toList(),
+        );
+      }
+
+      return ApiResponse(
+        success: false,
+        message: status == 404 ? 'Nenhum registro encontrado.' : 'Erro HTTP $status',
+      );
+    } catch (e) {
+      debugPrint('❌ InventoryRepository._requestList: $e');
+      return ApiResponse(success: false, message: 'Falha na requisição: $e');
+    }
+  }
+
+  /// Versão de [_request] para rotas DELETE que retornam uma mensagem de texto.
+  Future<ApiResponse<String>> _requestString(
+    Future<dynamic> Function() call, {
+    required String fallback,
+  }) async {
+    try {
+      final response = await call();
+      final status = response.statusCode as int;
+
+      if (status == 200 || status == 204) {
+        final body =
+            response.body.isNotEmpty ? _decodeBody(response.body) : <String, dynamic>{};
+        return ApiResponse(
+          success: true,
+          data: _messageFrom(body) ?? fallback,
+        );
+      }
+
+      return ApiResponse(success: false, message: 'Erro HTTP $status');
+    } catch (e) {
+      debugPrint('❌ InventoryRepository._requestString: $e');
+      return ApiResponse(success: false, message: 'Falha na requisição: $e');
+    }
+  }
+
+  Map<String, dynamic> _decodeBody(String body) {
+    if (body.isEmpty) return {};
+    try {
+      final decoded = json.decode(body);
+      return decoded is Map<String, dynamic> ? decoded : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  String? _messageFrom(Map<String, dynamic> body) =>
+      (body['message'] ?? body['Message']) as String?;
 }
