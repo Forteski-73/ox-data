@@ -18,8 +18,9 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
-  bool _showUsers = false;
-  bool _showProfiles = false;
+  bool _showUsers     = false;
+  bool _showProfiles  = false;
+  bool _showAbout     = false;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchText = '';
@@ -217,8 +218,14 @@ class _AdminPageState extends State<AdminPage> {
                   Expanded(
                     child: PulseIconButton(
                       icon: Icons.announcement_outlined,
-                      color: Colors.indigo.shade300,
-                      onPressed: () {},
+                      color: Colors.indigo,
+                      onPressed: () {
+                        setState(() {
+                          _showAbout = true;
+                          _showUsers = false;
+                          _showProfiles = false;
+                        });
+                      },
                     ),
                   ),
                 ],
@@ -247,7 +254,9 @@ class _AdminPageState extends State<AdminPage> {
                         ? _buildProfilesList(
                             adminService.profilesMenu?.profiles ?? [],
                           )
-                        : _buildWelcome(),
+                        : _showAbout
+                            ? _buildAbout(context)
+                            : _buildWelcome(),
               ),
             ),
           ],
@@ -678,4 +687,83 @@ class _AdminPageState extends State<AdminPage> {
       },
     );
   }
+
+  Widget _buildAbout(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    // Tons escuros profissionais e consistentes
+    const Color primaryDark = Color(0xFF1A1A1A); // Preto suave/Grafite escuro
+    const Color secondaryDark = Color(0xFF4A4A4A); // Cinza escuro para subtítulos
+
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400), // Evita que o card estique demais em tablets/web
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        child: Card(
+          elevation: 0, // Cards modernos de produção costumam usar flat + border ou sombras muito sutis
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: Colors.grey.shade200, // Borda fina premium
+              width: 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Container sutil ao redor do ícone para dar um aspecto de "Logotipo"
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: primaryDark.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.apps_rounded,
+                    size: 54, // Tamanho equilibrado
+                    color: primaryDark,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'ACEP',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800, // Peso mais forte (Bold Corporativo)
+                    letterSpacing: 1.5,          // Espaçamento premium entre letras
+                    color: primaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Linha divisória discreta
+                Container(
+                  width: 40,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: primaryDark.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aplicativo de Consulta e Execução de Processos',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.4, // Melhora a legibilidade do texto quebrado
+                    fontWeight: FontWeight.w500,
+                    color: secondaryDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
 }

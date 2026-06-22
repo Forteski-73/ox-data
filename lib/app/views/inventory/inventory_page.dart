@@ -188,7 +188,7 @@ class _CountItemCard extends StatelessWidget {
         
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     _ColorChangingButton(
                       size: 45,
                       icon: Icons.delete_forever_rounded,

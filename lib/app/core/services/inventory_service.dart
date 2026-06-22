@@ -103,7 +103,7 @@ class InventoryService with ChangeNotifier {
 
   // ── Configuração de sync ──────────────────────────────────────────────────
 
-  bool _isSetupEnabled = true;
+  bool _isSetupEnabled = false;
   bool _isContagemEnabled = false;
 
   bool get isSetupEnabled => _isSetupEnabled;
