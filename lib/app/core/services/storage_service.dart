@@ -64,9 +64,10 @@ class StorageService {
   Future<void> writeMenus(List<MenuItemModel> menus) async {
     final jsonMenus = jsonEncode(
       menus.map((e) => {
-            'title': e.title,
-            'routeName': e.routeName,
-            'imagePath': e.imagePath,
+            'title':      e.title,
+            'routeName':  e.routeName,
+            'imagePath':  e.imagePath,
+            'isReadOnly': e.isReadOnly,
           }).toList(),
     );
 

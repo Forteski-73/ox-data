@@ -252,66 +252,130 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
               : imagesFromApi.isEmpty
                   ? _buildEmptyState("Nenhuma imagem encontrada")
                   : Stack(
-                      children: [
-                        // PageView com o Controller
-                        PageView.builder(
-                          controller: _pageController,
-                          itemCount: imagesFromApi.length,
-                          onPageChanged: (int index) {
-                            setState(() {
-                              _currentPage = index;
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            // Sizedbox.expand garante que o container ocupe tudo
-                            // O Align com topCenter joga o conteúdo para a aresta superior
-                            return SizedBox.expand(
-                              child: Align(
-                                alignment: Alignment.topCenter, 
-                                child: _buildFullScreenPhoto(context, imagesFromApi[index], service),
-                              ),
-                            );
-                          },
-                        ),
-
-                      // --- NOVO: CONTADOR FLUTUANTE (1/3, 2/3, etc) ---
-                      if (imagesFromApi.isNotEmpty)
-                        Positioned(
-                          top: 20,
-                          right: 20,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              "${_currentPage + 1}/${imagesFromApi.length}",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                  children: [
+                    // PageView com o Controller
+                    PageView.builder(
+                      controller: _pageController,
+                      itemCount: imagesFromApi.length,
+                      onPageChanged: (int index) {
+                        setState(() {
+                          _currentPage = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return SizedBox.expand(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: _buildFullScreenPhoto(context, imagesFromApi[index], service),
                           ),
-                        ),
-
-                        // INDICADOR DE BOLINHAS (Dots Indicator)
-                        if (imagesFromApi.length > 1)
-                          Positioned(
-                            bottom: 10,
-                            left: 0,
-                            right: 0,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(
-                                imagesFromApi.length,
-                                (index) => _buildDotIndicator(index),
-                              ),
-                            ),
-                          ),
-                      ],
+                        );
+                      },
                     ),
+
+                    // SETA ESQUERDA (APENAS WEB)
+                    if (kIsWeb && imagesFromApi.length > 1)
+                      Positioned(
+                        left: 10,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(30),
+                            onTap: () {
+                              if (_currentPage > 0) {
+                                _pageController.previousPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.35),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.chevron_left,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // SETA DIREITA (APENAS WEB)
+                    if (kIsWeb && imagesFromApi.length > 1)
+                      Positioned(
+                        right: 10,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(30),
+                            onTap: () {
+                              if (_currentPage < imagesFromApi.length - 1) {
+                                _pageController.nextPage(
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.35),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.chevron_right,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // --- NOVO: CONTADOR FLUTUANTE (1/3, 2/3, etc) ---
+                    if (imagesFromApi.isNotEmpty)
+                      Positioned(
+                        top: 20,
+                        right: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "${_currentPage + 1}/${imagesFromApi.length}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // INDICADOR DE BOLINHAS (Dots Indicator)
+                    if (imagesFromApi.length > 1)
+                      Positioned(
+                        bottom: 10,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            imagesFromApi.length,
+                            (index) => _buildDotIndicator(index),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
         ),
       ],
     );

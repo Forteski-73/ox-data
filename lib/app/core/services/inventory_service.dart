@@ -217,7 +217,6 @@ class InventoryService with ChangeNotifier {
     return StatusResult(status: 1, message: 'Registro salvo.');
   }
 
-
   // =========================================================================
   // VERIFICAÇÕES LOCAIS / REMOTAS
   // =========================================================================

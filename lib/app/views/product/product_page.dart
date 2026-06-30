@@ -19,6 +19,8 @@ import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:oxdata/app/core/models/menu_item_model.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -33,6 +35,7 @@ class _ProductPageState extends State<ProductPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final TextEditingController _tagController = TextEditingController();
+  List<MenuItemModel> _menuOptions = []; 
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _ProductPageState extends State<ProductPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<ProductService>().fetchProductComplete(widget.productId);
     });
+    _loadUserData();
   }
 
   @override
@@ -47,6 +51,17 @@ class _ProductPageState extends State<ProductPage> {
     _pageController.dispose();
     _tagController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final storage = StorageService();
+
+    final menus = await storage.readMenus();
+    final profileId = await storage.readProfileId();
+
+    setState(() {
+      _menuOptions = menus;
+    });
   }
 
   @override
@@ -267,6 +282,7 @@ class _ProductPageState extends State<ProductPage> {
     required List<ImageBase64> images,
     required String finalidade,
   }) {
+    final bool canEdit = _menuOptions.any((m) => m.routeName == 'PRODUTO' && m.isReadOnly == false);
     return Theme(
       data: Theme.of(context).copyWith(
         dividerColor: Colors.transparent,
@@ -306,18 +322,34 @@ class _ProductPageState extends State<ProductPage> {
                       ? () => _showReorderImagesDialog(images, finalidade)
                       : () {},
                 ),
-                PulseIconButton(
-                  icon: Icons.add_a_photo,
-                  color: Colors.indigo,
-                  onPressed: () => _showAddImageOptions(finalidade),
-                ),
-                PulseIconButton(
-                  icon: Icons.delete_forever,
-                  color: Colors.indigo,
-                  onPressed: images.isNotEmpty
-                      ? () => _deleteImageConfirm(images, finalidade)
-                      : () {},
-                ),
+                if (canEdit) ...[
+                  PulseIconButton(
+                    icon: Icons.add_a_photo,
+                    color: Colors.indigo,
+                    onPressed: () => _showAddImageOptions(finalidade),
+                  ),
+                ] else ...[
+                  PulseIconButton(
+                    icon: Icons.add_a_photo,
+                    color: Colors.grey, // Changed 'conza,,' to 'grey' (or use your custom color)
+                    onPressed: () => null,    // Explicitly disabling the button
+                  ),
+                ],
+                if (canEdit) ...[
+                  PulseIconButton(
+                    icon: Icons.delete_forever,
+                    color: Colors.indigo,
+                    onPressed: images.isNotEmpty
+                        ? () => _deleteImageConfirm(images, finalidade)
+                        : () {},
+                  ),
+                ] else ...[
+                  PulseIconButton(
+                    icon: Icons.delete_forever,
+                    color: Colors.grey.shade300, // Cinza = 'desabilita'
+                    onPressed: () => null,
+                  ),
+                ],
               ],
             ),
 
@@ -389,7 +421,7 @@ class _ProductPageState extends State<ProductPage> {
                       ),
 
                       // SETA ESQUERDA (APENAS WEB)
-                      if (kIsWeb)
+                      if (kIsWeb && images.length > 1)
                         Positioned(
                           left: 10,
                           top: 0,
@@ -423,7 +455,7 @@ class _ProductPageState extends State<ProductPage> {
                         ),
 
                       // SETA DIREITA (APENAS WEB)
-                      if (kIsWeb)
+                      if (kIsWeb && images.length > 1)
                         Positioned(
                           right: 10,
                           top: 0,
