@@ -7,8 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class AiService {
-  final String _url = 'https://oxfordonline.com.br/AI/analisarBase64';
-  final Uri _urlTreinar = Uri.parse('https://oxfordonline.com.br/AI/treinar');
+  final String _url = 'https://www.oxfordonline.com.br/AI/analisarBase64';
+  final Uri _urlTreinar = Uri.parse('https://www.oxfordonline.com.br/AI/treinar');
 
   /// Envia a imagem em Base64 para a API
   Future<Map<String, dynamic>> analisarImagem(
@@ -106,7 +106,7 @@ Future<String> treinarImagem({
   /// Lista todas as categorias cadastradas na IA
   Future<Map<String, dynamic>> listarCategorias() async {
     try {
-      final url = Uri.parse('https://oxfordonline.com.br/AI/listarCategorias');
+      final url = Uri.parse('https://www.oxfordonline.com.br/AI/listarCategorias');
 
       final headers = {
         "accept": "application/json",

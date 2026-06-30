@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class AppFooter extends StatelessWidget {
   const AppFooter({super.key});
@@ -29,7 +30,7 @@ class AppFooter extends StatelessWidget {
           height: 50,
           color: Colors.white,
           child: const Center(
-            child: CircularProgressIndicator(),
+            child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
           ),
         );
       },

@@ -7,7 +7,8 @@ import 'package:oxdata/app/core/services/ftp_service.dart';
 import 'package:oxdata/app/core/services/pallet_service.dart';
 import 'package:oxdata/app/core/models/ftp_image_response.dart';
 import 'package:oxdata/app/core/services/image_cache_service.dart';
-import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
+import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'dart:io';
 import 'dart:convert'; 
 
@@ -298,18 +299,19 @@ class _ImagesPickerState extends State<ImagesPicker> {
         height: height,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
+
+          return const Center(
+            child: SpinKitThreeBounce(
+              color: Colors.white,
+              size: 30.0,
             ),
           );
         },
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80),
+        errorBuilder: (context, error, stackTrace) =>
+            const Icon(Icons.broken_image, size: 80),
       );
-    } 
-    
+    }
+
     // 3. Tratar como placeholder
     else {
       return const Icon(Icons.description, size: 80, color: Colors.grey);

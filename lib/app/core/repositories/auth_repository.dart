@@ -71,6 +71,7 @@ class AuthRepository {
           await storage.writeCredentials(username, password);
         }
         await storage.writeMenus(loginResponse.menus);
+        await storage.writeProfileId(loginResponse.profileId);
 
         return ApiResponse(
           success: true,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/db/app_database.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class ProductSearchLocalDialog extends StatefulWidget {
   const ProductSearchLocalDialog({super.key});
@@ -39,7 +40,13 @@ class _ProductSearchLocalDialogState extends State<ProductSearchLocalDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      insetPadding: EdgeInsets.only(
+        top: 56, // respeita a safe area
+        left: 8,
+        right: 8,
+        bottom: 10,
+      ),
+      alignment: Alignment.topCenter,
       child: Material(
         borderRadius: BorderRadius.circular(8),
         color: Colors.white,
@@ -93,7 +100,7 @@ class _ProductSearchLocalDialogState extends State<ProductSearchLocalDialog> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 350),
                   child: _loading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
                       : _results.isEmpty && _controller.text.isNotEmpty
                           ? _buildEmptyState()
                           : _buildList(),
@@ -200,227 +207,3 @@ class _ProductSearchLocalDialogState extends State<ProductSearchLocalDialog> {
     );
   }
 }
-
-
-/*import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:oxdata/db/app_database.dart'; // Certifique-se que o caminho está correto
-
-class ProductSearchLocalDialog extends StatefulWidget {
-  const ProductSearchLocalDialog({super.key});
-
-  @override
-  State<ProductSearchLocalDialog> createState() => _ProductSearchLocalDialogState();
-}
-
-class _ProductSearchLocalDialogState extends State<ProductSearchLocalDialog> {
-  final TextEditingController _controller = TextEditingController();
-  List<Product> _results = [];
-  bool _loading = false;
-  late AppDatabase db;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    db = context.read<AppDatabase>();
-  }
-
-  Future<void> _search(String text) async {
-    if (text.trim().isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-    setState(() => _loading = true);
-    final products = await db.searchProducts(text);
-    if (!mounted) return;
-    setState(() {
-      _results = products;
-      _loading = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent, // Fundo transparente para controlar o shape no Container
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500), // Limita largura em tablets/desktop
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // --- HEADER ---
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.search_rounded, color: Color(0xFF475569), size: 24),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Buscar Produto',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E293B),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
-                    splashRadius: 24,
-                  ),
-                ],
-              ),
-            ),
-
-            // --- SEARCH FIELD ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: TextField(
-                controller: _controller,
-                autofocus: true,
-                onChanged: _search,
-                style: const TextStyle(fontSize: 15),
-                decoration: InputDecoration(
-                  hintText: 'Digite o nome ou código...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
-                  prefixIcon: const Icon(Icons.manage_search_rounded, color: Colors.indigo),
-                  suffixIcon: _controller.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.cancel_rounded, size: 20, color: Colors.grey),
-                          onPressed: () {
-                            _controller.clear();
-                            _search('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(5),
-                    borderSide: const BorderSide(color: Colors.indigo, width: 1),
-                  ),
-                ),
-              ),
-            ),
-
-            const Divider(height: 24, thickness: 1),
-
-            // --- CORPO ---
-            Flexible(
-              child: Container(
-                constraints: const BoxConstraints(maxHeight: 450),
-                child: _loading
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(strokeWidth: 3),
-                        ),
-                      )
-                    : _results.isEmpty && _controller.text.isNotEmpty
-                        ? _buildEmptyState()
-                        : _buildList(),
-              ),
-            ),
-            
-            const SizedBox(height: 12), // Espaçamento final para respiro
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade300),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Nenhum produto encontrado',
-            style: TextStyle(color: Color(0xFF64748B), fontSize: 15, fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildList() {
-    return ListView.separated(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      itemCount: _results.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        final p = _results[index];
-        return Material(
-          color: Colors.transparent,
-          child: ListTile(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            tileColor: Colors.white,
-            hoverColor: Colors.indigo.withOpacity(0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            title: Text(
-              p.productName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            subtitle: Row(
-              children: [
-                const Icon(Icons.tag, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  '${p.productId}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 12),
-                const Icon(Icons.qr_code_scanner, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(p.barcode),
-              ],
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
-            onTap: () => Navigator.pop(context, p),
-          ),
-        );
-      },
-    );
-  }
-}
-*/

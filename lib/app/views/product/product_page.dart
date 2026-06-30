@@ -18,6 +18,7 @@ import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -60,7 +61,7 @@ class _ProductPageState extends State<ProductPage> {
 
           if (productComplete == null) {
             loadingService.show();
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
           } else {
             loadingService.hide();
 
@@ -346,9 +347,7 @@ class _ProductPageState extends State<ProductPage> {
                                 if (imageSnapshot.connectionState ==
                                     ConnectionState.waiting) {
                                   return const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                    child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
                                   );
                                 } else if (imageSnapshot.hasData &&
                                     imageSnapshot.data != null) {
@@ -503,164 +502,7 @@ class _ProductPageState extends State<ProductPage> {
       ),
     );
   }
-
-  /*
-  // widget para as imagens do produto
-  Widget _buildImageCarouselCard({
-    required String title,
-    required List<ImageBase64> images,
-    required String finalidade,
-  }) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        dividerColor: Colors.transparent,
-        iconTheme: const IconThemeData(size: 36),
-      ),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 5.0),
-        elevation: 3,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(0),
-          side: BorderSide.none,
-        ),
-        child: ExpansionTile(
-          backgroundColor: Colors.transparent,
-          collapsedBackgroundColor: Colors.transparent,
-          iconColor: Colors.blueGrey,
-          collapsedIconColor: Colors.indigo,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          childrenPadding: EdgeInsets.zero,
-          children: [
-            const Divider(
-              color: Colors.black12,
-              height: 1,
-              thickness: 1,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                PulseIconButton(
-                  icon: Icons.sync_alt_outlined, // Mude para IconData
-                  color: Colors.indigo,
-                  onPressed: images.isNotEmpty
-                      ? () => _showReorderImagesDialog(images, finalidade)
-                      : () {}, // Desabilita se não houver imagens
-                ),
-                PulseIconButton(
-                  icon: Icons.add_a_photo,
-                  color: Colors.indigo,
-                  onPressed: () => _showAddImageOptions(finalidade), // Sempre habilitado
-                ),
-                PulseIconButton(
-                  icon: Icons.delete_forever,
-                  color: Colors.indigo,
-                  onPressed: images.isNotEmpty
-                      ? () => _deleteImageConfirm(images, finalidade)
-                      : () {}, // Desabilita se não houver imagens
-                ),
-              ],
-            ),
-            // Conteúdo abaixo dos botões
-            images.isNotEmpty
-                ? Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      SizedBox(
-                        height: 400,
-                        child: PageView.builder(
-                          controller: _pageController,
-                          itemCount: images.length,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _currentPage = index;
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            final imageBase64Data = images[index];
-                            return FutureBuilder<String?>(
-                              future: ImageBase.decodeAndExtractSingleImage(
-                                  imageBase64Data.imagesBase64),
-                              builder: (context, imageSnapshot) {
-                                if (imageSnapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const Center(
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2));
-                                } else if (imageSnapshot.hasData &&
-                                    imageSnapshot.data != null) {
-                                  final String dataUri = imageSnapshot.data!;
-                                  final String base64Image = dataUri.split(',').last;
-                                  return GestureDetector( // <--- NOVO: Detecta o duplo clique
-                                    onDoubleTap: () {
-                                      // CHAMAR O MÉTODO DE TELA CHEIA AQUI
-                                      _openFullScreenImage(base64Image); 
-                                    },
-                                    child: InteractiveViewer(
-                                      // Configurações de zoom e pan (já existentes)
-                                      minScale: 0.8,
-                                      maxScale: 4.0,
-                                      clipBehavior: Clip.none,
-                                      child: Image.memory(
-                                        base64Decode(base64Image),
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Icon(Icons.broken_image, size: 150),
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  return const Icon(Icons.image_not_supported,
-                                      size: 150, color: Colors.grey);
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          height: 10,
-                          margin: const EdgeInsets.symmetric(horizontal: 0),
-                          child: Row(
-                            children: List.generate(
-                              images.length,
-                              (index) => Expanded(
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  margin: const EdgeInsets.symmetric(horizontal: 1),
-                                  height: 10,
-                                  color: _currentPage >= index
-                                      ? Colors.blueAccent
-                                      : Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      'Nenhuma imagem disponível.',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  ),
-          ],
-        ),
-      ),
-    );
-  }
-  */
-
+  
   // widget para a itens das Tags
   Widget _buildTagChip(BuildContext context, ProductTagModel tag) {
     return Chip(

@@ -21,7 +21,7 @@ import 'package:oxdata/app/core/models/product_packing_model.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
-
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class PackagingPage extends StatefulWidget {
   const PackagingPage({super.key});
@@ -162,7 +162,7 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
         ),
         Expanded(
           child: service.isLoading 
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
             : service.packings.isEmpty
               ? _buildEmptyState("Nenhuma montagem encontrada")
               : ListView.builder(
@@ -248,7 +248,7 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
         _buildSelectionHeader(selected),
         Expanded(
           child: service.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
               : imagesFromApi.isEmpty
                   ? _buildEmptyState("Nenhuma imagem encontrada")
                   : Stack(

@@ -9,6 +9,7 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/utils/download_file.dart';
 import 'package:oxdata/app/views/inventory/down_inventory_dialog.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class InventoryAdmPage extends StatefulWidget {
   const InventoryAdmPage({super.key});
@@ -215,7 +216,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
           _buildTotalizersCards(totalFiles, totalItemsCounted, isDesktop),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.indigo))
+                ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0))
                 : RefreshIndicator(
                     onRefresh: _fetchInventories,
                     color: Colors.indigo,

@@ -17,26 +17,34 @@ import 'package:oxdata/app/views/inventory/inventory_adm_page.dart';
 import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
 import 'package:oxdata/app/views/tools/tools_page.dart';
+import 'package:oxdata/app/views/guide/guide_page.dart';
+import 'package:oxdata/app/views/setup/setup_inventory.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/views/load/load.dart';
+import 'package:oxdata/app/core/services/inventory_service.dart';
+import 'package:oxdata/app/core/repositories/admin_repository.dart';
+import 'package:provider/provider.dart';
+import 'package:oxdata/app/core/utils/device.dart';
 
 class RouteGenerator {
-  static const String splashPage        = '/';
-  static const String loginPage         = 'loginPage';
-  static const String loginReg          = 'loginReg';
-  static const String homePage          = 'homePage';
-  static const String productsPage      = 'productsPage';
-  static const String productPage       = 'productPage';
-  static const String inventoriesPage   = 'inventoriesPage';
-  static const String inventoryAdmPage  = 'inventoryAdmPage';
-  static const String packagingPage     = 'packagingPage';
-  static const String palletsPage       = 'palletsPage';
-  static const String palletBuilderPage = 'palletBuilderPage';
-  static const String palletReceivePage = 'palletReceivePage';
-  static const String loadPage          = 'CustomAnimatedPageView';
-  static const String adminPage         = 'adminPage';
-  static const String aiPage            = 'aiPage';
-  static const String toolsPage         = 'toolsPage';
+  static const String splashPage         = '/';
+  static const String loginPage          = 'loginPage';
+  static const String loginReg           = 'loginReg';
+  static const String homePage           = 'homePage';
+  static const String productsPage       = 'productsPage';
+  static const String productPage        = 'productPage';
+  static const String inventoriesPage    = 'inventoriesPage';
+  static const String inventoryAdmPage   = 'inventoryAdmPage';
+  static const String packagingPage      = 'packagingPage';
+  static const String palletsPage        = 'palletsPage';
+  static const String palletBuilderPage  = 'palletBuilderPage';
+  static const String palletReceivePage  = 'palletReceivePage';
+  static const String loadPage           = 'CustomAnimatedPageView';
+  static const String adminPage          = 'adminPage';
+  static const String aiPage             = 'aiPage';
+  static const String toolsPage          = 'toolsPage';
+  static const String guidePage          = 'guidePage';
+  static const String setupPage          = 'setupPage';
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -47,7 +55,7 @@ class RouteGenerator {
       case loginPage:
         return MaterialPageRoute(builder: (context) => const LoginPage());
       case loginReg:
-        return MaterialPageRoute(builder: (context) => const RegistrationPage(), settings: settings,);
+        return MaterialPageRoute(builder: (context) => const RegistrationPage(), settings: settings);
       case homePage:
         return MaterialPageRoute(builder: (context) => const HomePage());
       case productsPage:
@@ -62,19 +70,32 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const ToolsPage());
       case loadPage:
         return MaterialPageRoute(builder: (context) => CustomAnimatedPageView());
-      case productPage: // Rota para a página de detalhes do produto
+      
+      case productPage: 
         if (args is String) {
           return MaterialPageRoute(
             builder: (context) => ProductPage(
-              productId: args, // Passando o productId para o construtor da página de detalhes
+              productId: args, 
             ),
           );
         }
-        return _errorRoute(); // Se o argumento não for do tipo esperado, retorna uma rota de erro
-      case productsPage:
-        return MaterialPageRoute(builder: (context) => const SearchProductsPage());
+        return _errorRoute(); 
+        
+      /* ---------------------- AQUI SINCRONIZA ANTES DE CHAMAR A PÁGINA ----------------------- */
       case inventoriesPage:
-        return MaterialPageRoute(builder: (context) => const InventoriesPage());
+        final deviceId = settings.arguments as String?;
+
+        if (deviceId != null && deviceId.isNotEmpty) {
+          return MaterialPageRoute(
+            builder: (_) => const InventoriesPage(),
+          );
+        }
+
+        return MaterialPageRoute(
+          builder: (_) => const _SetupStateRedirector(),
+        );
+      /* ------------------------------------------------------------------------------------------- */
+
       case inventoryAdmPage:
         return MaterialPageRoute(builder: (context) => const InventoryAdmPage());
       case palletsPage:
@@ -88,19 +109,29 @@ class RouteGenerator {
           );
         }
         return _errorRoute();
-        case palletReceivePage:
-          if (args is PalletModel) {
-            return MaterialPageRoute(
-              builder: (context) => PalletReceivePage(
-                pallet: args, // A página REQUER um PalletModel
-              ),
-            );
-          }
+      case palletReceivePage:
+        if (args is PalletModel) {
+          return MaterialPageRoute(
+            builder: (context) => PalletReceivePage(
+              pallet: args, 
+            ),
+          );
+        }
         return _errorRoute(); 
+      case guidePage:
+        return MaterialPageRoute(builder: (context) => const GuidePage());
+      case setupPage:
+        return MaterialPageRoute(
+          builder: (context) => SetupPage(
+            inventoryService: context.read<InventoryService>(),
+            adminRepository: context.read<AdminRepository>(),
+          ),
+        );
       default:
         throw Exception('A rota ${settings.name} não existe!');
     }
   }
+
   static Route<dynamic> _errorRoute() {
     return MaterialPageRoute(builder: (_) {
       return Scaffold(
@@ -110,5 +141,45 @@ class RouteGenerator {
         ),
       );
     });
+  }
+}
+
+// -----------------------------------------------------------
+// WIDGET AUXILIAR DE REDIRECIONAMENTO (Totalmente Invisível)
+// -----------------------------------------------------------
+class _SetupStateRedirector extends StatefulWidget {
+  const _SetupStateRedirector();
+
+  @override
+  State<_SetupStateRedirector> createState() => _SetupStateRedirectorState();
+}
+
+class _SetupStateRedirectorState extends State<_SetupStateRedirector> {
+  @override
+  void initState() {
+    super.initState();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await Navigator.of(context).pushNamed(RouteGenerator.setupPage);
+
+      if (!mounted) return;
+
+      final currentDeviceId = await DeviceService.getDeviceId();
+
+      if (currentDeviceId != null && currentDeviceId.isNotEmpty) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const InventoriesPage()),
+        );
+      } else {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
   }
 }

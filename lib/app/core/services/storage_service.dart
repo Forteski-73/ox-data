@@ -14,6 +14,7 @@ class StorageService {
   static const _username  = 'username';
   static const _password  = 'password';
   static const _menu      = 'menu';
+  static const _profileId = 'profileId';
 
   /// Limpa o token de autenticação salvo.
   Future<void> clearAuthToken() async {
@@ -87,6 +88,22 @@ class StorageService {
     return decoded
         .map((e) => MenuItemModel.fromJson(e))
         .toList();
+  }
+
+
+  Future<void> writeProfileId(int profileId) async {
+    await _storage.write(
+      key: _profileId,
+      value: profileId.toString(),
+    );
+  }
+
+  Future<int> readProfileId() async {
+    final value = await _storage.read(key: _profileId);
+    if (value == null || value.isEmpty) {
+      return 0;
+    }
+    return int.tryParse(value) ?? 0;
   }
 
   Future<void> clearMenus() async {

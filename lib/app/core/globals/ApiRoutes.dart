@@ -1,5 +1,5 @@
 class ApiRoutes {
-  static String baseUrl                  = 'https://oxfordonline.com.br/API/v1/';
+  static String baseUrl                  = 'https://www.oxfordonline.com.br/API/v1/';
   static String login                    = 'User/login';
   static String loginUser                = 'User/LoginUser';
   static String loginRegister            = 'User/register';

@@ -10,6 +10,7 @@ import 'package:oxdata/app/views/pages/barcode_scanner_page.dart'; // Assumindo 
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart'; // Assumindo este import
 import 'package:oxdata/app/core/widgets/pulse_icon.dart'; // Assumindo este import
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class LoadReceivePage extends StatefulWidget {
   const LoadReceivePage({super.key});
@@ -643,7 +644,7 @@ class _LoadReceivePageState extends State<LoadReceivePage> {
 
     Widget content;
     if (_isLoading) {
-      content = const Center(child: CircularProgressIndicator(color: Colors.teal));
+      content = const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0));
     } else if (_errorMessage != null) {
       content = Center(
         child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 16)));

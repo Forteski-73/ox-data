@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 // Importa o serviço e os modelos
 import 'package:oxdata/app/core/services/product_service.dart';
@@ -190,7 +191,7 @@ class _FilterAttributeOxfordState extends State<FilterAttributeOxford> {
     final lines = productService.getLines(brand.brandId);
 
     if (lines == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
     } else if (lines.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(left: 48.0, top: 8.0, bottom: 8.0),
@@ -284,7 +285,7 @@ return Container(
     final decorations = productService.getDecorations(brandId, line.lineId);
 
     if (decorations == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
     } else if (decorations.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(left: 64.0, top: 8.0, bottom: 8.0),

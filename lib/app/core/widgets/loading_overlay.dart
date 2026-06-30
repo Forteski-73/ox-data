@@ -22,9 +22,9 @@ class LoadingOverlay extends StatelessWidget {
                 child: Container(
                   color: const Color.fromARGB(166, 0, 0, 0),
                   child: const Center(
-                    child: SpinKitWanderingCubes(
+                    child: SpinKitThreeBounce(
                       color: Colors.white,
-                      size: 70.0,
+                      size: 30.0,
                     ),
                   ),
                 ),

@@ -86,7 +86,7 @@ class _CyberGlassButtonState extends State<CyberGlassButton> {
             children: [
               Icon(
                 widget.icon,
-                size: 48,
+                size: 36,
                 color: Colors.white,
               ),
             ],

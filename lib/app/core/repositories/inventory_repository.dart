@@ -167,11 +167,18 @@ class InventoryRepository {
         onSuccess: (body, _) => InventoryRecordModel.fromMap(body),
       );
 
-  Future<ApiResponse<String>> deleteInventoryRecord(int id) =>
+  /*Future<ApiResponse<String>> deleteInventoryRecord(int id) =>
       _requestString(
         () => apiClient.deleteAuth('$_base/Record/$id'),
         fallback: 'Registro excluído com sucesso.',
-      );
+      );*/
+
+  Future<ApiResponse<String>> deleteInventoryRecord(
+    String inventCode, String unitizer, String location, String item) =>
+    _requestString(
+      () => apiClient.deleteAuth('$_base/Record/ByCode/$inventCode/$unitizer/$location/$item'),
+      fallback: 'Registro excluído com sucesso.',
+    );
 
   // =========================================================================
   // MASKS

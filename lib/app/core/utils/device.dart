@@ -22,6 +22,11 @@ class DeviceService {
     return id;
   }
 
+  static Future<String?> getExistingDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_storageKey);
+  }
+
   /// Retorna os números da primeira parte do UUID + Data + Hora
   static Future<String> getDeviceFineNumber() async {
     // 1. Busca o ID completo

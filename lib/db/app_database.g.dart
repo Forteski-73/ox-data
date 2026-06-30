@@ -1029,6 +1029,19 @@ class $InventoryTable extends Inventory
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $InventoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
   static const VerificationMeta _inventCodeMeta = const VerificationMeta(
     'inventCode',
   );
@@ -1165,6 +1178,7 @@ class $InventoryTable extends Inventory
       );
   @override
   List<GeneratedColumn> get $columns => [
+    id,
     inventCode,
     inventName,
     inventGuid,
@@ -1188,6 +1202,9 @@ class $InventoryTable extends Inventory
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
     if (data.containsKey('invent_code')) {
       context.handle(
         _inventCodeMeta,
@@ -1264,11 +1281,19 @@ class $InventoryTable extends Inventory
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {inventCode};
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {inventCode},
+  ];
   @override
   InventoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return InventoryData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
       inventCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}invent_code'],
@@ -1326,7 +1351,10 @@ class $InventoryTable extends Inventory
 }
 
 class InventoryData extends DataClass implements Insertable<InventoryData> {
-  /// Código do inventário (PK – igual API)
+  /// 🔑 Chave primária local autoincrementável
+  final int id;
+
+  /// Código do inventário (Mantemos a validação de tamanho)
   final String inventCode;
 
   /// Nome do inventário
@@ -1351,12 +1379,12 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   final double? inventTotal;
 
   /// 🔑 CONTROLE OFFLINE
-  /// Indica se já foi sincronizado com a API
   final bool isSynced;
 
   /// Data da última tentativa de sync
   final DateTime? lastSyncAttempt;
   const InventoryData({
+    required this.id,
     required this.inventCode,
     required this.inventName,
     required this.inventGuid,
@@ -1371,6 +1399,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
     map['invent_code'] = Variable<String>(inventCode);
     map['invent_name'] = Variable<String>(inventName);
     map['invent_guid'] = Variable<String>(inventGuid);
@@ -1400,6 +1429,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
 
   InventoryCompanion toCompanion(bool nullToAbsent) {
     return InventoryCompanion(
+      id: Value(id),
       inventCode: Value(inventCode),
       inventName: Value(inventName),
       inventGuid: Value(inventGuid),
@@ -1429,6 +1459,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return InventoryData(
+      id: serializer.fromJson<int>(json['id']),
       inventCode: serializer.fromJson<String>(json['inventCode']),
       inventName: serializer.fromJson<String>(json['inventName']),
       inventGuid: serializer.fromJson<String>(json['inventGuid']),
@@ -1447,6 +1478,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
       'inventCode': serializer.toJson<String>(inventCode),
       'inventName': serializer.toJson<String>(inventName),
       'inventGuid': serializer.toJson<String>(inventGuid),
@@ -1463,6 +1495,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   }
 
   InventoryData copyWith({
+    int? id,
     String? inventCode,
     String? inventName,
     String? inventGuid,
@@ -1474,6 +1507,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     bool? isSynced,
     Value<DateTime?> lastSyncAttempt = const Value.absent(),
   }) => InventoryData(
+    id: id ?? this.id,
     inventCode: inventCode ?? this.inventCode,
     inventName: inventName ?? this.inventName,
     inventGuid: inventGuid ?? this.inventGuid,
@@ -1491,6 +1525,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   );
   InventoryData copyWithCompanion(InventoryCompanion data) {
     return InventoryData(
+      id: data.id.present ? data.id.value : this.id,
       inventCode: data.inventCode.present
           ? data.inventCode.value
           : this.inventCode,
@@ -1525,6 +1560,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   @override
   String toString() {
     return (StringBuffer('InventoryData(')
+          ..write('id: $id, ')
           ..write('inventCode: $inventCode, ')
           ..write('inventName: $inventName, ')
           ..write('inventGuid: $inventGuid, ')
@@ -1541,6 +1577,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
 
   @override
   int get hashCode => Object.hash(
+    id,
     inventCode,
     inventName,
     inventGuid,
@@ -1556,6 +1593,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is InventoryData &&
+          other.id == this.id &&
           other.inventCode == this.inventCode &&
           other.inventName == this.inventName &&
           other.inventGuid == this.inventGuid &&
@@ -1569,6 +1607,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
 }
 
 class InventoryCompanion extends UpdateCompanion<InventoryData> {
+  final Value<int> id;
   final Value<String> inventCode;
   final Value<String> inventName;
   final Value<String> inventGuid;
@@ -1579,8 +1618,8 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
   final Value<double?> inventTotal;
   final Value<bool> isSynced;
   final Value<DateTime?> lastSyncAttempt;
-  final Value<int> rowid;
   const InventoryCompanion({
+    this.id = const Value.absent(),
     this.inventCode = const Value.absent(),
     this.inventName = const Value.absent(),
     this.inventGuid = const Value.absent(),
@@ -1591,9 +1630,9 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     this.inventTotal = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.lastSyncAttempt = const Value.absent(),
-    this.rowid = const Value.absent(),
   });
   InventoryCompanion.insert({
+    this.id = const Value.absent(),
     required String inventCode,
     required String inventName,
     required String inventGuid,
@@ -1604,12 +1643,12 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     this.inventTotal = const Value.absent(),
     this.isSynced = const Value.absent(),
     this.lastSyncAttempt = const Value.absent(),
-    this.rowid = const Value.absent(),
   }) : inventCode = Value(inventCode),
        inventName = Value(inventName),
        inventGuid = Value(inventGuid),
        inventStatus = Value(inventStatus);
   static Insertable<InventoryData> custom({
+    Expression<int>? id,
     Expression<String>? inventCode,
     Expression<String>? inventName,
     Expression<String>? inventGuid,
@@ -1620,9 +1659,9 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     Expression<double>? inventTotal,
     Expression<bool>? isSynced,
     Expression<DateTime>? lastSyncAttempt,
-    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (id != null) 'id': id,
       if (inventCode != null) 'invent_code': inventCode,
       if (inventName != null) 'invent_name': inventName,
       if (inventGuid != null) 'invent_guid': inventGuid,
@@ -1633,11 +1672,11 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
       if (inventTotal != null) 'invent_total': inventTotal,
       if (isSynced != null) 'is_synced': isSynced,
       if (lastSyncAttempt != null) 'last_sync_attempt': lastSyncAttempt,
-      if (rowid != null) 'rowid': rowid,
     });
   }
 
   InventoryCompanion copyWith({
+    Value<int>? id,
     Value<String>? inventCode,
     Value<String>? inventName,
     Value<String>? inventGuid,
@@ -1648,9 +1687,9 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     Value<double?>? inventTotal,
     Value<bool>? isSynced,
     Value<DateTime?>? lastSyncAttempt,
-    Value<int>? rowid,
   }) {
     return InventoryCompanion(
+      id: id ?? this.id,
       inventCode: inventCode ?? this.inventCode,
       inventName: inventName ?? this.inventName,
       inventGuid: inventGuid ?? this.inventGuid,
@@ -1661,13 +1700,15 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
       inventTotal: inventTotal ?? this.inventTotal,
       isSynced: isSynced ?? this.isSynced,
       lastSyncAttempt: lastSyncAttempt ?? this.lastSyncAttempt,
-      rowid: rowid ?? this.rowid,
     );
   }
 
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
     if (inventCode.present) {
       map['invent_code'] = Variable<String>(inventCode.value);
     }
@@ -1700,15 +1741,13 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     if (lastSyncAttempt.present) {
       map['last_sync_attempt'] = Variable<DateTime>(lastSyncAttempt.value);
     }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
     return map;
   }
 
   @override
   String toString() {
     return (StringBuffer('InventoryCompanion(')
+          ..write('id: $id, ')
           ..write('inventCode: $inventCode, ')
           ..write('inventName: $inventName, ')
           ..write('inventGuid: $inventGuid, ')
@@ -1718,8 +1757,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
           ..write('inventStatus: $inventStatus, ')
           ..write('inventTotal: $inventTotal, ')
           ..write('isSynced: $isSynced, ')
-          ..write('lastSyncAttempt: $lastSyncAttempt, ')
-          ..write('rowid: $rowid')
+          ..write('lastSyncAttempt: $lastSyncAttempt')
           ..write(')'))
         .toString();
   }
@@ -2068,6 +2106,10 @@ class $InventoryRecordsTable extends InventoryRecords
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {inventCode, inventUnitizer, inventLocation, inventProduct},
+  ];
   @override
   InventoryRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -2641,6 +2683,815 @@ class InventoryRecordsCompanion extends UpdateCompanion<InventoryRecord> {
   }
 }
 
+class $SyncQueueTable extends SyncQueue
+    with TableInfo<$SyncQueueTable, SyncQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SyncEntityType, String>
+  entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<SyncEntityType>($SyncQueueTable.$converterentityType);
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<int> entityId = GeneratedColumn<int>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inventGuidMeta = const VerificationMeta(
+    'inventGuid',
+  );
+  @override
+  late final GeneratedColumn<String> inventGuid = GeneratedColumn<String>(
+    'invent_guid',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 36,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _inventCodeMeta = const VerificationMeta(
+    'inventCode',
+  );
+  @override
+  late final GeneratedColumn<String> inventCode = GeneratedColumn<String>(
+    'invent_code',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 50,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SyncOperation, String> operation =
+      GeneratedColumn<String>(
+        'operation',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('insert'),
+      ).withConverter<SyncOperation>($SyncQueueTable.$converteroperation);
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastSyncAttemptMeta = const VerificationMeta(
+    'lastSyncAttempt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncAttempt =
+      GeneratedColumn<DateTime>(
+        'last_sync_attempt',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityType,
+    entityId,
+    inventGuid,
+    inventCode,
+    operation,
+    payload,
+    deleted,
+    isSynced,
+    retryCount,
+    lastSyncAttempt,
+    lastError,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQueueData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('invent_guid')) {
+      context.handle(
+        _inventGuidMeta,
+        inventGuid.isAcceptableOrUnknown(data['invent_guid']!, _inventGuidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inventGuidMeta);
+    }
+    if (data.containsKey('invent_code')) {
+      context.handle(
+        _inventCodeMeta,
+        inventCode.isAcceptableOrUnknown(data['invent_code']!, _inventCodeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_inventCodeMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('last_sync_attempt')) {
+      context.handle(
+        _lastSyncAttemptMeta,
+        lastSyncAttempt.isAcceptableOrUnknown(
+          data['last_sync_attempt']!,
+          _lastSyncAttemptMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {entityType, entityId},
+  ];
+  @override
+  SyncQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQueueData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      entityType: $SyncQueueTable.$converterentityType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}entity_type'],
+        )!,
+      ),
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      inventGuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}invent_guid'],
+      )!,
+      inventCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}invent_code'],
+      )!,
+      operation: $SyncQueueTable.$converteroperation.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}operation'],
+        )!,
+      ),
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      lastSyncAttempt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync_attempt'],
+      ),
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncQueueTable createAlias(String alias) {
+    return $SyncQueueTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<SyncEntityType, String, String>
+  $converterentityType = const EnumNameConverter<SyncEntityType>(
+    SyncEntityType.values,
+  );
+  static JsonTypeConverter2<SyncOperation, String, String> $converteroperation =
+      const EnumNameConverter<SyncOperation>(SyncOperation.values);
+}
+
+class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
+  final int id;
+
+  /// Qual tabela de domínio esse registro representa.
+  final SyncEntityType entityType;
+
+  /// PK local da entidade (id do InventoryRecords, rowid do Inventory, etc.)
+  final int entityId;
+
+  /// GUID do dispositivo/inventário — útil para particionar a fila por
+  /// dispositivo e para o backend identificar a origem do dado.
+  final String inventGuid;
+
+  /// Código do inventário — útil para filtrar/agrupar a fila por inventário.
+  final String inventCode;
+
+  /// Operação que gerou esta entrada (insert/update/delete).
+  final SyncOperation operation;
+
+  /// Snapshot do registro em JSON no momento da alteração.
+  /// Evita ter que reconsultar a entidade original na hora do envio,
+  /// e garante que o que é enviado é exatamente o estado que gerou a fila
+  /// (mesmo que a entidade já tenha mudado novamente localmente).
+  final String? payload;
+
+  /// Marca exclusão lógica: o registro foi removido localmente e a API
+  /// precisa ser notificada para remover (ou inativar) do lado dela.
+  final bool deleted;
+
+  /// Já foi confirmado pela API?
+  final bool isSynced;
+
+  /// Quantas tentativas de envio já falharam (usado para backoff exponencial
+  /// e para "desistir" de um item problemático sem travar a fila inteira).
+  final int retryCount;
+  final DateTime? lastSyncAttempt;
+
+  /// Última mensagem de erro — essencial para depurar sync silenciosamente
+  /// quebrado em produção.
+  final String? lastError;
+  final DateTime createdAt;
+  const SyncQueueData({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    required this.inventGuid,
+    required this.inventCode,
+    required this.operation,
+    this.payload,
+    required this.deleted,
+    required this.isSynced,
+    required this.retryCount,
+    this.lastSyncAttempt,
+    this.lastError,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    {
+      map['entity_type'] = Variable<String>(
+        $SyncQueueTable.$converterentityType.toSql(entityType),
+      );
+    }
+    map['entity_id'] = Variable<int>(entityId);
+    map['invent_guid'] = Variable<String>(inventGuid);
+    map['invent_code'] = Variable<String>(inventCode);
+    {
+      map['operation'] = Variable<String>(
+        $SyncQueueTable.$converteroperation.toSql(operation),
+      );
+    }
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
+    map['deleted'] = Variable<bool>(deleted);
+    map['is_synced'] = Variable<bool>(isSynced);
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || lastSyncAttempt != null) {
+      map['last_sync_attempt'] = Variable<DateTime>(lastSyncAttempt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SyncQueueCompanion toCompanion(bool nullToAbsent) {
+    return SyncQueueCompanion(
+      id: Value(id),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      inventGuid: Value(inventGuid),
+      inventCode: Value(inventCode),
+      operation: Value(operation),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
+      deleted: Value(deleted),
+      isSynced: Value(isSynced),
+      retryCount: Value(retryCount),
+      lastSyncAttempt: lastSyncAttempt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncAttempt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SyncQueueData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQueueData(
+      id: serializer.fromJson<int>(json['id']),
+      entityType: $SyncQueueTable.$converterentityType.fromJson(
+        serializer.fromJson<String>(json['entityType']),
+      ),
+      entityId: serializer.fromJson<int>(json['entityId']),
+      inventGuid: serializer.fromJson<String>(json['inventGuid']),
+      inventCode: serializer.fromJson<String>(json['inventCode']),
+      operation: $SyncQueueTable.$converteroperation.fromJson(
+        serializer.fromJson<String>(json['operation']),
+      ),
+      payload: serializer.fromJson<String?>(json['payload']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      lastSyncAttempt: serializer.fromJson<DateTime?>(json['lastSyncAttempt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'entityType': serializer.toJson<String>(
+        $SyncQueueTable.$converterentityType.toJson(entityType),
+      ),
+      'entityId': serializer.toJson<int>(entityId),
+      'inventGuid': serializer.toJson<String>(inventGuid),
+      'inventCode': serializer.toJson<String>(inventCode),
+      'operation': serializer.toJson<String>(
+        $SyncQueueTable.$converteroperation.toJson(operation),
+      ),
+      'payload': serializer.toJson<String?>(payload),
+      'deleted': serializer.toJson<bool>(deleted),
+      'isSynced': serializer.toJson<bool>(isSynced),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'lastSyncAttempt': serializer.toJson<DateTime?>(lastSyncAttempt),
+      'lastError': serializer.toJson<String?>(lastError),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SyncQueueData copyWith({
+    int? id,
+    SyncEntityType? entityType,
+    int? entityId,
+    String? inventGuid,
+    String? inventCode,
+    SyncOperation? operation,
+    Value<String?> payload = const Value.absent(),
+    bool? deleted,
+    bool? isSynced,
+    int? retryCount,
+    Value<DateTime?> lastSyncAttempt = const Value.absent(),
+    Value<String?> lastError = const Value.absent(),
+    DateTime? createdAt,
+  }) => SyncQueueData(
+    id: id ?? this.id,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    inventGuid: inventGuid ?? this.inventGuid,
+    inventCode: inventCode ?? this.inventCode,
+    operation: operation ?? this.operation,
+    payload: payload.present ? payload.value : this.payload,
+    deleted: deleted ?? this.deleted,
+    isSynced: isSynced ?? this.isSynced,
+    retryCount: retryCount ?? this.retryCount,
+    lastSyncAttempt: lastSyncAttempt.present
+        ? lastSyncAttempt.value
+        : this.lastSyncAttempt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
+    return SyncQueueData(
+      id: data.id.present ? data.id.value : this.id,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      inventGuid: data.inventGuid.present
+          ? data.inventGuid.value
+          : this.inventGuid,
+      inventCode: data.inventCode.present
+          ? data.inventCode.value
+          : this.inventCode,
+      operation: data.operation.present ? data.operation.value : this.operation,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      lastSyncAttempt: data.lastSyncAttempt.present
+          ? data.lastSyncAttempt.value
+          : this.lastSyncAttempt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueData(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('inventGuid: $inventGuid, ')
+          ..write('inventCode: $inventCode, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('deleted: $deleted, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastSyncAttempt: $lastSyncAttempt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    entityType,
+    entityId,
+    inventGuid,
+    inventCode,
+    operation,
+    payload,
+    deleted,
+    isSynced,
+    retryCount,
+    lastSyncAttempt,
+    lastError,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQueueData &&
+          other.id == this.id &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.inventGuid == this.inventGuid &&
+          other.inventCode == this.inventCode &&
+          other.operation == this.operation &&
+          other.payload == this.payload &&
+          other.deleted == this.deleted &&
+          other.isSynced == this.isSynced &&
+          other.retryCount == this.retryCount &&
+          other.lastSyncAttempt == this.lastSyncAttempt &&
+          other.lastError == this.lastError &&
+          other.createdAt == this.createdAt);
+}
+
+class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
+  final Value<int> id;
+  final Value<SyncEntityType> entityType;
+  final Value<int> entityId;
+  final Value<String> inventGuid;
+  final Value<String> inventCode;
+  final Value<SyncOperation> operation;
+  final Value<String?> payload;
+  final Value<bool> deleted;
+  final Value<bool> isSynced;
+  final Value<int> retryCount;
+  final Value<DateTime?> lastSyncAttempt;
+  final Value<String?> lastError;
+  final Value<DateTime> createdAt;
+  const SyncQueueCompanion({
+    this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.inventGuid = const Value.absent(),
+    this.inventCode = const Value.absent(),
+    this.operation = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.lastSyncAttempt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  SyncQueueCompanion.insert({
+    this.id = const Value.absent(),
+    required SyncEntityType entityType,
+    required int entityId,
+    required String inventGuid,
+    required String inventCode,
+    this.operation = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.lastSyncAttempt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : entityType = Value(entityType),
+       entityId = Value(entityId),
+       inventGuid = Value(inventGuid),
+       inventCode = Value(inventCode);
+  static Insertable<SyncQueueData> custom({
+    Expression<int>? id,
+    Expression<String>? entityType,
+    Expression<int>? entityId,
+    Expression<String>? inventGuid,
+    Expression<String>? inventCode,
+    Expression<String>? operation,
+    Expression<String>? payload,
+    Expression<bool>? deleted,
+    Expression<bool>? isSynced,
+    Expression<int>? retryCount,
+    Expression<DateTime>? lastSyncAttempt,
+    Expression<String>? lastError,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (inventGuid != null) 'invent_guid': inventGuid,
+      if (inventCode != null) 'invent_code': inventCode,
+      if (operation != null) 'operation': operation,
+      if (payload != null) 'payload': payload,
+      if (deleted != null) 'deleted': deleted,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (lastSyncAttempt != null) 'last_sync_attempt': lastSyncAttempt,
+      if (lastError != null) 'last_error': lastError,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  SyncQueueCompanion copyWith({
+    Value<int>? id,
+    Value<SyncEntityType>? entityType,
+    Value<int>? entityId,
+    Value<String>? inventGuid,
+    Value<String>? inventCode,
+    Value<SyncOperation>? operation,
+    Value<String?>? payload,
+    Value<bool>? deleted,
+    Value<bool>? isSynced,
+    Value<int>? retryCount,
+    Value<DateTime?>? lastSyncAttempt,
+    Value<String?>? lastError,
+    Value<DateTime>? createdAt,
+  }) {
+    return SyncQueueCompanion(
+      id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      inventGuid: inventGuid ?? this.inventGuid,
+      inventCode: inventCode ?? this.inventCode,
+      operation: operation ?? this.operation,
+      payload: payload ?? this.payload,
+      deleted: deleted ?? this.deleted,
+      isSynced: isSynced ?? this.isSynced,
+      retryCount: retryCount ?? this.retryCount,
+      lastSyncAttempt: lastSyncAttempt ?? this.lastSyncAttempt,
+      lastError: lastError ?? this.lastError,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(
+        $SyncQueueTable.$converterentityType.toSql(entityType.value),
+      );
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<int>(entityId.value);
+    }
+    if (inventGuid.present) {
+      map['invent_guid'] = Variable<String>(inventGuid.value);
+    }
+    if (inventCode.present) {
+      map['invent_code'] = Variable<String>(inventCode.value);
+    }
+    if (operation.present) {
+      map['operation'] = Variable<String>(
+        $SyncQueueTable.$converteroperation.toSql(operation.value),
+      );
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (lastSyncAttempt.present) {
+      map['last_sync_attempt'] = Variable<DateTime>(lastSyncAttempt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('inventGuid: $inventGuid, ')
+          ..write('inventCode: $inventCode, ')
+          ..write('operation: $operation, ')
+          ..write('payload: $payload, ')
+          ..write('deleted: $deleted, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastSyncAttempt: $lastSyncAttempt, ')
+          ..write('lastError: $lastError, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2651,6 +3502,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $InventoryRecordsTable inventoryRecords = $InventoryRecordsTable(
     this,
   );
+  late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final SyncQueueDao syncQueueDao = SyncQueueDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2661,6 +3514,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     inventoryMask,
     inventory,
     inventoryRecords,
+    syncQueue,
   ];
 }
 
@@ -3224,6 +4078,7 @@ typedef $$InventoryMaskTableProcessedTableManager =
     >;
 typedef $$InventoryTableCreateCompanionBuilder =
     InventoryCompanion Function({
+      Value<int> id,
       required String inventCode,
       required String inventName,
       required String inventGuid,
@@ -3234,10 +4089,10 @@ typedef $$InventoryTableCreateCompanionBuilder =
       Value<double?> inventTotal,
       Value<bool> isSynced,
       Value<DateTime?> lastSyncAttempt,
-      Value<int> rowid,
     });
 typedef $$InventoryTableUpdateCompanionBuilder =
     InventoryCompanion Function({
+      Value<int> id,
       Value<String> inventCode,
       Value<String> inventName,
       Value<String> inventGuid,
@@ -3248,7 +4103,6 @@ typedef $$InventoryTableUpdateCompanionBuilder =
       Value<double?> inventTotal,
       Value<bool> isSynced,
       Value<DateTime?> lastSyncAttempt,
-      Value<int> rowid,
     });
 
 final class $$InventoryTableReferences
@@ -3290,6 +4144,11 @@ class $$InventoryTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get inventCode => $composableBuilder(
     column: $table.inventCode,
     builder: (column) => ColumnFilters(column),
@@ -3376,6 +4235,11 @@ class $$InventoryTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get inventCode => $composableBuilder(
     column: $table.inventCode,
     builder: (column) => ColumnOrderings(column),
@@ -3436,6 +4300,9 @@ class $$InventoryTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
   GeneratedColumn<String> get inventCode => $composableBuilder(
     column: $table.inventCode,
     builder: (column) => column,
@@ -3539,6 +4406,7 @@ class $$InventoryTableTableManager
               $$InventoryTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<int> id = const Value.absent(),
                 Value<String> inventCode = const Value.absent(),
                 Value<String> inventName = const Value.absent(),
                 Value<String> inventGuid = const Value.absent(),
@@ -3549,8 +4417,8 @@ class $$InventoryTableTableManager
                 Value<double?> inventTotal = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<DateTime?> lastSyncAttempt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
               }) => InventoryCompanion(
+                id: id,
                 inventCode: inventCode,
                 inventName: inventName,
                 inventGuid: inventGuid,
@@ -3561,10 +4429,10 @@ class $$InventoryTableTableManager
                 inventTotal: inventTotal,
                 isSynced: isSynced,
                 lastSyncAttempt: lastSyncAttempt,
-                rowid: rowid,
               ),
           createCompanionCallback:
               ({
+                Value<int> id = const Value.absent(),
                 required String inventCode,
                 required String inventName,
                 required String inventGuid,
@@ -3575,8 +4443,8 @@ class $$InventoryTableTableManager
                 Value<double?> inventTotal = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
                 Value<DateTime?> lastSyncAttempt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
               }) => InventoryCompanion.insert(
+                id: id,
                 inventCode: inventCode,
                 inventName: inventName,
                 inventGuid: inventGuid,
@@ -3587,7 +4455,6 @@ class $$InventoryTableTableManager
                 inventTotal: inventTotal,
                 isSynced: isSynced,
                 lastSyncAttempt: lastSyncAttempt,
-                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4167,6 +5034,365 @@ typedef $$InventoryRecordsTableProcessedTableManager =
       InventoryRecord,
       PrefetchHooks Function({bool inventCode})
     >;
+typedef $$SyncQueueTableCreateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      required SyncEntityType entityType,
+      required int entityId,
+      required String inventGuid,
+      required String inventCode,
+      Value<SyncOperation> operation,
+      Value<String?> payload,
+      Value<bool> deleted,
+      Value<bool> isSynced,
+      Value<int> retryCount,
+      Value<DateTime?> lastSyncAttempt,
+      Value<String?> lastError,
+      Value<DateTime> createdAt,
+    });
+typedef $$SyncQueueTableUpdateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      Value<SyncEntityType> entityType,
+      Value<int> entityId,
+      Value<String> inventGuid,
+      Value<String> inventCode,
+      Value<SyncOperation> operation,
+      Value<String?> payload,
+      Value<bool> deleted,
+      Value<bool> isSynced,
+      Value<int> retryCount,
+      Value<DateTime?> lastSyncAttempt,
+      Value<String?> lastError,
+      Value<DateTime> createdAt,
+    });
+
+class $$SyncQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SyncEntityType, SyncEntityType, String>
+  get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inventGuid => $composableBuilder(
+    column: $table.inventGuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get inventCode => $composableBuilder(
+    column: $table.inventCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SyncOperation, SyncOperation, String>
+  get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncAttempt => $composableBuilder(
+    column: $table.lastSyncAttempt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inventGuid => $composableBuilder(
+    column: $table.inventGuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get inventCode => $composableBuilder(
+    column: $table.inventCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operation => $composableBuilder(
+    column: $table.operation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncAttempt => $composableBuilder(
+    column: $table.lastSyncAttempt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<SyncEntityType, String> get entityType =>
+      $composableBuilder(
+        column: $table.entityType,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get inventGuid => $composableBuilder(
+    column: $table.inventGuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get inventCode => $composableBuilder(
+    column: $table.inventCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<SyncOperation, String> get operation =>
+      $composableBuilder(column: $table.operation, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSyncAttempt => $composableBuilder(
+    column: $table.lastSyncAttempt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SyncQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQueueTable,
+          SyncQueueData,
+          $$SyncQueueTableFilterComposer,
+          $$SyncQueueTableOrderingComposer,
+          $$SyncQueueTableAnnotationComposer,
+          $$SyncQueueTableCreateCompanionBuilder,
+          $$SyncQueueTableUpdateCompanionBuilder,
+          (
+            SyncQueueData,
+            BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
+          ),
+          SyncQueueData,
+          PrefetchHooks Function()
+        > {
+  $$SyncQueueTableTableManager(_$AppDatabase db, $SyncQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<SyncEntityType> entityType = const Value.absent(),
+                Value<int> entityId = const Value.absent(),
+                Value<String> inventGuid = const Value.absent(),
+                Value<String> inventCode = const Value.absent(),
+                Value<SyncOperation> operation = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> lastSyncAttempt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SyncQueueCompanion(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                inventGuid: inventGuid,
+                inventCode: inventCode,
+                operation: operation,
+                payload: payload,
+                deleted: deleted,
+                isSynced: isSynced,
+                retryCount: retryCount,
+                lastSyncAttempt: lastSyncAttempt,
+                lastError: lastError,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required SyncEntityType entityType,
+                required int entityId,
+                required String inventGuid,
+                required String inventCode,
+                Value<SyncOperation> operation = const Value.absent(),
+                Value<String?> payload = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> lastSyncAttempt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => SyncQueueCompanion.insert(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                inventGuid: inventGuid,
+                inventCode: inventCode,
+                operation: operation,
+                payload: payload,
+                deleted: deleted,
+                isSynced: isSynced,
+                retryCount: retryCount,
+                lastSyncAttempt: lastSyncAttempt,
+                lastError: lastError,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQueueTable,
+      SyncQueueData,
+      $$SyncQueueTableFilterComposer,
+      $$SyncQueueTableOrderingComposer,
+      $$SyncQueueTableAnnotationComposer,
+      $$SyncQueueTableCreateCompanionBuilder,
+      $$SyncQueueTableUpdateCompanionBuilder,
+      (
+        SyncQueueData,
+        BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
+      ),
+      SyncQueueData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4181,4 +5407,6 @@ class $AppDatabaseManager {
       $$InventoryTableTableManager(_db, _db.inventory);
   $$InventoryRecordsTableTableManager get inventoryRecords =>
       $$InventoryRecordsTableTableManager(_db, _db.inventoryRecords);
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db, _db.syncQueue);
 }

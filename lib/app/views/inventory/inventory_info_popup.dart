@@ -3,6 +3,7 @@ import 'package:oxdata/app/core/utils/mask_validate.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/db/enums/mask_field_name.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class FieldInfoPopup extends StatelessWidget {
   final String value;
@@ -177,7 +178,7 @@ class FieldInfoPopup extends StatelessWidget {
                 hasValue && MaskValidatorService.validateMask(value, masks);
 
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
             }
 
             return Column(
@@ -245,7 +246,7 @@ class FieldInfoPopup extends StatelessWidget {
                 : (isValid ? Icons.check_circle : Icons.cancel);
 
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
             }
 
             return Column(
@@ -392,7 +393,7 @@ class FieldInfoPopup extends StatelessWidget {
                 hasValue && MaskValidatorService.validateMask(value, masks);
 
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
             }
 
             return Column(

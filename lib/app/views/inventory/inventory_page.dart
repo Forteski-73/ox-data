@@ -11,6 +11,7 @@ import 'package:oxdata/app/core/services/load_service.dart';
 import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
 import 'package:oxdata/app/core/widgets/app_confirm_dialog.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 // -------------------------------------------------------------
 // Widget para o Card de Item de Contagem (Inalterado)
@@ -111,20 +112,23 @@ class _CountItemCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${recordItem.inventUnitizer}  •  ${recordItem.inventLocation}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${recordItem.inventUnitizer}  •  ${recordItem.inventLocation}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo,
+                              ),
                             ),
-                          ),
-                          // Badge de Hora (seguindo o estilo do status do outro card)
-                          _buildTimeBadge(_formatTime()),
-                        ],
+                            const SizedBox(width: 8),
+                            _buildTimeBadge(_formatTime()),
+                          ],
+                        ),
                       ),
                       
                       const SizedBox(height: 10),
@@ -168,11 +172,10 @@ class _CountItemCard extends StatelessWidget {
                     _ColorChangingButton(
                       size: 45,
                       icon: Icons.edit_rounded,
-                      onPressed: () {
-
+                      onPressed: inventory.inventStatus == InventoryStatus.Iniciado
+                          ? () {
                         //context.read<InventoryService>().setSelectedInventory(inventory);
                         //context.read<InventoryService>().fetchRecordsByInventCode(inventory.inventCode);
-
                       final input = InventoryRecordInput(
                         id: recordItem.id,
                         unitizer: recordItem.inventUnitizer ?? '',
@@ -186,17 +189,22 @@ class _CountItemCard extends StatelessWidget {
                         context.read<InventoryService>().updateDraft(input);
                         context.read<LoadService>().setPage(1);
         
-                      },
+                      }: null,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 14), 
                     _ColorChangingButton(
                       size: 45,
                       icon: Icons.delete_forever_rounded,
-                      onPressed: () async {
-                        if (recordItem.id != null) {
-                          await inventoryService.deleteInventoryRecord(recordItem.id!);
-                        }
-                      },
+                      onPressed: inventory.inventStatus == InventoryStatus.Iniciado
+                          ? () async {
+                              await inventoryService.deleteInventoryRecord(
+                                recordItem.inventCode,
+                                recordItem.inventUnitizer!,
+                                recordItem.inventLocation!,
+                                recordItem.inventProduct,
+                              );
+                            }
+                          : null,
                       color: Colors.red.shade300,
                     ),
                   ],
@@ -284,7 +292,7 @@ class _InventoryPageState extends State<InventoryPage> {
   
   final records = inventoryService.inventoryRecords;
 
-  // Define isLoading para garantir que o CircularProgressIndicator apareça
+  // Define isLoading para garantir que o ProgressIndicator apareça
   if (mounted) {
    setState(() {
     _isLoading = true;
@@ -296,7 +304,7 @@ class _InventoryPageState extends State<InventoryPage> {
    debugPrint("initState: Registros vazios. Buscando records para ${_currentInventory!.inventCode}");
    
    // Usa inventCode do InventoryModel obtido do Provider
-   await inventoryService.fetchRecordsByInventCode(_currentInventory!.inventCode);
+   //await inventoryService.fetchRecordsByInventCode(_currentInventory!.inventCode);
 
   } else {
    debugPrint("initState: Registros já carregados (${records.length}).");
@@ -325,7 +333,8 @@ class _InventoryPageState extends State<InventoryPage> {
 
         if (updatedInventory != null) {
 
-          final result = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
+          //final result = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
+          final result = await inventoryService.finalizeInventory(_currentInventory!.inventCode);
 
           if (result.status == 0) {
             if (context.mounted) {
@@ -669,7 +678,7 @@ Widget _buildSearchField() {
           // Área da Lista
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0))
                 : filteredRecords.isEmpty
                     ? Center(
                         child: Padding(

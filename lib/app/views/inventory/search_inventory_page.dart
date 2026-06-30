@@ -6,6 +6,7 @@ import 'package:oxdata/app/core/services/load_service.dart';
 import 'package:oxdata/app/core/widgets/app_confirm_dialog.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
+import 'package:oxdata/app/core/utils/download_inventory_txt.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 
@@ -173,13 +174,26 @@ class _InventoryCard extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          inventory.inventName,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF2D3142)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              inventory.inventName,
+                              style: const TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.w700, 
+                                color: Color(0xFF2D3142),
+                              ),
+                            ),
+                            _buildSincButton(context, inventory.isSynced),
+                          ],
                         ),
-                        const SizedBox(height: 10),
+
+                        const SizedBox(height: 7),
                         const Divider(height: 1, color: Color(0xFFF1F1F1)),
                         const SizedBox(height: 12),
+
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -201,7 +215,7 @@ class _InventoryCard extends StatelessWidget {
                                 children: [
                                   _buildActionButton(context, isFinalizado),
                                   const SizedBox(height: 10),
-                                  _buildSincButton(context, inventory.isSynced),
+                                  _buildDownButton(context, inventory.inventStatus),
                                 ],
                               ),
                             ),
@@ -277,57 +291,30 @@ class _InventoryCard extends StatelessWidget {
 
   Widget _buildSincButton(BuildContext context, bool? isSynced) {
     final bool synced = isSynced ?? false;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 2, top: 4),
+      child: Align(
+        alignment: Alignment.center, // Galinhamento no middle
+        child: Icon(
+          Icons.circle_rounded,
+          size: 20,
+          color: synced ? Colors.greenAccent : Colors.grey.shade400,
+        ),
+      ),
+    );
+  }
+  
+Widget _buildDownButton(BuildContext context, InventoryStatus st) {
     return _ColorChangingButton(
       size: 50,
-      icon: synced ? Icons.cloud_sync : Icons.cloud_sync_outlined,
-      color: null,
-      onPressed: () => _showConfirmSyncDialog(context) ,
-          
+      icon: Icons.file_download_rounded,
+      color: st == InventoryStatus.Finalizado ? null : Colors.grey.shade300,
+      onPressed: st == InventoryStatus.Finalizado 
+          ? () => DownloadInventoryUtility.exportToTxt(context, inventory) 
+          : null,
     );
   }
-
-  /*
-  void _showConfirmFinalizeDialog(BuildContext context) async {
-    final confirmed = await showConfirmDialog(
-      context: context,
-      message: "Deseja realmente finalizar a contagem #${inventory.inventCode}?",
-    );
-
-    if (confirmed) {
-      final inventoryService = context.read<InventoryService>();
-
-      final updatedInventory = inventory.copyWith(
-        inventStatus: InventoryStatus.Finalizado,
-      );
-
-      final syncResult = await inventoryService.startSyncInventory(inventory.inventCode);
-
-      if (syncResult.status == 0) {
-        MessageService.showError(syncResult.message);
-        return;
-      }
-
-      final saveResult = await inventoryService.createOrUpdateInventory(updatedInventory);
-
-      if (saveResult.status == 0) {
-        MessageService.showError(saveResult.message);
-        return;
-      }
-
-      if (context.mounted) {
-        final service = context.read<InventoryService>();
-        final loadingService = context.read<LoadingService>();
-
-        loadingService.show();
-        await service.fetchAllInventories();
-        loadingService.hide();
-
-        MessageService.showSuccess("Inventário #${inventory.inventCode} finalizado com sucesso!",);
-      }
-      
-    }
-  }
-  */
 
   void _showConfirmFinalizeDialog(BuildContext context) async {
     final confirmed = await showConfirmDialog(
@@ -344,8 +331,12 @@ class _InventoryCard extends StatelessWidget {
     loadingService.show();
 
     try {
-      final updatedInventory = inventory.copyWith(inventStatus: InventoryStatus.Finalizado);
-      final saveResult = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
+      
+      //final updatedInventory = inventory.copyWith(inventStatus: InventoryStatus.Finalizado, isSynced: false,);
+
+      final saveResult = await inventoryService.finalizeInventory(inventory.inventCode);
+
+      //final saveResult = await inventoryService.createOrUpdateInventoryCurr(updatedInventory);
 
       if (!context.mounted) return;
 
@@ -450,6 +441,8 @@ class _SearchInventoryPageState extends State<SearchInventoryPage> {
       final service = context.read<InventoryService>();
       final loadingService = context.read<LoadingService>();
       
+      debugPrint('⚠️⚠️⚠️ [API] INICIO"}');
+
       try {
         loadingService.show();
         await service.initializeDeviceId();
@@ -516,12 +509,28 @@ class _SearchInventoryPageState extends State<SearchInventoryPage> {
                   itemCount: inventories.length,
                   cacheExtent: 100,
                   itemBuilder: (context, index) {
+                    return Consumer<InventoryService>(
+                      builder: (context, service, _) {
+                        final item = service.inventories[index];  // sempre pega do provider
+                        return _InventoryCard(inventory: item);
+                      },
+                    );
+                  },
+                );
+
+                /*
+                return ListView.builder(
+                  padding: const EdgeInsets.all(10.0),
+                  itemCount: inventories.length,
+                  cacheExtent: 100,
+                  itemBuilder: (context, index) {
                     final item = inventories[index];
                     return _InventoryCard(
                       inventory: item,
                     );
                   },
                 );
+                */
               },
             ),
           ),

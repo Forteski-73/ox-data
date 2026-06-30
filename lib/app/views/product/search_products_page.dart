@@ -18,6 +18,7 @@ import 'package:oxdata/app/views/pages/barcode_scanner_page.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class SearchProductsPage extends StatefulWidget {
   final bool shouldNavigate; 
@@ -354,7 +355,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                                           return const SizedBox(
                                             width: 85,
                                             height: 85,
-                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                            child: Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0)),
                                           );
                                         } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
                                           final String dataUri = snapshot.data!.first;
@@ -410,10 +411,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                               child: SizedBox(
                                 width: 24,  // Controle de largura
                                 height: 24, // Controle de altura
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
-                                  strokeWidth: 2.5, // Deixa o traço mais fino
-                                ),
+                                child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
                               ),
                             ),
                           );

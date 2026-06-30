@@ -22,25 +22,36 @@ import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
+import 'package:oxdata/app/core/services/sync_manager.dart';
 import 'package:oxdata/app/core/utils/network_status.dart';
+import 'package:oxdata/app/core/repositories/inventory_local_repository.dart';
 import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/db/enums/mask_field_name.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:oxdata/db/tables/sync_queue.dart';
+import 'package:drift/drift.dart' show Value;
 
 class InventoryService with ChangeNotifier {
   InventoryService({
     required this.inventoryRepository,
     required this.database,
+    required this.recordsRepository,
+    required this.syncManager,
   });
 
   final InventoryRepository inventoryRepository;
   final AppDatabase database;
+  final InventoryRecordsRepository recordsRepository;
+  final SyncManager syncManager;
 
   // ── Estado ────────────────────────────────────────────────────────────────
 
   String? _deviceId;
   String? get deviceId => _deviceId;
+
+  int _userInventAdm = 0;
+  int get userInventAdm => _userInventAdm;
 
   List<InventoryModel> _allInventories = [];
   List<InventoryModel> _inventories = [];
@@ -50,44 +61,12 @@ class InventoryService with ChangeNotifier {
 
   set _records(List<InventoryRecordModel> value) {
     _inventoryRecords = value;
-    _syncInventorySyncedState();
+    //_syncInventorySyncedState();
   }
 
   set _inventoriesList(List<InventoryModel> value) {
     _allInventories = value;
-    _syncInventorySyncedState();
-  }
-
-  /// Marca isSynced = false em todo inventário pai que tenha ao menos
-  /// um record filho pendente em _inventoryRecords.
-  void _syncInventorySyncedState() {
-    if (_allInventories.isEmpty || _inventoryRecords.isEmpty) return;
-
-    final unsyncedCodes = _inventoryRecords
-        .where((r) => r.isSynced == false)
-        .map((r) => r.inventCode)
-        .toSet();
-
-    if (unsyncedCodes.isEmpty) return;
-
-    var changed = false;
-
-    _allInventories = _allInventories.map((inv) {
-      if (unsyncedCodes.contains(inv.inventCode) && (inv.isSynced ?? true)) {
-        changed = true;
-        return inv.copyWith(isSynced: false);
-      }
-      return inv;
-    }).toList();
-
-    if (changed) {
-      _inventories = List.from(_allInventories);
-
-      if (_selectedInventory != null &&
-          unsyncedCodes.contains(_selectedInventory!.inventCode)) {
-        _selectedInventory = _selectedInventory!.copyWith(isSynced: false);
-      }
-    }
+    //_syncInventorySyncedState();
   }
 
   InventoryModel? _selectedInventory;
@@ -176,7 +155,8 @@ class InventoryService with ChangeNotifier {
   // CONFIRMAÇÃO DE DRAFT
   // =========================================================================
 
-  /// Fluxo: salva localmente → tenta sync se houver internet.
+  /// Offline-first via Outbox: salva local + enfileira atomicamente.
+  /// O SyncManager cuida do envio em background — sem checar internet aqui.
   Future<StatusResult> confirmDraft(InventoryRecordInput draft) async {
     if (_selectedInventory == null) {
       return StatusResult(
@@ -185,35 +165,58 @@ class InventoryService with ChangeNotifier {
       );
     }
 
-    // 1. Sempre salva local primeiro (offline-first)
-    final localResult = await database.insertOrUpdateInventoryRecordOffline(
-      _selectedInventory!,
-      draft,
-      synced: false,
-    );
+    try {
+      // Busca o produto para montar o payload completo
+      final product = await searchProductLocallyByCode(draft.product);
+      if (product == null) {
+        return StatusResult(status: 0, message: 'Produto não encontrado.');
+      }
 
-    if (localResult.status == 0) return localResult;
+      final total =
+          ((draft.qtdPorPilha ?? 0) * (draft.numPilhas ?? 0)) +
+          (draft.qtdAvulsa ?? 0);
+
+      // Upsert na tabela de domínio + enqueue na SyncQueue — mesma transação
+      await recordsRepository.upsertRecord(
+        inventCode:           _selectedInventory!.inventCode,
+        inventGuid:           _selectedInventory!.inventGuid ?? '',
+        inventProduct:        product.productId,
+        inventBarcode:        product.barcode,
+        inventUnitizer:       draft.unitizer,
+        inventLocation:       draft.position,
+        inventStandardStack:  (draft.qtdPorPilha ?? 0).toInt(),
+        inventQtdStack:       (draft.numPilhas ?? 0).toInt(),
+        inventQtdIndividual:  draft.qtdAvulsa,
+        inventTotal:          total,
+      );
+
+    // Marca o inventário pai como não sincronizado enquanto não sincronizar a contagem
+  
+    await database.inventoryDao.markUnsynced(_selectedInventory!.inventCode);
+    
+    } catch (e) {
+      debugPrint('❌ confirmDraft: $e');
+      return StatusResult(status: 0, message: 'Erro ao salvar registro: $e');
+    }
+
+    // Tenta sincronizar imediatamente — sem await, não bloqueia a UI
+    //unawaited(syncManager.syncNow());
+
+      try {
+        await syncManager.syncNow();
+      } catch (e) {
+        debugPrint('⚠️ confirmDraft: sync falhou, será retentado: $e');
+      }
 
     await refreshSelectedInventoryState(_selectedInventory!.inventCode);
+    await fetchRecordsByInventCode(_selectedInventory!.inventCode);
 
     _draft = null;
     notifyListeners();
 
-    // 2. Sem internet → retorna sucesso local
-    if (!await NetworkUtils.hasInternetConnection()) {
-      await fetchRecordsByInventCode(_selectedInventory!.inventCode);
-      return StatusResult(status: 1, message: 'Registro salvo localmente.');
-    }
-
-    // 3. Com internet → sincroniza pendentes em lote
-    final syncResult = await syncInventoryBatch(_selectedInventory!.inventCode);
-
-    if (syncResult.status == 1) {
-      await fetchRecordsByInventCode(_selectedInventory!.inventCode);
-    }
-
-    return syncResult;
+    return StatusResult(status: 1, message: 'Registro salvo.');
   }
+
 
   // =========================================================================
   // VERIFICAÇÕES LOCAIS / REMOTAS
@@ -246,64 +249,18 @@ class InventoryService with ChangeNotifier {
     );
   }
 
-  Future<InventoryRecordModel?> checkExistingRecordRemote(
-    String unitizer,
-    String position,
-    String product,
-  ) async {
-    if (_selectedInventory == null) return null;
-    if (!await NetworkUtils.hasInternetConnection()) return null;
-
-    final response = await inventoryRepository
-        .getRecordsByInventCode(_selectedInventory!.inventCode);
-
-    if (!response.success || response.data == null) return null;
-
-    return response.data!.cast<InventoryRecordModel?>().firstWhere(
-          (r) =>
-              r!.inventUnitizer == unitizer &&
-              r.inventLocation == position &&
-              r.inventBarcode == product,
-          orElse: () => null,
-        );
-  }
-
-  // =========================================================================
-  // INVENTÁRIOS
-  // =========================================================================
-
-  /// Merge local-first: banco local tem prioridade quando não sincronizado.
   Future<void> fetchAllInventories() async {
     if (_deviceId == null) {
-      debugPrint('⚠️ fetchAllInventories: deviceId nulo');
       _inventories = _allInventories = [];
       notifyListeners();
       return;
     }
 
-    final localRows = await database.getLocalInventories();
+    final localRows = await database.getLocalInventories();    
 
-    // Mapa inicial com os dados locais
-    final merged = <String, InventoryModel>{
-      for (final row in localRows)
-        row.inventCode: InventoryModel.fromLocal(row),
-    };
-
-    // Sobrescreve apenas registros já sincronizados com a versão remota
-    final remote = await inventoryRepository.getRecentInventoriesByGuid(_deviceId!);
-    if (remote.success && remote.data != null) {
-      for (final r in remote.data!) {
-        final local = merged[r.inventCode];
-        if (local == null || local.isSynced == true) {
-          merged[r.inventCode] = r;
-          await database.insertOrUpdateInventoryOffline(r, synced: true);
-        }
-      }
-    } else {
-      debugPrint('⚠️ Inventários remotos indisponíveis: ${remote.message}');
-    }
-
-    _inventoriesList = merged.values.toList()
+    _inventoriesList = localRows
+        .map((row) => InventoryModel.fromLocal(row))
+        .toList()
       ..sort((a, b) =>
           b.inventCreated?.compareTo(a.inventCreated ?? DateTime(0)) ?? 0);
 
@@ -313,7 +270,8 @@ class InventoryService with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchAllInventoriesFromApiOnly() async {
+  // *********** USADO NO AD PAGE ***********
+  Future<void> fetchAllInventoriesFromApiOnly() async { 
     final response = await inventoryRepository.getAllInventories();
 
     if (response.success && response.data != null) {
@@ -357,72 +315,43 @@ class InventoryService with ChangeNotifier {
     fetchRecordsByInventCode(inventory.inventCode);
   }
 
-  /*
-  Future<StatusResult> createOrUpdateInventoryCurr(InventoryModel inventory) async {
-
-    // Inventários Iniciados são persistidos localmente imediatamente
-    if (inventory.inventStatus == InventoryStatus.Iniciado) {
-      await database.insertOrUpdateInventoryOffline(inventory, synced: false);
-      await _updateLocalList(inventory);
-
-      if (!await NetworkUtils.hasInternetConnection()) {
-        return StatusResult(
-          status: 1,
-          message: 'Sem conexão. Trabalhando offline.',
-        );
-      }
-      else {
-        final response = await inventoryRepository.createOrUpdateInventory(inventory);
-        if (!response.success) {
-          return StatusResult(status: 0, message: response.message ?? 'Erro ao salvar inventário.',);
-        }
-      }
-
-    } else { // Quando finaliza o inventário
-
-      if (!await NetworkUtils.hasInternetConnection()) {
-        return StatusResult(
-          status: 1,
-          message: 'Sem conexão com Internet.',
-        );
-      }
-
-      final response = await inventoryRepository.createOrUpdateInventory(inventory);
-      if (!response.success) {
-        return StatusResult(status: 0, message: response.message ?? 'Erro ao salvar inventário.',);
-      }
-      else
-      {
-        ///final recordResponse = await inventoryRepository.createOrUpdateInventoryRecords(records);
-        /// enviar todos os records do inventário
-        
-        
-
-          await database.insertOrUpdateInventoryOffline(response.data ?? inventory, synced: true,);
-          await _updateLocalList(inventory);
-      }
+  Future<StatusResult> createInventory(InventoryModel inventory) async {
+    try {
+      await recordsRepository.upsertInventory(
+        inventCode:    inventory.inventCode,
+        inventGuid:    inventory.inventGuid,
+        inventName:    inventory.inventName,
+        inventStatus:  inventory.inventStatus,
+        operation:     SyncOperation.insert,
+        inventSector:  inventory.inventSector,
+        inventUser:    inventory.inventUser,
+        inventCreated: inventory.inventCreated,
+        inventTotal:   inventory.inventTotal,
+      );
+      debugPrint('****** INSERIU ***** : ${inventory.inventCode}}');
+    } catch (e) {
+      debugPrint('❌ createInventory: $e');
+      return StatusResult(status: 0, message: 'Erro ao salvar inventário: $e');
     }
-    return StatusResult(status: 1, message: 'Inventário salvo com sucesso.');
+
+    try {
+      debugPrint('❌❌❌❌  syncManager **********************');
+      await syncManager.syncNow();
+    } catch (e) {
+      debugPrint('⚠️ createInventory: sync falhou, será retentado: $e');
+    }
+
+    await fetchAllInventories();
+
+    notifyListeners();
+
+    return StatusResult(status: 1, message: 'Inventário salvo.');
   }
-  */
+    //await database.insertOrUpdateInventoryOffline(inventory, synced: false);
+    //return StatusResult(status: 1, message: 'Inventário salvo com sucesso.');
+  
 
   Future<StatusResult> createOrUpdateInventoryCurr(InventoryModel inventory) async {
-
-    if (inventory.inventStatus == InventoryStatus.Iniciado) {
-      await database.insertOrUpdateInventoryOffline(inventory, synced: false);
-      await _updateLocalList(inventory);
-
-      if (!await NetworkUtils.hasInternetConnection()) {
-        return StatusResult(status: 1, message: 'Sem conexão. Trabalhando offline.');
-      }
-
-      final response = await inventoryRepository.createOrUpdateInventory(inventory);
-      if (!response.success) {
-        return StatusResult(status: 0, message: response.message ?? 'Erro ao salvar inventário.');
-      }
-
-    } else {
-
       if (!await NetworkUtils.hasInternetConnection()) {
         return StatusResult(status: 1, message: 'Sem conexão com Internet.');
       }
@@ -431,6 +360,7 @@ class InventoryService with ChangeNotifier {
       if (!response.success) {
         return StatusResult(status: 0, message: response.message ?? 'Erro ao salvar inventário.');
       }
+      
 
       // Busca todos os records locais do inventário e envia para a API
       final allRecords = await database.getRecordsByInventory(inventory.inventCode);
@@ -453,22 +383,29 @@ class InventoryService with ChangeNotifier {
             inventTotal:         r.inventTotal ?? 0,
           )).toList(),
         );
-
-        final recordsResponse = await inventoryRepository.createOrUpdateInventoryRecords([batch]);
-
-        if (!recordsResponse.success) {
-          debugPrint('⚠️ Erro ao enviar records na finalização: ${recordsResponse.message}');
-          return StatusResult(status: 0, message: response.message ?? 'Erro ao salvar inventário.');
-        } else {
-            // Marca todos os records como sincronizados
-            await database.insertOrUpdateInventoryOffline(response.data ?? inventory, synced: true,);
-            await _updateLocalList(inventory);
-          }
       }
+    return StatusResult(status: 1, message: 'Inventário salvo com sucesso.');
+  }
 
+  Future<StatusResult> finalizeInventory(String inventCode) async {
+    try {
+      await recordsRepository.finalizeInventory(inventCode);
+      debugPrint('****** FINALIZOU INVENTÁRIO ***** : $inventCode');
+    } catch (e) {
+      debugPrint('❌ finalizeInventory: $e');
+      return StatusResult(status: 0, message: 'Erro ao finalizar inventário: $e');
     }
 
-    return StatusResult(status: 1, message: 'Inventário salvo com sucesso.');
+    try {
+      await syncManager.syncNow();
+    } catch (e) {
+      debugPrint('⚠️ finalizeInventory: sync falhou, será retentado: $e');
+    }
+
+    await refreshSelectedInventoryState(inventCode);
+    notifyListeners();
+
+    return StatusResult(status: 1, message: 'Inventário finalizado.');
   }
 
   Future<void> deleteInventory(String inventCode) async {
@@ -517,212 +454,54 @@ class InventoryService with ChangeNotifier {
     notifyListeners();
   }
 
-  // =========================================================================
-  // RECORDS
-  // =========================================================================
-
-  Future<StatusResult> saveInventoryRecord(InventoryRecordInput input) async {
-    if (_selectedInventory == null) {
-      return StatusResult(status: 0, message: 'Nenhum inventário selecionado.');
-    }
-    if (input.product.isEmpty) {
-      return StatusResult(status: 0, message: 'Produto obrigatório.');
-    }
-
-    final product = await searchProductLocallyByCode(input.product);
-    if (product == null) {
-      return StatusResult(status: 0, message: 'Produto não encontrado.');
-    }
-
-    final total =
-        ((input.qtdPorPilha ?? 0) * (input.numPilhas ?? 0)) + (input.qtdAvulsa ?? 0);
-
-    final record = InventoryRecordModel(
-      inventCode: _selectedInventory!.inventCode,
-      inventUnitizer: input.unitizer,
-      inventLocation: input.position,
-      inventProduct: product.productId,
-      inventBarcode: product.barcode,
-      inventStandardStack: (input.qtdPorPilha ?? 0).toInt(),
-      inventQtdStack: (input.numPilhas ?? 0).toInt(),
-      inventQtdIndividual: input.qtdAvulsa,
-      inventTotal: total,
-      inventCreated: DateTime.now(),
-      inventUser: 'Diones',
-    );
-
-    final batch = InventoryBatchRequest(
-      inventGuid: _selectedInventory!.inventGuid ?? '',
-      inventCode: _selectedInventory!.inventCode,
-      records: [record],
-    );
-
-    return createOrUpdateInventoryRecords([batch]);
-  }
-
-  Future<StatusResult> createOrUpdateInventoryRecords(
-    List<InventoryBatchRequest> batches,
-  ) async {
-    final response =
-        await inventoryRepository.createOrUpdateInventoryRecords(batches);
-
-    if (!response.success) {
-      return StatusResult(
-        status: 0,
-        message: response.message ?? 'Erro ao salvar registros.',
+  Future<void> fetchRecordsByInventCode(String inventCode) async {
+    try {
+      final localData = await database.getPendingRecordsWithDescription(
+        inventCode: inventCode,
       );
+
+      _records = localData
+          .map(
+            (item) => InventoryRecordModel.fromLocal(item.record).copyWith(
+              productDescription: item.productName,
+              isSynced: item.record.isSynced,
+            ),
+          )
+          .toList()
+        ..sort((a, b) =>
+            (b.inventCreated ?? DateTime(0)).compareTo(a.inventCreated ?? DateTime(0)));
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ fetchRecordsByInventCode: $e');
+      _records = [];
+      notifyListeners();
     }
-
-    // Atualiza o total do inventário selecionado com o valor retornado pela API
-    final raw = response.rawJson;
-    if (raw != null && _selectedInventory != null) {
-      final returnedCode =
-          (raw['InventCode'] ?? raw['inventCode']) as String?;
-      final newTotal =
-          (raw['InventTotal'] ?? raw['inventTotal'] as num?)?.toDouble();
-
-      if (_selectedInventory!.inventCode == returnedCode && newTotal != null) {
-        _selectedInventory = _selectedInventory!.copyWith(inventTotal: newTotal);
-        await _updateLocalList(_selectedInventory!);
-      }
-    }
-
-    return StatusResult(
-      status: 1,
-      message: (raw?['Message'] ?? raw?['message'] as String?) ??
-          response.data ??
-          'Registros salvos com sucesso.',
-    );
   }
-
-  /// Merge local-first: registros da API são base; pendentes locais sobrescrevem.
   /*
-  Future<void> fetchRecordsByInventCode(String inventCode) async {
+  Future<void> loadMenuPermissions() async {
     try {
-      List<InventoryRecordModel> apiRecords = [];
-
-      if (await NetworkUtils.hasInternetConnection()) {
-        final response =
-            await inventoryRepository.getRecordsByInventCode(inventCode);
-        if (response.success && response.data != null) {
-          apiRecords = response.data!;
-        }
-      }
-
-      final localData = await database.getPendingRecordsWithDescription(
-        inventCode: inventCode,
-      );
-
-      final localModels = localData
-          .map(
-            (item) => InventoryRecordModel.fromLocal(item.record).copyWith(
-              productDescription: item.productName,
-              isSynced: false,
-            ),
-          )
-          .toList();
-
-      // Constrói mapa com API como base e pendentes locais sobrescrevendo
-      final merged = <String, InventoryRecordModel>{
-        for (final r in apiRecords) r.id.toString(): r,
-        for (final r in localModels) r.id.toString(): r,
-      };
-
-      _records = merged.values.toList()
-        ..sort((a, b) =>
-            (b.inventCreated ?? DateTime(0)).compareTo(a.inventCreated ?? DateTime(0)));
-
-      notifyListeners();
+      final storage = StorageService();
+      final menus = await storage.readMenus();
+      _hasInventAdmMenu = menus.any((m) => m.routeName == 'INVENTADM');
     } catch (e) {
-      debugPrint('❌ fetchRecordsByInventCode: $e');
-
-      // Fallback seguro: apenas locais
-      final localData = await database.getPendingRecordsWithDescription(
-        inventCode: inventCode,
-      );
-      _records = localData
-          .map(
-            (item) => InventoryRecordModel.fromLocal(item.record).copyWith(
-              productDescription: item.productName,
-            ),
-          )
-          .toList();
-
-      notifyListeners();
+      debugPrint('⚠️ loadMenuPermissions: $e');
+      _hasInventAdmMenu = false;
     }
-  }
-  */
+    notifyListeners();
+  }*/
 
-  /// Merge local-first: registros da API são base; pendentes locais sobrescrevem.
-  Future<void> fetchRecordsByInventCode(String inventCode) async {
+  Future<void> loadMenuPermissions() async {
     try {
-      List<InventoryRecordModel> apiRecords = [];
-
-      if (await NetworkUtils.hasInternetConnection()) {
-        final response =
-            await inventoryRepository.getRecordsByInventCode(inventCode);
-        if (response.success && response.data != null) {
-          apiRecords = response.data!;
-        }
-      }
-
-      final localData = await database.getPendingRecordsWithDescription(
-        inventCode: inventCode,
-      );
-
-      final localModels = localData
-          .map(
-            (item) => InventoryRecordModel.fromLocal(item.record).copyWith(
-              productDescription: item.productName,
-              isSynced: false,
-            ),
-          )
-          .toList();
-
-      // 💡 CORREÇÃO AQUI: Usando uma chave composta de negócio para unificar os registros
-      final merged = <String, InventoryRecordModel>{};
-
-      // 1. Adiciona os registros vindos da API
-      for (final r in apiRecords) {
-        final businessKey = '${r.inventUnitizer}_${r.inventLocation}_${r.inventBarcode}';
-        merged[businessKey] = r;
-      }
-
-      // 2. Adiciona/Sobrescreve com os locais pendentes (se houver correspondência, o local substitui o da API)
-      for (final r in localModels) {
-        final businessKey = '${r.inventUnitizer}_${r.inventLocation}_${r.inventBarcode}';
-        merged[businessKey] = r;
-      }
-
-      _records = merged.values.toList()
-        ..sort((a, b) =>
-            (b.inventCreated ?? DateTime(0)).compareTo(a.inventCreated ?? DateTime(0)));
-
-      notifyListeners();
+      final storage = StorageService();
+      _userInventAdm = await storage.readProfileId();
     } catch (e) {
-      debugPrint('❌ fetchRecordsByInventCode: $e');
-
-      // Fallback seguro: apenas locais
-      final localData = await database.getPendingRecordsWithDescription(
-        inventCode: inventCode,
-      );
-      _records = localData
-          .map(
-            (item) => InventoryRecordModel.fromLocal(item.record).copyWith(
-              productDescription: item.productName,
-            ),
-          )
-          .toList();
-
-      notifyListeners();
+      _userInventAdm = 0;
     }
+    notifyListeners();
   }
 
-  Future<InventoryRecordModel?> getRecordById(int id) async {
-    final response = await inventoryRepository.getRecordById(id);
-    return response.success ? response.data : null;
-  }
-
+  // ********* USADO NO DOWNLOAD *********
   Future<List<InventoryRecordModel>> getRecordsListByInventCode(
     String inventCode,
   ) async {
@@ -738,17 +517,73 @@ class InventoryService with ChangeNotifier {
     return [];
   }
 
-  Future<void> deleteInventoryRecord(int id) async {
-    final response = await inventoryRepository.deleteInventoryRecord(id);
-    if (!response.success) {
-      throw Exception('Erro ao excluir registro: ${response.message}');
+  /*
+  Future<void> deleteInventoryRecord(
+      String inventCode, String unitizer, String location, String item) async {
+
+    final hasInternet = await NetworkUtils.hasInternetConnection();
+
+    // Se tiver internet, deleta na API primeiro
+    // Só continua se a API confirmar — garante que ambos ficam em sincronizados
+    if (hasInternet) {
+      final response = await inventoryRepository.deleteInventoryRecord(
+          inventCode, unitizer, location, item);
+      if (!response.success) {
+        throw Exception('Erro ao excluir registro na API: ${response.message}');
+      }
     }
 
-    final idx = _inventoryRecords.indexWhere((r) => r.id == id);
+    // 2API confirmou, ou sem internet -> deleta local
+    await database.deleteRecordByKey(
+      inventCode: inventCode,
+      unitizer: unitizer,
+      location: location,
+      product: item,
+    );
+
+    // Atualiza lista em memória
+    final idx = _inventoryRecords.indexWhere((r) =>
+        r.inventCode == inventCode &&
+        r.inventUnitizer == unitizer &&
+        r.inventLocation == location &&
+        r.inventProduct == item);
+
     if (idx == -1) return;
 
     final removed = _inventoryRecords.removeAt(idx);
     _decrementInventoryTotal(removed);
+
+    notifyListeners();
+  }
+  */
+
+  Future<void> deleteInventoryRecord(
+      String inventCode, String unitizer, String location, String item) async {
+
+    final row = await database.checkDuplicateRecord(
+      inventCode: inventCode,
+      unitizer: unitizer,
+      position: location,
+      product: item,
+    );
+
+    if (row == null) return;
+
+    await recordsRepository.deleteRecord(
+      row.id,
+      inventGuid: _selectedInventory!.inventGuid ?? '',
+    );
+
+    final idx = _inventoryRecords.indexWhere((r) =>
+        r.inventCode == inventCode &&
+        r.inventUnitizer == unitizer &&
+        r.inventLocation == location &&
+        r.inventProduct == item);
+
+    if (idx != -1) {
+      final removed = _inventoryRecords.removeAt(idx);
+      _decrementInventoryTotal(removed);
+    }
 
     notifyListeners();
   }
@@ -780,6 +615,7 @@ class InventoryService with ChangeNotifier {
   // PRODUTOS
   // =========================================================================
 
+  // PRA BUSCAR A DESCRIÇÃO DO PRODUTO
   Future<Product?> searchProductLocallyByCode(String code) async {
     if (code.isEmpty) return null;
     try {
@@ -790,6 +626,7 @@ class InventoryService with ChangeNotifier {
     }
   }
 
+  /*
   Future<void> searchProductLocally(String query) async {
     if (query.length < 4) {
       _searchResults = [];
@@ -799,6 +636,7 @@ class InventoryService with ChangeNotifier {
     _searchResults = await database.searchProducts(query);
     notifyListeners();
   }
+  */
 
   // =========================================================================
   // MASKS
@@ -819,10 +657,15 @@ class InventoryService with ChangeNotifier {
   // =========================================================================
 
   Future<void> performSync() async {
-    if (_isSetupEnabled) await startSyncSetUp();
-    if (_isContagemEnabled) {
+    if (_isSetupEnabled)
+    {
+      await startSyncSetUp();
+    }
+    if (_isContagemEnabled) 
+    {
       await startSyncInventory();
-    } else if (!_isSetupEnabled) {
+    }
+    else if (!_isSetupEnabled) {
       infoSynchronize = 'Selecione ao menos uma opção para sincronizar.';
       notifyListeners();
     }
@@ -943,46 +786,7 @@ class InventoryService with ChangeNotifier {
       return StatusResult(status: 0, message: 'Erro inesperado: $e');
     } finally {
       await Future.delayed(const Duration(seconds: 1));
-      isSyncing = false;
-      notifyListeners();
-    }
-  }
-
-  /// Sync em paralelo (cabeçalhos + records), sem feedback de progresso.
-  /// Usado internamente após confirmDraft().
-  Future<StatusResult> syncInventoryBatch([String? inventCode]) async {
-    try {
-      final results = await Future.wait([
-        inventCode == null
-            ? database.getPendingInventories()
-            : database.getPendingInventoryByCode(inventCode),
-        database.getPendingRecords(inventCode: inventCode),
-      ]);
-
-      final pendingInventories = results[0] as List<InventoryData>;
-      final pendingRecords = results[1] as List<InventoryRecord>;
-
-      if (pendingInventories.isEmpty && pendingRecords.isEmpty) {
-        return StatusResult(status: 1, message: 'Tudo em dia!');
-      }
-
-      // Cabeçalhos em paralelo
-      await Future.wait(
-        pendingInventories.map((item) async {
-          final response = await inventoryRepository
-              .createOrUpdateInventory(InventoryModel.fromLocal(item));
-          if (response.success) await database.markInventoryAsSynced(item.inventCode);
-        }),
-      );
-
-      // Records em paralelo por grupo
-      await _syncGroupedRecords(pendingRecords, parallel: true);
-
-      return StatusResult(status: 1, message: 'Sincronização concluída!');
-    } catch (e) {
-      debugPrint('❌ syncInventoryBatch: $e');
-      return StatusResult(status: 0, message: 'Erro: $e');
-    } finally {
+      //isSyncing = false; ************ sincronização  ************
       notifyListeners();
     }
   }
@@ -1006,13 +810,13 @@ class InventoryService with ChangeNotifier {
 
   void addRecordLocally(InventoryRecordModel record) {
     _inventoryRecords.add(record);
-    _syncInventorySyncedState();
+    //_syncInventorySyncedState();
     notifyListeners();
   }
 
   void removeRecordLocally(InventoryRecordModel record) {
     _inventoryRecords.removeWhere((r) => r.id == record.id);
-    _syncInventorySyncedState();
+    //_syncInventorySyncedState();
     notifyListeners();
   }
 

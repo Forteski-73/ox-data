@@ -9,6 +9,7 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart'; 
 import 'package:oxdata/app/views/pallet/search_pallet_page.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class PalletReceivePage extends StatefulWidget {
   final PalletModel pallet;
@@ -352,7 +353,7 @@ class _PalletReceivePageState extends State<PalletReceivePage> {
                 child: Container(
                   color: Colors.grey.shade200,
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
                       : _filteredItems.isEmpty
                           ? const Center(child: Text('Nenhum item encontrado.'))
                           : ListView.builder(

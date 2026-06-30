@@ -11,7 +11,8 @@ import 'package:oxdata/app/views/inventory/synchronide_database.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/widgets/buttom_item.dart';
 import 'package:oxdata/app/views/inventory/inventory_popup.dart';
-import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:oxdata/app/core/models/menu_item_model.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
 
 class InventoriesPage extends StatefulWidget {
   const InventoriesPage({super.key});
@@ -24,7 +25,8 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     with TickerProviderStateMixin {
   late PageController _pageController;
   double _currentPage = 0.0;
-  static const int _inventoryItemPageIndex = 1;
+  List<MenuItemModel> _menuOptions = []; 
+  int userProfileId = 0;
 
   // 1. Títulos solicitados
   final List<String> pageTitles = [
@@ -82,6 +84,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
     _pageController = PageController(viewportFraction: 1.0);
     _loadService = context.read<LoadService>();
     _loadService.addListener(_pageServiceListener);
+    _loadUserData();
 
     _pageController.addListener(() {
       setState(() {
@@ -111,6 +114,18 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
         floatingTop = screenSize.height - 180 - 100; // aumentei para 100 para os tablets
         floatingLeft = screenSize.width - 30 - 60;
       });
+    });
+  }
+
+  Future<void> _loadUserData() async {
+    final storage = StorageService();
+
+    final menus = await storage.readMenus();
+    final profileId = await storage.readProfileId();
+
+    setState(() {
+      _menuOptions = menus;
+      userProfileId = profileId;
     });
   }
 
@@ -292,6 +307,7 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
 
     // Obtém o índice da página atual
     final int currentPageIndex = _currentPage.round();
+    final bool canDelete = _menuOptions.any((m) => m.routeName == 'INVENTADM');
 
     // Usa pageTitles.length
     List<double> angles = _calculateAngles(
@@ -379,27 +395,24 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                 },
               ),
 
-            if (currentPageIndex == 2)
+            if (currentPageIndex == 2 &&
+              (userProfileId == 1 || userProfileId == 6 || userProfileId == 7))
               BottomItem(
                 icon: Icons.delete_forever,
                 label: "Excluir",
-                backgroundColor: Colors.redAccent,
+                backgroundColor: canDelete ? Colors.redAccent : Colors.grey,
                 iconColor: Colors.white,
                 textColor: Colors.white,
-                onTap: () async {
-                  // Acessa o estado da página filha via GlobalKey
-                  final childState = InventoryPage.inventoryKey.currentState;
-
-                  if (childState != null) {
-                    bool proceed = await childState.handleDeleteAction();
-                    
-                    // Se a filha disser que não está ok (validação falhou), para aqui
-                    if (!proceed) return;
-
-                    navigateToPageByIndex(0);
-                  }
-                
-                },
+                onTap: canDelete
+                    ? () async {
+                        final childState = InventoryPage.inventoryKey.currentState;
+                        if (childState != null) {
+                          bool proceed = await childState.handleDeleteAction();
+                          if (!proceed) return;
+                          navigateToPageByIndex(0);
+                        }
+                      }
+                    : null,
               ),
 
             if (currentPageIndex == 2)
@@ -449,11 +462,9 @@ class _CustomAnimatedPageViewState extends State<InventoriesPage>
                   backgroundColor: Colors.teal,
                   iconColor: Colors.white,
                   textColor: Colors.white,
-                  onTap: isSyncing
-                      ? null
-                      : () {
-                          context.read<InventoryService>().performSync();
-                        },
+                  onTap: isSyncing ? null : () {
+                    context.read<InventoryService>().performSync();
+                  },
                 ),
           ],
         ),
