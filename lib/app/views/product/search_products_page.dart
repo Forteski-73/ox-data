@@ -409,9 +409,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                             padding: EdgeInsets.symmetric(vertical: 18.0),
                             child: Center(
                               child: SizedBox(
-                                width: 24,  // Controle de largura
-                                height: 24, // Controle de altura
-                                child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
+                                child: SpinKitThreeBounce(color: Colors.black87, size: 22.0),
                               ),
                             ),
                           );

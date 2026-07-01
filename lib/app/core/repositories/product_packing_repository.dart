@@ -318,4 +318,31 @@ class ProductPackingRepository {
     }
   }
 
+  /// Remove completamente uma montagem (itens, imagens e o pai)
+  Future<ApiResponse<bool>> deletePacking(int packId) async {
+    try {
+      final response = await apiClient.deleteAuth(
+        '${ApiRoutes.productPacking}/$packId',
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return ApiResponse(
+          success: true,
+          data: true,
+          message: 'Montagem removida com sucesso.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao deletar montagem: Código ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na comunicação ao deletar montagem: $e',
+      );
+    }
+  }
+
 }

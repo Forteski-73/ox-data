@@ -56,22 +56,37 @@ class ProductPackingService with ChangeNotifier {
     notifyListeners();
   }
 
-  /*
-  Future<void> fetchPackImages(int packId) async {
+  /// Remove completamente uma montagem e atualiza a lista local
+  Future<ApiResponse<bool>> deletePacking(int packId) async {
     _isLoading = true;
     notifyListeners();
-    
-    final response = await repository.getPackImagesBase64(packId);
-    if (response.success) {
-      _packImages = response.data ?? [];
-    } else {
-      _packImages = [];
+
+    try {
+      final response = await repository.deletePacking(packId);
+
+      if (response.success) {
+        // Remove da lista local sem precisar recarregar da API
+        _allPackings.removeWhere((p) => p.packId == packId);
+        _filteredPackings = List.from(_allPackings);
+
+        // Se a montagem deletada era a selecionada, limpa a seleção
+        if (_selectedPacking?.packId == packId) {
+          _selectedPacking = null;
+          _packImages = [];
+        }
+      }
+
+      return response;
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erro no service ao deletar: $e',
+      );
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    
-    _isLoading = false;
-    notifyListeners();
   }
-  */
 
   Future<List<ImagePackBase64>> fetchPackImages(int packId) async {
     _isLoading = true;

@@ -849,12 +849,19 @@ Widget _buildFullScreenPhoto(
         title: const Text("Excluir?"),
         content: Text("Deseja remover '${pkg.packName}'?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCELAR"),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              // service.deletePacking(pkg.packId);
+            onPressed: () async {
               Navigator.pop(context);
+              final response = await service.deletePacking(pkg.packId);
+              if (!response.success) {
+                // Exibe erro se necessário
+                debugPrint("Erro ao deletar: ${response.message}");
+              }
             },
             child: const Text("EXCLUIR", style: TextStyle(color: Colors.white)),
           ),
@@ -862,31 +869,6 @@ Widget _buildFullScreenPhoto(
       ),
     );
   }
-
-  /*
-  void _showAddPackagingDialog(ProductPackingService service) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Nova Montagem"),
-        content: TextField(controller: controller, decoration: const InputDecoration(hintText: "Nome")),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                // service.createPacking(controller.text.toUpperCase());
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("CRIAR"),
-          ),
-        ],
-      ),
-    );
-  }
-  */
 
   void _showAddPackagingDialog(ProductPackingService service) {
     final controller = TextEditingController();

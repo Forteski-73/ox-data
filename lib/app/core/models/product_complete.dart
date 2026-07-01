@@ -1,4 +1,5 @@
 import 'package:oxdata/app/core/models/product_tag_model.dart';
+import 'package:oxdata/app/core/models/product_packing_model.dart';
 
 /// Representa a entidade Product do C#.
 class Product {
@@ -319,6 +320,7 @@ class ProductComplete {
   TaxInformation? taxInformation;
   List<ImageBase64>? images;
   List<ProductTagModel>? tags;
+  ProductPackingModel? pack;
 
   ProductComplete({
     this.product,
@@ -328,6 +330,7 @@ class ProductComplete {
     this.taxInformation,
     this.images,
     this.tags,
+    this.pack,
   });
 
   factory ProductComplete.fromJson(Map<String, dynamic> json) {
@@ -353,6 +356,9 @@ class ProductComplete {
       tags: (json['tags'] as List<dynamic>?)
           ?.map((e) => ProductTagModel.fromJson(e as Map<String, dynamic>))
           .toList(),
+      pack: json['pack'] != null
+          ? ProductPackingModel.fromJson(json['pack'] as Map<String, dynamic>)
+          : null,
     );
   }
   
@@ -365,6 +371,7 @@ class ProductComplete {
       'taxInformation': taxInformation?.toJson(),
       'images'        : images?.map((e) => e.toJson()).toList(),
       'tags'          : tags?.map((e) => e.toJson()).toList(),
+      'pack'          : pack?.toJson(),
     };
   }
 }

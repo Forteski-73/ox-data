@@ -7,7 +7,6 @@ import 'package:oxdata/app/core/models/product_tag_model.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/widgets/delete_confirm_dialog.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:marquee/marquee.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:oxdata/app/core/utils/image_base.dart';
@@ -17,10 +16,13 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
+import 'package:oxdata/app/views/packaging/full_screen_pack_popup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:oxdata/app/core/models/menu_item_model.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
+import 'package:oxdata/app/core/services/product_packing_service.dart';
+import 'package:oxdata/app/core/models/product_packing_model.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -35,6 +37,7 @@ class _ProductPageState extends State<ProductPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final TextEditingController _tagController = TextEditingController();
+  final TextEditingController _packSearchController = TextEditingController();
   List<MenuItemModel> _menuOptions = []; 
 
   @override
@@ -42,6 +45,7 @@ class _ProductPageState extends State<ProductPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<ProductService>().fetchProductComplete(widget.productId);
+      await context.read<ProductPackingService>().fetchAllPackings();
     });
     _loadUserData();
   }
@@ -50,6 +54,7 @@ class _ProductPageState extends State<ProductPage> {
   void dispose() {
     _pageController.dispose();
     _tagController.dispose();
+    _packSearchController.dispose();
     super.dispose();
   }
 
@@ -83,6 +88,7 @@ class _ProductPageState extends State<ProductPage> {
             final productImages       = productComplete.images?.where((img) => img.finalidade == 'PRODUTO')     .toList() ?? [];
             final packagingImages     = productComplete.images?.where((img) => img.finalidade == 'EMBALAGEM')   .toList() ?? [];
             final palletizationImages = productComplete.images?.where((img) => img.finalidade == 'PALETIZACAO') .toList() ?? [];
+            final productPack = productComplete.pack;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0.0),
@@ -121,6 +127,12 @@ class _ProductPageState extends State<ProductPage> {
                     title: 'PALETIZAÇÃO',
                     images: palletizationImages,
                     finalidade: 'PALETIZACAO',
+                  ),
+
+                  _buildProductPackCard(
+                    title: 'ESQUEMA DE MONTAGEM',
+                    productPack: productPack,
+                    productName: '${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto não disponível'}',
                   ),
 
                   _buildExpansionTile(
@@ -276,6 +288,123 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
+// widget para exibição da embalagem do produto (pack)
+  Widget _buildProductPackCard({
+    required String title,
+    required ProductPackingModel? productPack,
+    required String productName,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 5.0),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide.none,
+        ),
+        child: ExpansionTile(
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          children: [
+            const Divider(color: Colors.black12, height: 1, thickness: 1),
+            const SizedBox(height: 8),
+            
+            // Campo estático que exibe o nome do Pack cadastrado
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFE2E8F0),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_rounded,
+                    color: Colors.indigo,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      productPack?.packName ?? 'Nenhum Esquema de Embalagem vinculado.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: productPack != null ? FontWeight.w500 : FontWeight.w400,
+                        color: productPack != null ? Colors.black87 : Colors.blueGrey[300],
+                        fontStyle: productPack != null ? FontStyle.normal : FontStyle.italic,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Botão para abrir em tela cheia
+            const SizedBox(height: 12),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                if (productPack == null) return; // segurança: sem pack, não abre
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => FullScreenPackPopup(
+                      packId: productPack.packId,
+                      productName: productName,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.indigo.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.tv_rounded, color: Colors.indigo, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Exibir em tela cheia',
+                      style: TextStyle(
+                        color: Colors.indigo,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
   // widget para as imagens do produto
   Widget _buildImageCarouselCard({
     required String title,
@@ -322,34 +451,19 @@ class _ProductPageState extends State<ProductPage> {
                       ? () => _showReorderImagesDialog(images, finalidade)
                       : () {},
                 ),
-                if (canEdit) ...[
-                  PulseIconButton(
-                    icon: Icons.add_a_photo,
-                    color: Colors.indigo,
-                    onPressed: () => _showAddImageOptions(finalidade),
-                  ),
-                ] else ...[
-                  PulseIconButton(
-                    icon: Icons.add_a_photo,
-                    color: Colors.grey, // Changed 'conza,,' to 'grey' (or use your custom color)
-                    onPressed: () => null,    // Explicitly disabling the button
-                  ),
-                ],
-                if (canEdit) ...[
-                  PulseIconButton(
-                    icon: Icons.delete_forever,
-                    color: Colors.indigo,
-                    onPressed: images.isNotEmpty
-                        ? () => _deleteImageConfirm(images, finalidade)
-                        : () {},
-                  ),
-                ] else ...[
-                  PulseIconButton(
-                    icon: Icons.delete_forever,
-                    color: Colors.grey.shade300, // Cinza = 'desabilita'
-                    onPressed: () => null,
-                  ),
-                ],
+                PulseIconButton(
+                  icon: Icons.add_a_photo,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: canEdit ? () => _showAddImageOptions(finalidade) : () => null,
+                ),
+
+                PulseIconButton(
+                  icon: Icons.delete_forever,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: (canEdit && images.isNotEmpty)
+                      ? () => _deleteImageConfirm(images, finalidade)
+                      : () => null,
+                ),
               ],
             ),
 
