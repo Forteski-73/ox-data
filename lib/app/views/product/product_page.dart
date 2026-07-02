@@ -23,6 +23,7 @@ import 'package:oxdata/app/core/models/menu_item_model.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/models/product_packing_model.dart';
+import 'package:oxdata/app/core/models/product_bom_model.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -212,18 +213,117 @@ class _ProductPageState extends State<ProductPage> {
                     ],
                   ),
                   _buildTagExpansionTile(productComplete),
-                  _buildExpansionTile(
-                    title: 'BOM',
-                    children: [
-                      const Text('Informações de BOM não disponíveis neste momento.',
-                          style: TextStyle(fontStyle: FontStyle.italic)),
-                    ],
-                  ),
+                  _buildBOMExpansionTile(productComplete.bom),
                 ],
               ),
             );
           }
         },
+      ),
+    );
+  }
+
+Widget _buildBOMExpansionTile(List<ProductBomModel>? bom) {
+  return Theme(
+    data: Theme.of(context).copyWith(
+      dividerColor: Colors.transparent,
+      iconTheme: const IconThemeData(size: 36),
+    ),
+    child: Card(
+      margin: const EdgeInsets.symmetric(vertical: 5.0),
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(0),
+        side: BorderSide.none,
+      ),
+      child: ExpansionTile(
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        iconColor: Colors.blueGrey,
+        collapsedIconColor: Colors.indigo,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+        title: const Text(
+          'BOM',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        children: [
+          const Divider(color: Colors.black12, height: 1, thickness: 1),
+          if (bom != null && bom.isNotEmpty)
+            ..._buildBomItems(bom)
+          else
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'Informações de BOM não disponíveis neste momento.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+List<Widget> _buildBomItems(List<ProductBomModel> bom) {
+  final widgets = <Widget>[];
+
+  for (var i = 0; i < bom.length; i++) {
+    widgets.add(_buildBomItemTile(bom[i]));
+    if (i < bom.length - 1) {
+      widgets.add(const Divider(color: Colors.black12, height: 1, thickness: 1));
+    }
+  }
+
+  return widgets;
+}
+
+  Widget _buildBomItemTile(ProductBomModel item) {
+    final nomeExibido =
+        (item.productName != null && item.productName!.trim().isNotEmpty)
+            ? item.productName!
+            : '------';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nomeExibido,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                if (item.productBomId != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      'Código: ${item.productBomId}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.indigo.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${item.productQty}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

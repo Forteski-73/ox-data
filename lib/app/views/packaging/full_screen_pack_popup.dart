@@ -101,6 +101,7 @@ class _FullScreenPackPopupState extends State<FullScreenPackPopup> {
 
             final images = packingService.packImages;
 
+            /*
             if (images.isEmpty) {
               return const Center(
                 child: Text(
@@ -109,6 +110,7 @@ class _FullScreenPackPopupState extends State<FullScreenPackPopup> {
                 ),
               );
             }
+            */
 
             if (_currentIndex >= images.length) {
               _currentIndex = 0;
@@ -116,19 +118,19 @@ class _FullScreenPackPopupState extends State<FullScreenPackPopup> {
 
             return Column(
               children: [
-                // 1. Letreiro Marquee ocupando toda a largura no topo absoluto da tela
+                // Letreiro Marquee ocupando toda a largura no topo absoluto da tela
                 Container(
-                  height: 38,
+                  height: 68,
                   color: Colors.grey[200],
                   child: Marquee(
                     text: '${widget.productName}',
                     style: const TextStyle(
-                      fontSize: 20, 
+                      fontSize: 40, 
                       fontWeight: FontWeight.bold, 
                       color: Colors.black87,
                     ),
-                    blankSpace: 80.0,
-                    velocity: 50.0,
+                    blankSpace: 120.0,
+                    velocity: 60.0, 
                     pauseAfterRound: const Duration(seconds: 1),
                     startPadding: 16.0,
                     fadingEdgeStartFraction: 0.1,
