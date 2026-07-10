@@ -64,4 +64,17 @@ class ProductModel {
       imageZipBase64: imageZipBase64 ?? this.imageZipBase64,
     );
   }
+
+  /// Cria uma instância de ProductModel a partir do JSON retornado por
+  /// /Product/Search, que usa 'productName' em vez de 'name' e não possui
+  /// 'imageZipBase64'. Não reaproveita fromMap porque esse endpoint tem
+  /// um shape diferente do resto do app.
+  factory ProductModel.fromQuickSearchJson(Map<String, dynamic> map) {
+    return ProductModel(
+      productId: map['productId'] as String,
+      barcode: map['barcode'] as String?,
+      name: map['productName'] as String? ?? '',
+    );
+  }
+
 }

@@ -9,6 +9,7 @@ import 'package:oxdata/app/core/routes/route_generator.dart';
 import 'package:oxdata/app/core/widgets/app_footer.dart';
 import 'package:oxdata/app/core/utils/network_status.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:oxdata/app/core/utils/device.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -216,6 +217,7 @@ class _LoginPageState extends State<LoginPage> {
                     final email = _emailController.text;
                     final password = _passwordController.text;
 
+                    /*
                     await authService.login(email, password, _rememberMe);
 
                     if (mounted) {
@@ -228,6 +230,49 @@ class _LoginPageState extends State<LoginPage> {
                         MessageService.showInfo("Ops! Usuário ou Senha não encontrado!");
                       }
                     }
+                    */
+
+
+                    await authService.login(email, password, _rememberMe);
+
+                    if (!mounted) return;
+
+                    loadingService.hide();
+
+                    if (!authService.isAuthenticated) {
+                      MessageService.showInfo("Ops! Usuário ou Senha não encontrado!");
+                      return;
+                    }
+
+                    // Login OK — decide se precisa sincronizar antes de liberar o app
+                    var existingDeviceId = await DeviceService.getExistingDeviceId();
+                    final needsSetup = existingDeviceId == null || existingDeviceId.isEmpty;
+
+                    if (!mounted) return;
+
+                    if (needsSetup) {
+                      // Primeira vez neste aparelho: obriga passar pela SetupPage
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        RouteGenerator.setupInitPage,
+                        (route) => false,
+                        arguments: true, // sinaliza "veio do login"
+                      );
+                    }
+
+                    // Verifica se agora tem o DEVICE ID no dispositivo
+                    existingDeviceId = await DeviceService.getExistingDeviceId();
+                    if (existingDeviceId != null && existingDeviceId.isNotEmpty) {
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        RouteGenerator.homePage,
+                        (route) => false,
+                      );
+                    }
+                    /*else {
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        RouteGenerator.loginPage,
+                        (route) => false,
+                      );
+                    }*/
                   }
                   else
                   {

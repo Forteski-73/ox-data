@@ -1,7 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:uuid/uuid.dart';
-
 class DeviceService {
   // Chave constante para evitar erros de digitação
   static const String _storageKey = "device_uuid";
@@ -16,6 +15,7 @@ class DeviceService {
       await prefs.setString(_storageKey, id);
 
       // ** Enviar para a API **
+      //await _authenticateDevice(id);
 
     }
 
@@ -26,6 +26,8 @@ class DeviceService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_storageKey);
   }
+
+
 
   /// Retorna os números da primeira parte do UUID + Data + Hora
   static Future<String> getDeviceFineNumber() async {

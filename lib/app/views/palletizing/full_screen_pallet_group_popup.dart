@@ -10,21 +10,21 @@ import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
 import 'package:oxdata/app/core/utils/image_base.dart';
 
-class FullScreenPackPopup extends StatefulWidget {
+class FullScreenPalletGroupPopup extends StatefulWidget {
   final int packId;
   final String? productName;
 
-  const FullScreenPackPopup({
+  const FullScreenPalletGroupPopup({
     super.key,
     required this.packId,
     this.productName,
   });
 
   @override
-  State<FullScreenPackPopup> createState() => _FullScreenPackPopupState();
+  State<FullScreenPalletGroupPopup> createState() => _FullScreenPalletGroupPopupState();
 }
 
-class _FullScreenPackPopupState extends State<FullScreenPackPopup> {
+class _FullScreenPalletGroupPopupState extends State<FullScreenPalletGroupPopup> {
   int _currentIndex = 0;
   bool _sidebarExpanded = true;
   bool _slideshowOn = false;

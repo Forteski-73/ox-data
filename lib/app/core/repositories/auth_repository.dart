@@ -128,4 +128,50 @@ class AuthRepository {
       );
     }
   }
+
+  /// =========================================================
+  /// DEVICE
+  /// =========================================================
+
+  /// Registra (ou atualiza) o dispositivo atual vinculado ao
+  /// usuário autenticado. Requer que o token já esteja configurado
+  /// no ApiClient (ou seja, chamar após um login bem-sucedido).
+  Future<ApiResponse<String>> registerDevice({
+    required String guid,
+    required String platform,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    try {
+      final response = await apiClient.postAuth(
+        ApiRoutes.registerDevice,
+        body: {
+          'guid': guid,
+          'platform': platform,
+          'deviceName': deviceName,
+          'appVersion': appVersion,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonMap = json.decode(response.body);
+
+        return ApiResponse(
+          success: true,
+          data: jsonMap['message'] ?? 'Dispositivo registrado com sucesso!',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao registrar dispositivo: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição ao registrar dispositivo: $e',
+      );
+    }
+  }
+
 }

@@ -16,7 +16,7 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
-import 'package:oxdata/app/views/packaging/full_screen_pack_popup.dart';
+import 'package:oxdata/app/views/palletizing/full_screen_pallet_group_popup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:oxdata/app/core/models/menu_item_model.dart';
@@ -309,19 +309,37 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
             ),
           ),
           const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${item.productQty}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: Text(
+                  'QTD',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 2),
+              Container(
+                margin: const EdgeInsets.only(right: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${item.productQty}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -466,7 +484,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     fullscreenDialog: true,
-                    builder: (_) => FullScreenPackPopup(
+                    builder: (_) => FullScreenPalletGroupPopup(
                       packId: productPack.packId,
                       productName: productName,
                     ),

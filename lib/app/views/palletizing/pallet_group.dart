@@ -12,7 +12,6 @@ import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/views/pages/search_image_dialog.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'dart:convert';
-import 'dart:io';
 import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -23,14 +22,14 @@ import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
-class PackagingPage extends StatefulWidget {
-  const PackagingPage({super.key});
+class PalletGroupPage extends StatefulWidget {
+  const PalletGroupPage({super.key});
 
   @override
-  State<PackagingPage> createState() => _PackagingPageState();
+  State<PalletGroupPage> createState() => _PalletGroupPageState();
 }
 
-class _PackagingPageState extends State<PackagingPage> with SingleTickerProviderStateMixin {
+class _PalletGroupPageState extends State<PalletGroupPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _productController = TextEditingController();
@@ -40,13 +39,17 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
   int _currentPage = 0;
 
   String productName = "";
+
   bool   _isExpanded = false;
+
+  // Cache de imagens já decodificadas do ZIP/Base64, para não reprocessar
+  // bytes toda vez que o widget é reconstruído
+  final Map<String, Uint8List?> _decodedImageCache = {};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() => setState(() {}));
 
     // Busca os dados assim que a tela inicia
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -161,74 +164,76 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
           child: _buildSearchField(service),
         ),
         Expanded(
-          child: service.isLoading 
-            ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
-            : service.packings.isEmpty
-              ? _buildEmptyState("Nenhuma montagem encontrada")
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                  itemCount: service.packings.length,
-                  itemBuilder: (context, index) {
-                    final pkg = service.packings[index];
-                    final isSelected = service.selectedPacking?.packId == pkg.packId;
+          child: service.isLoading
+              ? const Center(
+                  child: SpinKitThreeBounce(color: Colors.indigo, size: 30.0),
+                )
+              : service.packings.isEmpty
+                  ? _buildEmptyState("Nenhuma montagem encontrada")
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                      itemCount: service.packings.length,
+                      itemBuilder: (context, index) {
+                        final pkg = service.packings[index];
+                        final isSelected = service.selectedPacking?.packId == pkg.packId;
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: InkWell(
-                        onTap: () {
-                          service.setSelectedPacking(pkg);
-                          _tabController.animateTo(1);
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: InkWell(
+                            onTap: () {
+                              service.setSelectedPacking(pkg);
+                              _tabController.animateTo(1);
+                            },
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isSelected ? Colors.indigo : const Color(0xFFE2E8F0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? Colors.indigo : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 90,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? Colors.indigo : Colors.transparent,
+                                      borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(pkg.packName,
+                                              style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isSelected ? Colors.indigo : Colors.blueGrey[800])),
+                                          const SizedBox(height: 8),
+                                          _buildBadge("${pkg.items.length} Produtos"),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_forever_rounded, color: Colors.red[300]),
+                                    onPressed: () => _confirmDelete(pkg, service),
+                                  ),
+                                  const Icon(Icons.chevron_right, color: Colors.indigo),
+                                  const SizedBox(width: 8),
+                                ],
+                              ),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  color: isSelected ? Colors.indigo : Colors.transparent,
-                                  borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(8), bottomLeft: Radius.circular(8)),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(pkg.packName,
-                                          style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: isSelected ? Colors.indigo : Colors.blueGrey[800])),
-                                      const SizedBox(height: 8),
-                                      _buildBadge("${pkg.items.length} Produtos"),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.delete_forever_rounded, color: Colors.red[300]),
-                                onPressed: () => _confirmDelete(pkg, service),
-                              ),
-                              const Icon(Icons.chevron_right, color: Colors.indigo),
-                              const SizedBox(width: 8),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
         ),
       ],
     );
@@ -237,7 +242,9 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
   // --- ABA 2: IMAGENS (Ajustada para PageView / Slide) ---
   Widget _buildImagesTab(ProductPackingService service) {
     final selected = service.selectedPacking;
-    if (selected == null) return _buildNoSelectionState("Selecione uma montagem primeiro.");
+    if (selected == null) {
+      return _buildNoSelectionState("Selecione uma montagem primeiro.");
+    }
 
     final imagesFromApi = service.packImages;
 
@@ -248,134 +255,141 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
         _buildSelectionHeader(selected),
         Expanded(
           child: service.isLoading
-              ? const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),)
+              ? const Center(
+                  child: SpinKitThreeBounce(color: Colors.indigo, size: 30.0),
+                )
               : imagesFromApi.isEmpty
                   ? _buildEmptyState("Nenhuma imagem encontrada")
                   : Stack(
-                  children: [
-                    // PageView com o Controller
-                    PageView.builder(
-                      controller: _pageController,
-                      itemCount: imagesFromApi.length,
-                      onPageChanged: (int index) {
-                        setState(() {
-                          _currentPage = index;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        return SizedBox.expand(
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: _buildFullScreenPhoto(context, imagesFromApi[index], service),
+                      children: [
+                        // PageView com o Controller
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: imagesFromApi.length,
+                          onPageChanged: (int index) {
+                            setState(() {
+                              _currentPage = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            return SizedBox.expand(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: _buildFullScreenPhoto(
+                                  context,
+                                  index,
+                                  imagesFromApi[index],
+                                  service,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // SETA ESQUERDA (APENAS WEB)
+                        if (kIsWeb && imagesFromApi.length > 1)
+                          Positioned(
+                            left: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(30),
+                                onTap: () {
+                                  if (_currentPage > 0) {
+                                    _pageController.previousPage(
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.35),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.chevron_left,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        );
-                      },
+
+                        // SETA DIREITA (APENAS WEB)
+                        if (kIsWeb && imagesFromApi.length > 1)
+                          Positioned(
+                            right: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(30),
+                                onTap: () {
+                                  if (_currentPage < imagesFromApi.length - 1) {
+                                    _pageController.nextPage(
+                                      duration: const Duration(milliseconds: 300),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.35),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // --- CONTADOR FLUTUANTE (1/3, 2/3, etc) ---
+                        if (imagesFromApi.isNotEmpty)
+                          Positioned(
+                            top: 20,
+                            right: 20,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                "${_currentPage + 1}/${imagesFromApi.length}",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // INDICADOR DE BOLINHAS (Dots Indicator)
+                        if (imagesFromApi.length > 1)
+                          Positioned(
+                            bottom: 10,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                imagesFromApi.length,
+                                (index) => _buildDotIndicator(index),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-
-                    // SETA ESQUERDA (APENAS WEB)
-                    if (kIsWeb && imagesFromApi.length > 1)
-                      Positioned(
-                        left: 10,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(30),
-                            onTap: () {
-                              if (_currentPage > 0) {
-                                _pageController.previousPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.chevron_left,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // SETA DIREITA (APENAS WEB)
-                    if (kIsWeb && imagesFromApi.length > 1)
-                      Positioned(
-                        right: 10,
-                        top: 0,
-                        bottom: 0,
-                        child: Center(
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(30),
-                            onTap: () {
-                              if (_currentPage < imagesFromApi.length - 1) {
-                                _pageController.nextPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.chevron_right,
-                                color: Colors.white,
-                                size: 36,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // --- NOVO: CONTADOR FLUTUANTE (1/3, 2/3, etc) ---
-                    if (imagesFromApi.isNotEmpty)
-                      Positioned(
-                        top: 20,
-                        right: 20,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            "${_currentPage + 1}/${imagesFromApi.length}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // INDICADOR DE BOLINHAS (Dots Indicator)
-                    if (imagesFromApi.length > 1)
-                      Positioned(
-                        bottom: 10,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            imagesFromApi.length,
-                            (index) => _buildDotIndicator(index),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
         ),
       ],
     );
@@ -389,11 +403,9 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
       margin: const EdgeInsets.symmetric(horizontal: 4),
       height: 10,
       // Se quiser o efeito de "traço" quando ativo, mude para: isActive ? 20 : 10
-      width: 10, 
+      width: 10,
       decoration: BoxDecoration(
-        color: isActive
-            ? Colors.indigo
-            : Colors.white.withAlpha((0.5 * 255).toInt()),
+        color: isActive ? Colors.indigo : Colors.white.withAlpha((0.5 * 255).toInt()),
         borderRadius: BorderRadius.circular(5),
         boxShadow: [
           if (isActive)
@@ -407,162 +419,94 @@ class _PackagingPageState extends State<PackagingPage> with SingleTickerProvider
     );
   }
 
-
   // --- ITEM DO SLIDE (Tamanho da tela) ---
-Widget _buildFullScreenPhoto(
-    BuildContext context, 
-    ImagePackBase64 imageDto, 
-    ProductPackingService service) {
-
-  return StatefulBuilder(
-    builder: (context, setStateLocal) {
-      final bool isExpanded = _isExpanded ?? false;
-      final screenWidth = MediaQuery.of(context).size.width;
-
-      return GestureDetector(
-        onDoubleTap: () {
-          setStateLocal(() {
-            _isExpanded = !isExpanded;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.fromLTRB(0, 1, 0, 0),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))
-            ],
-          ),
-          child: InteractiveViewer(
-            // Permitir pan apenas quando expandido para navegar na largura que sobrar
-            panEnabled: isExpanded, 
-            scaleEnabled: true,
-            minScale: 1.0,
-            maxScale: 4.0,
-            child: SizedBox.expand( // Faz o widget ocupar todo o espaço do TabBarView
-              child: FittedBox(
-                // fitHeight: Força a imagem a ocupar do topo ao fundo (bottom)
-                // Se a imagem for larga, ela vai "sangrar" para as laterais (o que você deseja)
-                fit: isExpanded ? BoxFit.fitHeight : BoxFit.contain,
-                child: _loadImageFromZipBase64(imageDto.imagesBase64),
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-/*Widget _buildFullScreenPhoto(
+  // Usa apenas o campo único _isExpanded (compartilhado por todas as fotos):
+  // ao dar double tap em qualquer slide, TODAS as imagens passam a exibir
+  // com zoom (fitHeight) ao mesmo tempo, sem controle individual por índice.
+  Widget _buildFullScreenPhoto(
     BuildContext context,
+    int index,
     ImagePackBase64 imageDto,
-    ProductPackingService service) {
-
-  return StatefulBuilder(
-    builder: (context, setStateLocal) {
-
-      final bool isExpanded = _isExpanded ?? false;
-      final screenWidth = MediaQuery.of(context).size.width;
-      final screenHeight = MediaQuery.of(context).size.height;
-
-      return GestureDetector(
-        onDoubleTap: () {
-          setStateLocal(() {
-            _isExpanded = !isExpanded;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          width: screenWidth,
-          height: isExpanded ? screenHeight : 300, // 👈 controla expansão vertical
-          decoration: const BoxDecoration(
-            color: Colors.white60,
-            boxShadow: [
-              BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))
-            ],
-          ),
-          child: InteractiveViewer(
-            panEnabled: true,
-            scaleEnabled: true,
-            minScale: 1.0,
-            maxScale: 4.0,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: _loadImageFromZipBase64(imageDto.imagesBase64),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}*/
-
-  /*Widget _buildFullScreenPhoto(BuildContext context, ImagePackBase64 imageDto, ProductPackingService service) {
-    final screenWidth = MediaQuery.of(context).size.width; // largura da tela
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(0, 1, 0, 0),
-      decoration: BoxDecoration(
-        color: Colors.white60,
-        boxShadow: [
-          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))
-        ],
-      ),
-      child: ClipRRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const SizedBox(height: 2),
-            Align(
-              alignment: Alignment.topCenter,
-              child: InteractiveViewer(
-                panEnabled: true,
-                scaleEnabled: true,
-                minScale: 1.0,
-                maxScale: 4.0,
-                child: SizedBox(
-                  width: screenWidth,
-                  child: FittedBox(
-                    fit: BoxFit.contain, // mantém a proporção da imagem
-                    child: _loadImageFromZipBase64(imageDto.imagesBase64),
-                  ),
-                ),
-              ),
-            ),
+    ProductPackingService service,
+  ) {
+    return GestureDetector(
+      onDoubleTap: () {
+        setState(() {
+          _isExpanded = !_isExpanded;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.fromLTRB(0, 1, 0, 0),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))
           ],
+        ),
+        child: InteractiveViewer(
+          // Permitir pan apenas quando expandido para navegar na largura que sobrar
+          panEnabled: _isExpanded,
+          scaleEnabled: true,
+          minScale: 1.0,
+          maxScale: 4.0,
+          child: SizedBox.expand(
+            // Faz o widget ocupar todo o espaço do TabBarView
+            child: FittedBox(
+              // fitHeight: Força a imagem a ocupar do topo ao fundo (bottom)
+              // Se a imagem for larga, ela vai "sangrar" para as laterais (o que você deseja)
+              fit: _isExpanded ? BoxFit.fitHeight : BoxFit.contain,
+              child: _loadImageFromZipBase64(context, imageDto.imagesBase64),
+            ),
+          ),
         ),
       ),
     );
-  }*/
+  }
 
-  // Função auxiliar para processar o ZIP vindo da sua API C#
-  Widget _loadImageFromZipBase64(String? base64Zip) {
+  // Função auxiliar para processar o ZIP vindo da sua API C#.
+  // A decodificação (base64Decode + descompactação do ZIP) é cara e agora fica
+  // em cache por conteúdo, evitando reprocessar a mesma imagem a cada rebuild.
+  Widget _loadImageFromZipBase64(BuildContext context, String? base64Zip) {
     if (base64Zip == null || base64Zip.isEmpty) {
       return Container(color: Colors.grey[200], child: const Icon(Icons.broken_image));
     }
 
-    try {
-      // 1. Decodifica a string Base64 para Bytes
-      final zipBytes = base64Decode(base64Zip);
-      
-      // 2. Descompacta o ZIP (Usando a biblioteca archive)
-      final archive = ZipDecoder().decodeBytes(zipBytes);
-      
-      // 3. Pega o primeiro arquivo do ZIP
-      if (archive.isNotEmpty) {
-        final file = archive.first;
-        final Uint8List imageBytes = file.content as Uint8List;
-        return Image.memory(imageBytes, fit: BoxFit.cover);
+    Uint8List? imageBytes = _decodedImageCache[base64Zip];
+
+    if (imageBytes == null && !_decodedImageCache.containsKey(base64Zip)) {
+      try {
+        // 1. Decodifica a string Base64 para Bytes
+        final zipBytes = base64Decode(base64Zip);
+
+        // 2. Descompacta o ZIP (Usando a biblioteca archive)
+        final archive = ZipDecoder().decodeBytes(zipBytes);
+
+        // 3. Pega o primeiro arquivo do ZIP
+        if (archive.isNotEmpty) {
+          final file = archive.first;
+          imageBytes = file.content as Uint8List;
+        }
+      } catch (e) {
+        debugPrint("Erro ao processar imagem ZIP: $e");
       }
-    } catch (e) {
-      debugPrint("Erro ao processar imagem ZIP: $e");
+
+      _decodedImageCache[base64Zip] = imageBytes;
     }
 
-    return Container(color: Colors.grey[200], child: const Icon(Icons.error_outline));
+    if (imageBytes == null) {
+      return Container(color: Colors.grey[200], child: const Icon(Icons.error_outline));
+    }
+
+    // cacheWidth reduz o custo de decodificação/memória de textura, já que a
+    // imagem exibida raramente precisa do tamanho original (1080px de largura).
+    final screenWidth = MediaQuery.of(context).size.width;
+    return Image.memory(
+      imageBytes,
+      fit: BoxFit.cover,
+      cacheWidth: screenWidth.round(),
+    );
   }
 
   // --- ABA 3: PRODUTOS (Layout original restaurado) ---
@@ -595,7 +539,7 @@ Widget _buildFullScreenPhoto(
                   if (_productController.text.isNotEmpty) {
                     loadingService.show();
                     final username = await _storage.read(key: 'username');
-                     await service.addItemToSelectedPack(_productController.text, username.toString());
+                    await service.addItemToSelectedPack(_productController.text, username.toString());
                     // Chamar service.addItemToPacking se existir
                     loadingService.hide();
                     _productController.clear();
@@ -620,16 +564,14 @@ Widget _buildFullScreenPhoto(
                 child: ListTile(
                   contentPadding: const EdgeInsets.only(left: 16, right: 4),
                   leading: const Icon(Icons.qr_code_rounded, color: Colors.indigo),
-                  title: Text(
-                    "${selected.items[index].packProductId} - ${selected.items[index].productName ?? 'Sem Descrição'}",
-                    style: const TextStyle(fontWeight: FontWeight.bold)
-                  ),
+                  title: Text("${selected.items[index].packProductId} - ${selected.items[index].productName ?? 'Sem Descrição'}",
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                     onPressed: () async {
                       /* Lógica de remover item */
                       await service.removeItem(index);
-                      },
+                    },
                   ),
                 ),
               );
@@ -640,15 +582,13 @@ Widget _buildFullScreenPhoto(
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final service = context.watch<ProductPackingService>();
 
     return Scaffold(
-
       appBar: AppBarCustom(
-        title: "ESQUEMA DE MONTAGEM",
+        title: "MONTAGEM DO PALETE",
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: TabBar(
@@ -657,37 +597,57 @@ Widget _buildFullScreenPhoto(
             indicatorColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             tabs: const [
-              Tab(text: 'MONTAGEM', icon: Icon(Icons.all_inbox)),
+              Tab(text: 'MONTAGEM', icon: Icon(Icons.pallet)),
               Tab(text: 'IMAGENS', icon: Icon(Icons.photo_library)),
               Tab(text: 'PRODUTOS', icon: Icon(Icons.list_alt)),
             ],
           ),
         ),
       ),
-      
-      body: SafeArea( 
+      body: SafeArea(
         child: Stack(
-        children: [
-          // Conteúdo das Tabs
-          TabBarView(
-            controller: _tabController,
-            children: [
-              _buildPackagingTab(service),
-              _buildImagesTab(service),
-              _buildProductsTab(service),
-            ],
-          ),
+          children: [
+            // Conteúdo das Tabs
+            TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPackagingTab(service),
+                _buildImagesTab(service),
+                _buildProductsTab(service),
+              ],
+            ),
 
-          // Os botões aparecem apenas se estiver na aba de imagens (index 1)
-          if (_tabController.index == 1 && service.selectedPacking != null) ...[
-            _buildDynamicBtnDel(service),
-            _buildDynamicBtnAdd(service)!, // O ! é porque sabemos que não é nulo aqui
+            // Os botões extras da aba de imagens só dependem do índice da aba
+            // e da montagem selecionada. Usar AnimatedBuilder aqui evita
+            // reconstruir a página inteira (TabBarView, listas, etc.) toda vez
+            // que o usuário troca de aba.
+            AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, _) {
+                if (_tabController.index != 1 || service.selectedPacking == null) {
+                  return const SizedBox.shrink();
+                }
+                return Stack(
+                  children: [
+                    _buildDynamicBtnDel(service),
+                    _buildDynamicBtnAdd(service)!,
+                  ],
+                );
+              },
+            ),
           ],
-        ],
         ),
       ),
-      // Na aba 0, você pode manter o FAB padrão se preferir
-      floatingActionButton: _tabController.index == 0 ? _buildDynamicBtnAdd(service) : null,
+      // Na aba 0, mantém o FAB padrão; nas demais abas o FAB é controlado
+      // pelo AnimatedBuilder acima ou fica nulo.
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) {
+          return _tabController.index == 0
+              ? _buildDynamicBtnAdd(service) ?? const SizedBox.shrink()
+              : const SizedBox.shrink();
+        },
+      ),
     );
   }
 
@@ -702,24 +662,23 @@ Widget _buildFullScreenPhoto(
         backgroundColor: hasImages ? Colors.red : Colors.grey[300],
         elevation: hasImages ? 6 : 0,
         shape: const CircleBorder(),
-        onPressed: hasImages 
-          ? () async {
+        onPressed: hasImages
+            ? () async {
+                final currentIndex = _currentPage;
+                await service.removeImage(currentIndex);
 
-              final currentIndex = _currentPage;
-              await service.removeImage(currentIndex);
-
-              // Ajusta a página do PageView/Carrossel
-              if (_currentPage >= service.packImages.length && _currentPage > 0) {
-                setState(() {
-                  _currentPage--;
-                });
+                // Ajusta a página do PageView/Carrossel
+                if (_currentPage >= service.packImages.length && _currentPage > 0) {
+                  setState(() {
+                    _currentPage--;
+                  });
+                }
               }
-            }
-          : null,
+            : null,
         child: Icon(
-          Icons.delete_forever_rounded, 
-          color: hasImages ? Colors.white : Colors.grey[500], 
-          size: 28
+          Icons.delete_forever_rounded,
+          color: hasImages ? Colors.white : Colors.grey[500],
+          size: 28,
         ),
       ),
     );
@@ -741,7 +700,6 @@ Widget _buildFullScreenPhoto(
     }
 
     if (_tabController.index == 1 && service.selectedPacking != null) {
-      // Usamos Positioned aqui para alinhar com o botão de deletar no Stack
       return Positioned(
         bottom: 16,
         right: 16,
@@ -750,18 +708,7 @@ Widget _buildFullScreenPhoto(
           backgroundColor: Colors.indigo,
           elevation: 4,
           shape: const CircleBorder(),
-          
           onPressed: () => _showAddImageOptions(service, service.selectedPacking!),
-
-          /*
-          onPressed: () async {
-            final picker = ImagePicker();
-            final XFile? image = await picker.pickImage(source: ImageSource.camera);
-            if (image != null) {
-              // Lógica de upload/save no service
-
-            }
-          },*/
           child: const Icon(
             Icons.add_a_photo_rounded,
             color: Colors.white,
@@ -812,14 +759,20 @@ Widget _buildFullScreenPhoto(
   }
 
   Widget _buildNoSelectionState(String msg) {
-    return Center(child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.touch_app_outlined, size: 60, color: Colors.indigo.withValues(alpha: 0.2),),
-        const SizedBox(height: 16),
-        Text(msg, style: TextStyle(color: Colors.blueGrey[300])),
-      ],
-    ));
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.touch_app_outlined,
+            size: 60,
+            color: Colors.indigo.withValues(alpha: 0.2),
+          ),
+          const SizedBox(height: 16),
+          Text(msg, style: TextStyle(color: Colors.blueGrey[300])),
+        ],
+      ),
+    );
   }
 
   Widget _buildEmptyState(String msg) {
@@ -925,10 +878,10 @@ Widget _buildFullScreenPhoto(
                       filled: true,
                       fillColor: Colors.grey[50],
                       errorStyle: const TextStyle(
-                        fontSize: 0,  // Tamanho zero para não ocupar espaço
-                        height: 0,    // Altura zero para não empurrar o layout
+                        fontSize: 0, // Tamanho zero para não ocupar espaço
+                        height: 0, // Altura zero para não empurrar o layout
                       ),
-                                        suffixIcon: IconButton(
+                      suffixIcon: IconButton(
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () => controller.clear(),
                       ),
@@ -947,7 +900,7 @@ Widget _buildFullScreenPhoto(
                     ),
                     validator: (v) => v == null || v.isEmpty ? '' : null,
                   ),
-                  
+
                   const SizedBox(height: 30),
 
                   // Ações
@@ -968,19 +921,19 @@ Widget _buildFullScreenPhoto(
                         ),
                         onPressed: () async {
                           if (formKey.currentState!.validate()) {
-                              final username = await _storage.read(key: 'username');
-                              // Chamada ao service
-                              final result = await service.createPacking(
-                                controller.text.toUpperCase(),
-                                username.toString(),
-                              );
+                            final username = await _storage.read(key: 'username');
+                            // Chamada ao service
+                            final result = await service.createPacking(
+                              controller.text.toUpperCase(),
+                              username.toString(),
+                            );
 
-                              if (result.success) {
-                                Navigator.pop(context);
-                              } else {
-                                // Exiba um SnackBar de erro **
-                              }
+                            if (result.success) {
+                              Navigator.pop(context);
+                            } else {
+                              // Exiba um SnackBar de erro **
                             }
+                          }
                         },
                         child: const Text("CRIAR"),
                       ),
@@ -996,12 +949,12 @@ Widget _buildFullScreenPhoto(
   }
 
   Future<String> _scanBarcode() async {
-     var status = await Permission.camera.request();
-     if (status.isDenied) return "";
-     final barcodeRead = await Navigator.of(context).push<Barcode?>(
-       MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
-     );
-     return barcodeRead?.rawValue ?? "";
+    var status = await Permission.camera.request();
+    if (status.isDenied) return "";
+    final barcodeRead = await Navigator.of(context).push<Barcode?>(
+      MaterialPageRoute(builder: (context) => const BarcodeScannerPage()),
+    );
+    return barcodeRead?.rawValue ?? "";
   }
 
   Future<void> _openProductSearch(BuildContext context) async {
@@ -1043,23 +996,50 @@ Widget _buildFullScreenPhoto(
       List<ImagePackBase64> newImages = [];
 
       for (final fileX in files) {
-        final file = File(fileX.path);
-        if (!await file.exists()) continue;
-
-        final originalBytes = await file.readAsBytes();
+        // funciona em mobile e web, sem depender de dart:io File
+        final originalBytes = await fileX.readAsBytes();
 
         final img.Image? decodedImage = img.decodeImage(originalBytes);
         if (decodedImage == null) continue;
 
-        final img.Image resizedImage = img.copyResize(
+        // --- INÍCIO DO CÁLCULO DA PROPORÇÃO 16:9 ---
+        const double targetRatio = 16 / 9;
+        final double currentRatio = decodedImage.width / decodedImage.height;
+
+        int cropWidth = decodedImage.width;
+        int cropHeight = decodedImage.height;
+        int cropX = 0;
+        int cropY = 0;
+
+        if (currentRatio > targetRatio) {
+          // Imagem mais larga que 16:9 -> Corta as laterais igualmente
+          cropWidth = (decodedImage.height * targetRatio).round();
+          cropX = ((decodedImage.width - cropWidth) / 2).round();
+        } else if (currentRatio < targetRatio) {
+          // Imagem mais alta que 16:9 -> Corta topo e fundo igualmente
+          cropHeight = (decodedImage.width / targetRatio).round();
+          cropY = ((decodedImage.height - cropHeight) / 2).round();
+        }
+
+        // Aplica o corte centralizado
+        final img.Image croppedImage = img.copyCrop(
           decodedImage,
-          width: 400,
-          height: 400,
+          x: cropX,
+          y: cropY,
+          width: cropWidth,
+          height: cropHeight,
+        );
+        // --- FIM DO CÁLCULO ---
+
+        // Redimensiona mantendo a proporção 16:9 gerada pelo corte.
+        // Definindo apenas a largura (ex: 1080), a altura é calculada automaticamente (607).
+        final img.Image resizedImage = img.copyResize(
+          croppedImage,
+          width: 1080,
           interpolation: img.Interpolation.linear,
         );
 
-        final Uint8List resizedBytes =
-            Uint8List.fromList(img.encodeJpg(resizedImage, quality: 85));
+        final Uint8List resizedBytes = Uint8List.fromList(img.encodeJpg(resizedImage, quality: 85));
 
         final base64Image = await _zipAndEncode(
           resizedBytes,
@@ -1076,13 +1056,11 @@ Widget _buildFullScreenPhoto(
         newImages.add(newImage);
       }
 
-      // Envia tudo de uma vez
       if (newImages.isNotEmpty) {
         await service.addOrUpdatePackImages(newImages, pkg);
       }
-
     } catch (e) {
-      print('Erro ao processar imagem: $e');
+      debugPrint('Erro ao processar imagem: $e');
     }
   }
 
@@ -1095,7 +1073,6 @@ Widget _buildFullScreenPhoto(
 
     return base64Encode(zippedBytes!);
   }
-
 }
 
 // --- WIDGET PERSONALIZADO ---
@@ -1134,9 +1111,7 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
     if (widget.onPressed == null) return;
 
     setState(() {
-      _containerColor = widget.color != null 
-          ? widget.color!.withOpacity(0.7) 
-          : _darkerColor;
+      _containerColor = widget.color != null ? widget.color!.withOpacity(0.7) : _darkerColor;
     });
 
     await Future.delayed(const Duration(milliseconds: 150));
@@ -1166,14 +1141,11 @@ class __ColorChangingButtonState extends State<_ColorChangingButton> {
         child: Center(
           child: Icon(
             widget.icon,
-            color: isDisabled 
-                ? Colors.grey[400] 
-                : (widget.color != null ? Colors.white : _primaryIconColor),
-            size: widget.size * 0.6, 
+            color: isDisabled ? Colors.grey[400] : (widget.color != null ? Colors.white : _primaryIconColor),
+            size: widget.size * 0.6,
           ),
         ),
       ),
     );
   }
-
 }

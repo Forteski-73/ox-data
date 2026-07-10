@@ -62,6 +62,28 @@ class AuthService with ChangeNotifier {
     return response;
   }
 
+  /// Registra (ou atualiza) o dispositivo atual vinculado ao usuário
+  /// autenticado, delegando a chamada de rede para o AuthRepository.
+  Future<ApiResponse<String>> registerDevice({
+    required String guid,
+    required String platform,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    final response = await _authRepository.registerDevice(
+      guid: guid,
+      platform: platform,
+      deviceName: deviceName,
+      appVersion: appVersion,
+    );
+
+    if (!response.success) {
+      debugPrint('⚠️ Falha ao registrar device: ${response.message}');
+    }
+
+    return response;
+  }
+
   Future<void> logout() async {
     final storage = StorageService();
     _isAuthenticated = false;

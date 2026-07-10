@@ -105,6 +105,54 @@ class ProductRepository {
     }
   }
 
+  /// Busca rápida por termo único: tenta achar em productId, barcode ou nome.
+  /// Faz 3 chamadas em paralelo (a API faz filtros em AND, então
+  /// simulamos um OR client-side) e mescla os resultados removendo duplicados.
+  Future<ApiProductResponse<List<ProductModel>>> quickSearch(String txtFilter) async {
+    if (txtFilter.trim().isEmpty) {
+      return ApiProductResponse(success: true, data: [], totalCount: 0);
+    }
+
+    final term = Uri.encodeQueryComponent(txtFilter.trim());
+
+    try {
+      final responses = await Future.wait([
+        apiClient.getAuth('${ApiRoutes.productsQuickSearch}?product=$term'),
+        apiClient.getAuth('${ApiRoutes.productsQuickSearch}?barcode=$term'),
+        apiClient.getAuth('${ApiRoutes.productsQuickSearch}?nome=$term'),
+      ]);
+
+      final Map<String, ProductModel> merged = {};
+
+      for (final response in responses) {
+        if (response.statusCode == 200) {
+          final List<dynamic> jsonList = json.decode(response.body);
+          for (final item in jsonList) {
+            final product = ProductModel.fromQuickSearchJson(item as Map<String, dynamic>);
+            merged[product.productId] = product; // dedup por productId
+          }
+        }
+        // Se alguma das 3 chamadas falhar isoladamente, ignora e segue
+        // com o que as outras retornaram, em vez de derrubar a busca inteira.
+      }
+
+      final result = merged.values.toList()
+        ..sort((a, b) => a.productId.compareTo(b.productId));
+
+      return ApiProductResponse(
+        success: true,
+        data: result,
+        totalCount: result.length,
+      );
+    } on Exception catch (e) {
+      return ApiProductResponse(
+        success: false,
+        message: 'Falha na busca rápida: $e',
+        totalCount: 0,
+      );
+    }
+  }
+
   /// Busca os detalhes completos de um produto específico na API.
   /// Retorna uma ApiResponse contendo uma lista de ProductComplete (espera-se 1 ou 0 itens).
   Future<ApiResponse<List<ProductComplete>>> getAppProduct(String productId) async {
@@ -363,6 +411,47 @@ class ProductRepository {
         success: false,
         data: false,
         message: 'Falha ao importar imagens: $e',
+      );
+    }
+  }
+
+  /// Busca a lista de caminhos de imagens de um produto específico e retorna o caminho da imagem principal.
+  Future<ApiResponse<String>> getProductImage(String productId) async {
+    try {
+      // Endpoint estruturado conforme o seu cURL: Image/Product/{id}/PRODUTO
+      final response = await apiClient.getAuth(
+        'Image/Product/$productId/PRODUTO',
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        
+        if (jsonList.isNotEmpty) {
+          // Buscamos a imagem marcada como principal (imageMain == true), 
+          // ou pegamos a primeira caso nenhuma esteja explicitamente marcada.
+          final mainImage = jsonList.firstWhere(
+            (item) => item['imageMain'] == true,
+            orElse: () => jsonList.first,
+          );
+          
+          final String imagePath = mainImage['imagePath'] ?? '';
+          return ApiResponse(success: true, data: imagePath);
+        }
+        
+        return ApiResponse(
+          success: false, 
+          message: 'Nenhuma imagem encontrada para este produto.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar imagem da API: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição da URL da imagem: $e',
       );
     }
   }

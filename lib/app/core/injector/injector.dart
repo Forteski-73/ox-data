@@ -14,6 +14,8 @@ import 'package:oxdata/app/core/repositories/product_packing_repository.dart';
 import 'package:oxdata/app/core/repositories/pallet_load_repository.dart';
 import 'package:oxdata/app/core/repositories/admin_repository.dart';
 import 'package:oxdata/app/core/repositories/ftp_repository.dart';
+import 'package:oxdata/app/core/repositories/device_repository.dart';
+import 'package:oxdata/app/core/repositories/image_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
@@ -24,10 +26,13 @@ import 'package:oxdata/app/core/services/image_cache_service.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/services/admin_service.dart';
+import 'package:oxdata/app/core/services/device_service.dart';
+import 'package:oxdata/app/core/services/image_service.dart';
 import 'package:oxdata/app/core/sync/sync_api_client_impl.dart';
 import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/db/daos/sync_queue_dao.dart';
 import 'package:oxdata/app/core/services/sync_manager.dart';
+
 
 class Injector {
   static List<SingleChildWidget> get providers {
@@ -179,162 +184,33 @@ class Injector {
           adminRepository: context.read<AdminRepository>(),
         ),
       ),
+
+      // 22. DeviceRepository
+      Provider<DeviceRepository>(
+        create: (context) => DeviceRepository(apiClient: context.read<ApiClient>()),
+      ),
+
+      // 23. DeviceService
+      ChangeNotifierProvider<DeviceService>(
+        create: (context) => DeviceService(
+          deviceRepository: context.read<DeviceRepository>(),
+        ),
+      ),
+      
+      // 24. ImageRepository
+      Provider<ImageRepository>(
+        create: (context) => ImageRepository(apiClient: context.read<ApiClient>()),
+      ),
+
+      // 25. ImageService
+      ChangeNotifierProvider<ImageService>(
+        create: (context) => ImageService(
+          imageRepository: context.read<ImageRepository>(),
+        ),
+      ),
+
     ];
   }
 
   static void configureDependencies() {}
 }
-
-
-/*
-// -----------------------------------------------------------
-// app/core/injector/injector.dart (Injeção de Dependências)
-// -----------------------------------------------------------
-import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
-import 'package:oxdata/app/core/http/api_client.dart';
-import 'package:oxdata/app/core/repositories/auth_repository.dart';
-import 'package:oxdata/app/core/repositories/product_repository.dart';
-import 'package:oxdata/app/core/repositories/pallet_repository.dart';
-import 'package:oxdata/app/core/repositories/inventory_repository.dart';
-import 'package:oxdata/app/core/repositories/product_packing_repository.dart';
-import 'package:oxdata/app/core/repositories/pallet_load_repository.dart';
-import 'package:oxdata/app/core/repositories/admin_repository.dart';
-import 'package:oxdata/app/core/repositories/ftp_repository.dart'; 
-import 'package:oxdata/app/core/services/ftp_service.dart'; 
-import 'package:oxdata/app/core/services/auth_service.dart';
-import 'package:oxdata/app/core/services/loading_service.dart';
-import 'package:oxdata/app/core/services/product_service.dart';
-import 'package:oxdata/app/core/services/pallet_service.dart'; 
-import 'package:oxdata/app/core/services/load_service.dart'; 
-import 'package:oxdata/app/core/services/image_cache_service.dart';
-import 'package:oxdata/app/core/services/inventory_service.dart';
-import 'package:oxdata/app/core/services/product_packing_service.dart';
-import 'package:oxdata/app/core/services/admin_service.dart';
-import 'package:oxdata/db/app_database.dart';
-
-class Injector {
-  // A ordem dos providers é importante!
-  // As dependências de baixo nível devem ser criadas primeiro.
-  static List<SingleChildWidget> get providers {
-    // Instância única do banco de dados (Singleton)
-    final db = AppDatabase();
-
-    return [
-      // 0. Registra o Banco de Dados para que possa ser lido via context se necessário
-      Provider<AppDatabase>.value(value: db),
-
-      // 1. Registra o ApiClient.
-      Provider<ApiClient>(
-        create: (_) => ApiClient(),
-      ),
-
-      // 2. Registra o AuthRepository, que depende do ApiClient.
-      Provider<AuthRepository>(
-        create: (context) => AuthRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 3. Registra o ProductRepository, que depende do ApiClient.
-      Provider<ProductRepository>(
-        create: (context) => ProductRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 4. Registra o PalletRepository, que depende do ApiClient.
-      Provider<PalletRepository>(
-        create: (context) => PalletRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 5. Registra o LoadRepository, que depende do ApiClient.
-      Provider<LoadRepository>(
-        create: (context) => LoadRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // Registra o InventoryRepository
-      Provider<InventoryRepository>(
-        create: (context) => InventoryRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 6. Registra o FtpRepository, que depende do ApiClient.
-      Provider<FtpRepository>(
-        create: (context) => FtpRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 7. Registra o ProductPackingRepository, que depende do ApiClient.
-      Provider<ProductPackingRepository>(
-        create: (context) => ProductPackingRepository(
-          apiClient: context.read<ApiClient>(),
-        ),
-      ),
-      
-      // 8. Registra o ImageCacheService.
-      ChangeNotifierProvider<ImageCacheService>(
-        create: (_) => ImageCacheService(),
-      ),
-
-      // 9. Registra o FtpService, que depende do FtpRepository.
-      Provider<FtpService>(
-        create: (context) => FtpService(
-          ftpRepository: context.read<FtpRepository>(),
-          imageCacheService: context.read<ImageCacheService>(),
-        ),
-      ),
-
-      // 10. Registra o AdminRepository
-      Provider<AdminRepository>(
-        create: (context) => AdminRepository(apiClient: context.read<ApiClient>()),
-      ),
-
-      // 11. Registra o AuthService, que depende do AuthRepository.
-      ChangeNotifierProvider<AuthService>(
-        create: (context) => AuthService(context.read<AuthRepository>(), context.read<ApiClient>()),
-      ),
-      
-      // 12. Registra o LoadingService.
-      ChangeNotifierProvider<LoadingService>(
-        create: (_) => LoadingService(),
-      ),
-
-      // 13. Registra o ProductService.
-      ChangeNotifierProvider<ProductService>(
-        create: (context) => ProductService(productRepository: context.read<ProductRepository>()),
-      ),
-      
-      // 14. Registra o PalletService.
-      ChangeNotifierProvider<PalletService>(
-        create: (context) => PalletService(palletRepository: context.read<PalletRepository>()),
-      ),
-
-      // 15. Registra o LoadService.
-      ChangeNotifierProvider<LoadService>(
-        create: (context) => LoadService(loadRepository: context.read<LoadRepository>()),
-      ),
-
-      // 16. Registra o InventoryService, injetando Repository e o Database
-      ChangeNotifierProvider<InventoryService>(
-        create: (context) => InventoryService(
-          inventoryRepository: context.read<InventoryRepository>(),
-          database: db,
-        ),
-      ),
-
-      // 17. Registra o ProductPackingService
-      ChangeNotifierProvider<ProductPackingService>(
-        create: (context) => ProductPackingService(
-          repository: context.read<ProductPackingRepository>(),
-        ),
-      ),
-
-      // 18. Registra o AdminService
-      ChangeNotifierProvider<AdminService>(
-        create: (context) => AdminService(
-          adminRepository: context.read<AdminRepository>(),
-        ),
-      ),
-    ];
-  }
-
-  static void configureDependencies() {
-    // Esta função é chamada no main para envolver o app com os providers.
-  }
-}
-*/

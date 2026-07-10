@@ -45,6 +45,7 @@ class _HomePageState extends State<HomePage> {
       case 'PRODUTO':       return RouteGenerator.productsPage;
       case 'MONTAGEM':      return RouteGenerator.packagingPage;
       case 'PALLET':        return RouteGenerator.palletsPage;
+      case 'PALETIZACAO':   return RouteGenerator.palletizingPage;
       case 'CARGA':         return RouteGenerator.loadPage;
       case 'INVENTARIO':    return RouteGenerator.inventoriesPage;
       case 'INVENTADM':     return RouteGenerator.inventoryAdmPage;

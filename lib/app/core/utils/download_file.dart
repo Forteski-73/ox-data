@@ -34,16 +34,20 @@ class DownloadFile {
     List<int> bytes,
     String fileName,
   ) async {
-    // 1. Pegamos o diretório temporário para não ocupar espaço permanente do app
     final dir = await getTemporaryDirectory();
     final file = io.File('${dir.path}/$fileName');
 
-    // 2. Escrevemos o arquivo
     await file.writeAsBytes(bytes, flush: true);
 
-    // 3. Chamamos a interface nativa. O usuário pode escolher "Salvar nos Arquivos"
-    // ou compartilhar no WhatsApp, Email, etc.
     final xFile = XFile(file.path, mimeType: 'text/plain');
     await Share.shareXFiles([xFile], subject: 'Download: $fileName');
+  }
+
+  static Future<void> saveBytes(List<int> bytes, String fileName) async {
+    if (kIsWeb) {
+      _downloadWeb(bytes, fileName);
+    } else {
+      await _downloadMobile(bytes, fileName);
+    }
   }
 }

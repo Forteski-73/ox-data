@@ -62,7 +62,8 @@ dependencies:
   connectivity_plus: ^6.0.3
   camera: ^0.11.0+2
   universal_html: ^2.3.0
-  url_launcher: ^6.2.0  
+  url_launcher: ^6.2.0
+  device_info_plus: ^11.0.0
 
 
 dev_dependencies:
@@ -109,6 +110,7 @@ flutter:
     - assets/images/product.png
     - assets/images/tag.png
     - assets/images/pallet.png
+    - assets/images/pallet1.png
     - assets/images/truck.png
     - assets/images/packaging.png
     - assets/images/admin.png

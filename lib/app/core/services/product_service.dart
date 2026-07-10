@@ -33,21 +33,13 @@ class ProductService with ChangeNotifier {
   List<ProductLine>? getLines(String brandId) => _linesCache[brandId];
   List<ProductDecoration>? getDecorations(String brandId, String lineId) => _decorationsCache['$brandId-$lineId'];
 
-  /*
-  Future<void> performSearch(Map<String, dynamic> activeFilters) async {
-    final ApiProductResponse<List<ProductModel>> response =
-        await productRepository.searchProducts(activeFilters);
+  Future<List<ProductModel>> quickSearch(String txtFilter) async {
+    final result = await productRepository.quickSearch(txtFilter);
 
-    if (response.success && response.data != null) {
-      _searchResults = response.data!;
-      _totalProducts = response.totalCount;
-    } else {
-      _searchResults = [];
-      _totalProducts = 0;
-    }
-    notifyListeners();
+    if (result.success) { return result.data ?? []; }
+
+    throw Exception(result.message ?? 'Erro ao realizar busca rápida.');
   }
-  */
 
   Future<void> performSearch(Map<String, dynamic> activeFilters, {bool isNextPage = false}) async {
     // Primeira chamada
@@ -225,6 +217,17 @@ class ProductService with ChangeNotifier {
     throw Exception(
       'Erro ao importar imagens via URL: ${response.message}',
     );
+  }
+
+  /// Busca a URL/Caminho da imagem do produto e trata o retorno/exceções
+  Future<String> getProductImage(String productId) async {
+    final ApiResponse<String> response = await productRepository.getProductImage(productId);
+
+    if (response.success && response.data != null) {
+      return response.data!;
+    }
+
+    throw Exception(response.message ?? 'Erro ao obter o caminho da imagem do produto.');
   }
 
 }

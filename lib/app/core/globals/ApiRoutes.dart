@@ -3,6 +3,7 @@ class ApiRoutes {
   static String login                    = 'User/login';
   static String loginUser                = 'User/LoginUser';
   static String loginRegister            = 'User/register';
+  static const String registerDevice     = 'User/Device';
   static String users                    = 'User/Users';
   static String profiles                 = 'User/Profiles';
   static String profilesMenu             = 'User/ProfilesMenu';
@@ -10,10 +11,12 @@ class ApiRoutes {
   static String updateProfileMenus       = 'User/UpdateProfileMenus';
   static String products                 = 'Oxford/Products';
   static String productsSearch           = 'Product/AppSearch';
+  static String productsQuickSearch      = 'Product/Search';
   static String appProduct               = 'Product/AppProduct';
   static String productImage             = 'Image/ProductImage';
   static String productImageUpdate       = 'Image/ReplaceProductImages';
   static String productImageUpdateBase64 = 'Image/ReplaceProductImages/Base64';
+  static String imageProductUrl          = 'Image/Product';
   static String productTag               = 'Tag';
 
   // Rotas para o filtro de atributos
@@ -51,5 +54,9 @@ class ApiRoutes {
   static String productPackImage      = 'ProductPacking/Images';
   static String productPackItem       = 'ProductPacking/Items';
   static String image                 = 'Image';
+
+  // Rotas para o DEVICES
+  static const String device = 'Device/Setor';
+  static const String tvDevice = 'Device/TvDevice';
 
 }

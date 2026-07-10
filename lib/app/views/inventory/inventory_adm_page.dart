@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/load_service.dart';
+import 'package:oxdata/app/views/inventory/inventory_adm_records_page.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/utils/download_file.dart';
@@ -23,9 +23,9 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
   List<InventoryModel> _allInventories = [];
 
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = "";
-  String? _selectedStatus;
-  DateTimeRange? _selectedDateRange;
+  String          _searchQuery = "";
+  String?         _selectedStatus;
+  DateTimeRange?  _selectedDateRange;
 
   @override
   void initState() {
@@ -120,30 +120,6 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
       MessageService.showError("Falha ao gerar arquivo de download.");
     }
   }
-
-  /*
-  Future<void> _confirmDelete(InventoryModel inventory) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirmar Exclusão"),
-        content: Text("Deseja realmente excluir o inventário '${inventory.inventName}'? Esta ação não pode ser desfeita."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancelar")),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true), 
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Excluir"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      MessageService.showSuccess("Inventário excluído com sucesso.");
-    }
-  }
-  */
 
   Future<void> _confirmDelete(InventoryModel inventory) async {
     final bool? confirmed = await showDialog<bool>(
@@ -454,12 +430,13 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
               horizontal: 16,
               vertical: 12,
             ),
+            color: const Color(0xFFF1F5F9), // 🎨 Adicionado o padrão de cor de fundo aqui
             child: const Row(
               children: [
                 Expanded(
-                  flex: 3,
+                  flex: 1,
                   child: Text(
-                    "Código",
+                    "USUÁRIO",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF475569),
@@ -469,7 +446,17 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 Expanded(
                   flex: 3,
                   child: Text(
-                    "Nome",
+                    "CÓDIGO",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    "NOME",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF475569),
@@ -479,7 +466,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    "Setor",
+                    "SETOR",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF475569),
@@ -489,7 +476,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    "Quantidade",
+                    "QUANTIDADE",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF475569),
@@ -499,7 +486,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    "Status",
+                    "SITUAÇÃO",
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF475569),
@@ -509,7 +496,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 SizedBox(
                   width: 140,
                   child: Text(
-                    "Ações",
+                    "AÇÕES",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -540,6 +527,13 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0,),
                   child: Row(
                     children: [
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          item.inventUser ?? '',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       Expanded(
                         flex: 3,
                         child: Text(
@@ -800,10 +794,22 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
       );
     }
 
-  void _selectInventoryRow(InventoryModel inventory) {
+  
+  /*void _selectInventoryRow(InventoryModel inventory) {
     context.read<InventoryService>().setSelectedInventory(inventory);
     context.read<InventoryService>().fetchRecordsByInventCode(inventory.inventCode);
     context.read<LoadService>().setPage(0);
+  }*/
+
+  void _selectInventoryRow(InventoryModel inventory) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InventoryAdmRecordsPage(
+          inventory: inventory,
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {

@@ -11,14 +11,16 @@ import 'package:oxdata/app/views/product/product_page.dart';
 import 'package:oxdata/app/views/pallet/search_pallet_page.dart';
 import 'package:oxdata/app/views/pallet/pallet_builder_page.dart';
 import 'package:oxdata/app/views/pallet/pallet_receive_page.dart';
-import 'package:oxdata/app/views/packaging/packagingPage.dart';
+import 'package:oxdata/app/views/palletizing/pallet_group.dart';
 import 'package:oxdata/app/views/inventory/inventory.dart';
 import 'package:oxdata/app/views/inventory/inventory_adm_page.dart';
+import 'package:oxdata/app/views/assembly/assembly_guide.dart';
 import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
 import 'package:oxdata/app/views/tools/tools_page.dart';
 import 'package:oxdata/app/views/guide/guide_page.dart';
 import 'package:oxdata/app/views/setup/setup_inventory.dart';
+import 'package:oxdata/app/views/setup/setup_initial.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/views/load/load.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
@@ -37,6 +39,7 @@ class RouteGenerator {
   static const String inventoryAdmPage   = 'inventoryAdmPage';
   static const String packagingPage      = 'packagingPage';
   static const String palletsPage        = 'palletsPage';
+  static const String palletizingPage    = 'palletizingPage';
   static const String palletBuilderPage  = 'palletBuilderPage';
   static const String palletReceivePage  = 'palletReceivePage';
   static const String loadPage           = 'CustomAnimatedPageView';
@@ -45,6 +48,7 @@ class RouteGenerator {
   static const String toolsPage          = 'toolsPage';
   static const String guidePage          = 'guidePage';
   static const String setupPage          = 'setupPage';
+  static const String setupInitPage      = 'setupInitPage';
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -61,7 +65,7 @@ class RouteGenerator {
       case productsPage:
         return MaterialPageRoute(builder: (context) => const SearchProductsPage());
       case packagingPage:
-        return MaterialPageRoute(builder: (context) => const PackagingPage());
+        return MaterialPageRoute(builder: (context) => const AssemblyGuidePage());
       case adminPage:
         return MaterialPageRoute(builder: (context) => const AdminPage());
       case aiPage:
@@ -80,6 +84,16 @@ class RouteGenerator {
           );
         }
         return _errorRoute(); 
+
+      /* ---------------------- SINCRONIZA ANTES DE CHAMAR A PÁGINA DE ESQUEMA DE PALETIZAÇÃO ----------------------- */
+      case palletizingPage:
+        //final deviceId = settings.arguments as String?;
+          
+        return MaterialPageRoute(builder: (context) => const PalletGroupPage());
+
+        //return MaterialPageRoute(builder: (_) => const PalletizingPage(), );
+ 
+      /* ------------------------------------------------------------------------------------------- */
         
       /* ---------------------- AQUI SINCRONIZA ANTES DE CHAMAR A PÁGINA ----------------------- */
       case inventoriesPage:
@@ -120,6 +134,21 @@ class RouteGenerator {
         return _errorRoute(); 
       case guidePage:
         return MaterialPageRoute(builder: (context) => const GuidePage());
+        case setupInitPage:
+          final fromLogin = args is bool && args == true;
+
+          return MaterialPageRoute(
+            builder: (context) => SetupInitPage(
+              inventoryService: context.read<InventoryService>(),
+              adminRepository: context.read<AdminRepository>(),
+              onFinished: fromLogin
+                  ? () => Navigator.of(context).pushNamedAndRemoveUntil(
+                        RouteGenerator.homePage,
+                        (route) => false,
+                      )
+                  : null,
+            ),
+          );
       case setupPage:
         return MaterialPageRoute(
           builder: (context) => SetupPage(
