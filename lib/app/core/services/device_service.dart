@@ -103,4 +103,22 @@ class DeviceService with ChangeNotifier {
     }
   }
 
+  /// Busca um TV Device pelo deviceId.
+  ///
+  /// Retorna o objeto encontrado ou null em caso de erro.
+  Future<TvDeviceModel?> getTvDevice(int deviceId) async {
+    _errorMessage = null;
+    notifyListeners();
+
+    final response = await _deviceRepository.getTvDevice(deviceId);
+
+    if (response.success && response.data != null) {
+      return response.data!;
+    }
+
+    _errorMessage = response.message;
+    notifyListeners();
+    return null;
+  }
+
 }

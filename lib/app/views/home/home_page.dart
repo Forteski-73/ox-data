@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
   String getRealRoute(String dbRoute) {
     switch (dbRoute) {
       case 'PRODUTO':       return RouteGenerator.productsPage;
-      case 'MONTAGEM':      return RouteGenerator.packagingPage;
+      case 'EMBALAGEM':      return RouteGenerator.packagingPage;
       case 'PALLET':        return RouteGenerator.palletsPage;
       case 'PALETIZACAO':   return RouteGenerator.palletizingPage;
       case 'CARGA':         return RouteGenerator.loadPage;
@@ -53,6 +53,7 @@ class _HomePageState extends State<HomePage> {
       case 'FERRAMENTA':    return RouteGenerator.toolsPage;
       case 'ADMINISTRADOR': return RouteGenerator.adminPage;
       case 'GUIA':          return RouteGenerator.guidePage;
+      case 'TV':            return RouteGenerator.tvPage;
       default:              return '/'; // Rota padrão caso dê ruim
     }
   }

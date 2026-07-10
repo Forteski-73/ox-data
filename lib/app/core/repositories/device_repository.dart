@@ -255,4 +255,39 @@ class DeviceRepository {
     }
   }
 
+  /// Busca um TV Device pelo deviceId.
+  /// GET /v1/Device/TvDevice/{deviceId}
+  Future<ApiResponse<TvDeviceModel>> getTvDevice(int deviceId) async {
+    try {
+      final response = await apiClient.getAuth(
+        '${ApiRoutes.tvDevice}/$deviceId',
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonMap = json.decode(response.body);
+        final device = TvDeviceModel.fromMap(jsonMap);
+
+        return ApiResponse(
+          success: true,
+          data: device,
+        );
+      } else if (response.statusCode == 404) {
+        return ApiResponse(
+          success: false,
+          message: 'Nenhum registro de TV encontrado para o device informado.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar TV Device: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha ao buscar TV Device: $e',
+      );
+    }
+  }
+
 }

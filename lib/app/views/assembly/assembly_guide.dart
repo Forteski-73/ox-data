@@ -96,6 +96,8 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
   String? _imageUrl;
 
   TvDeviceModel? _selectedTvDevice;
+  int _tvLoadToken          = 0;
+  bool _isLoadingTvProduct  = false;
 
   @override
   void initState() {
@@ -198,6 +200,7 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
     _searchFocusNode.requestFocus();
   }
 
+  /*
   void _onTvDeviceSelected(TvDeviceModel? device) {
     setState(() => _selectedTvDevice = device);
 
@@ -205,6 +208,82 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
     // escolhido, envia o transCode para essa TV imediatamente.
     if (device != null) {
       _sendTransCodeIfReady();
+    }
+  }
+  */
+
+  Future<void> _onTvDeviceSelected(TvDeviceModel? device) async {
+    setState(() => _selectedTvDevice = device);
+
+    if (device == null) {
+      // TV desmarcada: mantém o que já está na tela, sem buscar nada.
+      return;
+    }
+
+    final requestToken = ++_tvLoadToken;
+    final deviceService = context.read<DeviceService>();
+
+    setState(() => _isLoadingTvProduct = true);
+
+    final tvDevice = await deviceService.getTvDevice(device.deviceId);
+
+    // Se o usuário já trocou de TV de novo antes desta resposta chegar,
+    // descarta o resultado desatualizado.
+    if (!mounted || requestToken != _tvLoadToken) return;
+
+    setState(() => _isLoadingTvProduct = false);
+
+    final transCode = tvDevice?.transCode;
+
+    if (transCode == null || transCode.isEmpty) {
+      // Esta TV não tem produto atribuído no momento.
+      _clearSelection();
+      return;
+    }
+
+    await _loadProductByCode(transCode, requestToken);
+  }
+
+  /// Carrega um produto pelo código (vindo do transCode da TV), exibindo-o
+  /// como se tivesse sido escolhido na pesquisa — mas SEM reenviar o
+  /// transCode de volta para a API, já que ele já está atribuído.
+  Future<void> _loadProductByCode(String productId, int requestToken) async {
+    final productService = context.read<ProductService>();
+
+    try {
+      final results = await productService.quickSearch(productId);
+      if (!mounted || requestToken != _tvLoadToken) return;
+
+      if (results.isEmpty) {
+        MessageService.showError('Produto $productId (atribuído à TV) não encontrado.');
+        return;
+      }
+
+      final product = results.firstWhere(
+        (p) => p.productId == productId,
+        orElse: () => results.first,
+      );
+
+      setState(() {
+        _selectedProduct = product;
+        _suggestions = [];
+        _noResultsFound = false;
+        _searchController.text = product.name;
+        _imageUrl = null;
+      });
+
+      context.read<ImageService>().fetchProductImages(product.productId, _kSetorEmbalagem);
+
+      try {
+        final path = await productService.getProductImage(product.productId);
+        if (!mounted || requestToken != _tvLoadToken) return;
+        setState(() => _imageUrl = 'https://oxfordtec.com.br/Imagens/$path');
+      } catch (e) {
+        debugPrint('Erro ao carregar imagem remota do produto da TV: $e');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      MessageService.showError('Erro ao carregar produto atribuído à TV: $e');
     }
   }
 
@@ -338,17 +417,9 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-    // Offset (a partir do topo da área segura) onde o painel de sugestões
-    // deve começar: logo abaixo da linha de pesquisa.
-    final double suggestionsTop =
-        _Space.md + _kSearchRowHeight + _kSuggestionsGap;
-    // Padding superior do conteúdo rolável, para que ele comece sempre
-    // abaixo da barra de pesquisa fixa.
-    final double contentTopPadding =
-        _Space.md + _kSearchRowHeight + _Space.lg;
-
     return Scaffold(
       backgroundColor: _Palette.background,
       appBar: const PreferredSize(
@@ -367,115 +438,114 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
             _searchFocusNode.unfocus();
           },
           behavior: HitTestBehavior.translucent,
-          child: Stack(
-            clipBehavior: Clip.none,
+          child: Column(
             children: [
-              // ── CAMADA 1 (fundo): conteúdo rolável — produto ───────
-              // selecionado + lista de TVs. Pintado primeiro, portanto
-              // nunca fica na frente de nada.
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    _Space.md,
-                    contentTopPadding,
-                    _Space.md,
-                    _Space.md,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AnimatedSwitcher(
-                        duration: _Motion.base,
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.02),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
+              // ── TVs do setor: fica no topo, fora do fluxo de rolagem,
+              // e nunca é sobreposta por nada.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(_Space.md, _Space.md, _Space.md, 0),
+                child: _TvDeviceSection(
+                  setor: _kSetorEmbalagem,
+                  onDeviceSelected: _onTvDeviceSelected,
+                ),
+              ),
+
+              const SizedBox(height: _Space.xl),
+
+              // ── Barra de pesquisa: logo abaixo da lista de TVs. ────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: _Space.md),
+                child: _SearchRow(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  isSearching: _isSearching,
+                  onChanged: (value) {
+                    if (_selectedProduct != null) {
+                      setState(() => _selectedProduct = null);
+                    }
+                    _onSearchChanged(value);
+                  },
+                  onSubmitted: (value) {
+                    _debounce?.cancel();
+                    _fetchSuggestions(value.trim());
+                  },
+                  onClear: _clearSelection,
+                  onScan: _scanBarcode,
+                ),
+              ),
+
+              // ── Restante da tela: conteúdo rolável + sugestões ─────
+              // flutuando por cima apenas desta área (nunca sobre a
+              // lista de TVs, que já ficou acima, fora do Stack).
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(
+                          _Space.md,
+                          _Space.lg,
+                          _Space.md,
+                          _Space.md,
                         ),
-                        child: _selectedProduct != null
-                            ? Column(
-                                key: ValueKey('product-${_selectedProduct!.productId}'),
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _SelectedProductCard(
-                                    product: _selectedProduct!,
-                                    decodeImage: _decodeAndExtractImage,
-                                    imageUrl: _imageUrl,
-                                    onClear: _clearSelection,
-                                  ),
-                                  const SizedBox(height: _Space.md),
-                                  const _AssemblyStepsSection(),
-                                ],
-                              )
-                            : const SizedBox.shrink(key: ValueKey('empty')),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: _Motion.base,
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder: (child, animation) => FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.02),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                              child: _isLoadingTvProduct
+                                  ? const _TvProductLoadingState(key: ValueKey('loadingTvProduct'))
+                                  : Column(
+                                      key: ValueKey(_selectedProduct?.productId ?? 'no-product-selected'),
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        _SelectedProductCard(
+                                          product: _selectedProduct,
+                                          decodeImage: _decodeAndExtractImage,
+                                          imageUrl: _imageUrl,
+                                          onClear: _clearSelection,
+                                        ),
+                                        if (_selectedProduct != null) ...[
+                                          const SizedBox(height: _Space.md),
+                                          const _AssemblyStepsSection(),
+                                        ],
+                                      ],
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
 
-                      const SizedBox(height: _Space.xl),
-                      const Divider(height: 1, color: _Palette.border),
-                      const SizedBox(height: _Space.lg),
-
-                      // ── Lista de TVs ────
-                      _TvDeviceSection(
-                        setor: _kSetorEmbalagem,
-                        onDeviceSelected: _onTvDeviceSelected,
+                    // ── Painel de sugestões: flutua só dentro desta
+                    // área rolável, nunca sobre a barra de TVs.
+                    if (_suggestions.isNotEmpty || _noResultsFound)
+                      Positioned(
+                        top: _kSuggestionsGap,
+                        left: _Space.md,
+                        right: _Space.md,
+                        child: _SuggestionsPanel(
+                          suggestions: _suggestions,
+                          noResultsFound: _noResultsFound,
+                          onSelect: _selectProduct,
+                        ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-
-              // ── CAMADA 2 (meio): barra de pesquisa fixa no topo ────
-              // Pintada depois do conteúdo rolável, então fica sempre
-              // visível por cima dele ao rolar. O fundo opaco evita que
-              // o texto por baixo apareça atrás da barra.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  color: _Palette.background,
-                  padding: EdgeInsets.fromLTRB(_Space.md, _Space.md, _Space.md, 0),
-                  child: _SearchRow(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    isSearching: _isSearching,
-                    onChanged: (value) {
-                      if (_selectedProduct != null) {
-                        setState(() => _selectedProduct = null);
-                      }
-                      _onSearchChanged(value);
-                    },
-                    onSubmitted: (value) {
-                      _debounce?.cancel();
-                      _fetchSuggestions(value.trim());
-                    },
-                    onClear: _clearSelection,
-                    onScan: _scanBarcode,
-                  ),
-                ),
-              ),
-
-              // ── CAMADA 3 (topo): painel de sugestões ───────────────
-              // Pintado por último — sempre na frente do produto
-              // selecionado, da lista de TVs e de qualquer outra
-              // informação da tela, nunca atrás.
-              if (_suggestions.isNotEmpty || _noResultsFound)
-                Positioned(
-                  top: suggestionsTop,
-                  left: _Space.md,
-                  right: _Space.md,
-                  child: _SuggestionsPanel(
-                    suggestions: _suggestions,
-                    noResultsFound: _noResultsFound,
-                    onSelect: _selectProduct,
-                  ),
-                ),
             ],
           ),
         ),
@@ -487,7 +557,6 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
 // =============================================================================
 // _SearchRow
 // =============================================================================
-
 class _SearchRow extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -509,80 +578,124 @@ class _SearchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: _kSearchRowHeight,
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              textInputAction: TextInputAction.search,
-              autocorrect: false,
-              enableSuggestions: false,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: _Palette.textPrimary,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Pesquisar produto',
-                labelStyle: const TextStyle(color: _Palette.textSecondary),
-                filled: true,
-                fillColor: _Palette.surface,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                suffixIcon: AnimatedSwitcher(
-                  duration: _Motion.fast,
-                  child: isSearching
-                      ? const Padding(
-                          key: ValueKey('spinner'),
-                          padding: EdgeInsets.all(16.0),
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: SpinKitThreeBounce(color: _Palette.primary, size: 14.0),
-                          ),
-                        )
-                      : (controller.text.isNotEmpty
-                          ? IconButton(
-                              key: const ValueKey('clear'),
-                              icon: const Icon(Icons.close_rounded, size: 20),
-                              color: _Palette.textSecondary,
-                              tooltip: 'Limpar pesquisa',
-                              onPressed: onClear,
-                            )
-                          : const SizedBox.shrink(key: ValueKey('none'))),
+    final scanDisabled = onScan == null;
+
+    // Usamos IntrinsicHeight para garantir que a Row force a mesma altura em ambos os lados
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch, // Estica os filhos para terem a mesma altura
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: _kSearchRowHeight,
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                onChanged: onChanged,
+                onSubmitted: onSubmitted,
+                textInputAction: TextInputAction.search,
+                autocorrect: false,
+                enableSuggestions: false,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: _Palette.textPrimary,
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(_Corner.md),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(_Corner.md),
-                  borderSide: const BorderSide(color: _Palette.border),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(_Corner.md),
-                  borderSide: const BorderSide(color: _Palette.primary, width: 1.5),
+                decoration: InputDecoration(
+                  labelText: 'Pesquisar produto',
+                  labelStyle: const TextStyle(color: _Palette.textSecondary),
+                  filled: true,
+                  fillColor: _Palette.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  suffixIcon: AnimatedSwitcher(
+                    duration: _Motion.fast,
+                    child: isSearching
+                        ? const Padding(
+                            key: ValueKey('spinner'),
+                            padding: EdgeInsets.all(16.0),
+                            child: SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: SpinKitThreeBounce(
+                                color: _Palette.primary,
+                                size: 14.0,
+                              ),
+                            ),
+                          )
+                        : (controller.text.isNotEmpty
+                            ? IconButton(
+                                key: const ValueKey('clear'),
+                                icon: const Icon(Icons.close_rounded, size: 20),
+                                color: _Palette.textSecondary,
+                                tooltip: 'Limpar pesquisa',
+                                onPressed: onClear,
+                              )
+                            : const SizedBox.shrink(key: ValueKey('none'))),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(_Corner.sm),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(_Corner.sm),
+                    borderSide: const BorderSide(color: _Palette.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(_Corner.sm),
+                    borderSide: const BorderSide(
+                      color: _Palette.primary,
+                      width: 1.5,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: _Space.sm),
-        _ScanIconButton(onPressed: onScan),
-      ],
+          const SizedBox(width: _Space.sm),
+          Semantics(
+            button: true,
+            label: 'Ler código de barras ou QR code',
+            child: Material(
+              color: scanDisabled
+                  ? _Palette.disabledBg
+                  : _Palette.primarySoft,
+              borderRadius: BorderRadius.circular(_Corner.sm),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_Corner.sm),
+                onTap: onScan,
+                splashColor: _Palette.primary.withOpacity(0.15),
+                highlightColor: _Palette.primaryDark.withOpacity(0.1),
+                child: SizedBox(
+                  // Removido o "- 4" para bater exatamente com a altura do TextField
+                  height: _kSearchRowHeight, 
+                  width: _kSearchRowHeight,
+                  child: Center( // Centraliza o ícone perfeitamente no container quadrado
+                    child: Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: scanDisabled
+                          ? _Palette.textSecondary.withOpacity(0.4)
+                          : _Palette.primary,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+
 // =============================================================================
 // _ScanIconButton
 // =============================================================================
-
+/*
 class _ScanIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
@@ -596,15 +709,15 @@ class _ScanIconButton extends StatelessWidget {
       label: 'Ler código de barras ou QR code',
       child: Material(
         color: disabled ? _Palette.disabledBg : _Palette.primarySoft,
-        borderRadius: BorderRadius.circular(_Corner.md),
+        borderRadius: BorderRadius.circular(_Corner.sm),
         child: InkWell(
-          borderRadius: BorderRadius.circular(_Corner.md),
+          borderRadius: BorderRadius.circular(_Corner.sm),
           onTap: onPressed,
           splashColor: _Palette.primary.withOpacity(0.15),
           highlightColor: _Palette.primaryDark.withOpacity(0.1),
           child: SizedBox(
-            height: _kSearchRowHeight,
-            width: 56,
+            height: _kSearchRowHeight-4,
+            width: _kSearchRowHeight-4,
             child: Icon(
               Icons.qr_code_scanner_rounded,
               color: disabled ? _Palette.textSecondary.withOpacity(0.4) : _Palette.primary,
@@ -616,78 +729,96 @@ class _ScanIconButton extends StatelessWidget {
     );
   }
 }
+*/
 
-// =============================================================================
-// _SuggestionsPanel
-// =============================================================================
+  // =============================================================================
+  // _SuggestionsPanel
+  // =============================================================================
 
-class _SuggestionsPanel extends StatelessWidget {
-  final List<ProductModel> suggestions;
-  final bool noResultsFound;
-  final ValueChanged<ProductModel> onSelect;
+  class _SuggestionsPanel extends StatelessWidget {
+    final List<ProductModel> suggestions;
+    final bool noResultsFound;
+    final ValueChanged<ProductModel> onSelect;
 
-  const _SuggestionsPanel({
-    required this.suggestions,
-    required this.noResultsFound,
-    required this.onSelect,
-  });
+    const _SuggestionsPanel({
+      required this.suggestions,
+      required this.noResultsFound,
+      required this.onSelect,
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 8,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(_Corner.md),
-      color: _Palette.surface,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 280),
-        child: suggestions.isNotEmpty
-            ? ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: suggestions.length,
-                separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
-                itemBuilder: (context, index) {
-                  final product = suggestions[index];
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(
-                      Icons.inventory_2_outlined,
-                      size: 20,
-                      color: _Palette.textSecondary,
-                    ),
-                    title: Text(
-                      product.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    subtitle: Text(
-                      'Cód: ${product.productId}  •  Barras: ${product.barcode ?? '—'}',
-                      style: const TextStyle(fontSize: 12, color: _Palette.textSecondary),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: _Palette.textSecondary),
-                    onTap: () => onSelect(product),
-                  );
-                },
-              )
-            : const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Column(
-                  children: [
-                    Icon(Icons.search_off_rounded, size: 28, color: _Palette.textSecondary),
-                    SizedBox(height: _Space.sm),
-                    Text(
-                      'Nenhum produto encontrado',
-                      style: TextStyle(fontSize: 13, color: _Palette.textSecondary, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-      ),
-    );
+    @override
+    Widget build(BuildContext context) {
+      return Material(
+        elevation: 8,
+        shadowColor: Colors.black26,
+        borderRadius: BorderRadius.circular(_Corner.sm),
+        color: _Palette.surface,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: suggestions.isNotEmpty
+              ? ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: suggestions.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
+                  itemBuilder: (context, index) {
+                    final product = suggestions[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 20,
+                        color: _Palette.textSecondary,
+                      ),
+                      title: Text(
+                        product.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        'Cód: ${product.productId}  •  Barras: ${product.barcode ?? '—'}',
+                        style: const TextStyle(fontSize: 12, color: _Palette.textSecondary),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: _Palette.textSecondary),
+                      onTap: () => onSelect(product),
+                    );
+                  },
+                )
+              : const SizedBox(height: 0),
+        ),
+      );
+    }
   }
-}
+
+
+  class _TvProductLoadingState extends StatelessWidget {
+    const _TvProductLoadingState({super.key});
+
+    @override
+    Widget build(BuildContext context) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: _Space.xl),
+        decoration: BoxDecoration(
+          color: _Palette.surface,
+          borderRadius: BorderRadius.circular(_Corner.lg),
+          border: Border.all(color: _Palette.border),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SpinKitThreeBounce(color: _Palette.primary, size: 20.0),
+            SizedBox(height: _Space.sm),
+            Text(
+              'Carregando produto atribuído a esta TV...',
+              style: TextStyle(fontSize: 12, color: _Palette.textSecondary, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
 // =============================================================================
 // _SearchHintState — estado inicial, antes de qualquer pesquisa
@@ -760,7 +891,7 @@ class _AssemblyStepsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: _Space.xl),
             decoration: BoxDecoration(
               color: _Palette.surface,
-              borderRadius: BorderRadius.circular(_Corner.lg),
+              borderRadius: BorderRadius.circular(_Corner.sm),
               border: Border.all(color: _Palette.border),
             ),
             child: const Center(
@@ -775,7 +906,7 @@ class _AssemblyStepsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: _Space.xl, horizontal: _Space.lg),
             decoration: BoxDecoration(
               color: _Palette.surface,
-              borderRadius: BorderRadius.circular(_Corner.lg),
+              borderRadius: BorderRadius.circular(_Corner.sm),
               border: Border.all(color: _Palette.border),
             ),
             child: const Column(
@@ -797,7 +928,7 @@ class _AssemblyStepsSection extends StatelessWidget {
           padding: const EdgeInsets.all(_Space.md),
           decoration: BoxDecoration(
             color: _Palette.surface,
-            borderRadius: BorderRadius.circular(_Corner.lg),
+            borderRadius: BorderRadius.circular(_Corner.sm),
             border: Border.all(color: _Palette.border),
           ),
           child: Column(
@@ -1044,89 +1175,102 @@ class _AssemblyImageViewerState extends State<_AssemblyImageViewer> {
   }
 }
 
-// =============================================================================
-// _SelectedProductCard
-// =============================================================================
+  // =============================================================================
+  // _SelectedProductCard
+  // =============================================================================
 
-class _SelectedProductCard extends StatelessWidget {
-  final ProductModel product;
-  final Future<List<String>?> Function(String?) decodeImage;
-  final VoidCallback onClear;
-  final String? imageUrl;
+  class _SelectedProductCard extends StatelessWidget {
+    final ProductModel? product; // Tornado opcional
+    final Future<List<String>?> Function(String?) decodeImage;
+    final VoidCallback onClear;
+    final String? imageUrl;
 
-  const _SelectedProductCard({
-    required this.product,
-    required this.decodeImage,
-    required this.onClear,
-    required this.imageUrl,
-  });
+    const _SelectedProductCard({
+      required this.product,
+      required this.decodeImage,
+      required this.onClear,
+      required this.imageUrl,
+    });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _Palette.surface,
-        borderRadius: BorderRadius.circular(_Corner.lg),
-        border: Border.all(color: _Palette.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(_Space.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(_Corner.sm),
-            child: _ProductThumbnail(
-              imageUrl: imageUrl,
-              decodeImage: decodeImage,
-              imageZipBase64: product.imageZipBase64,
+    @override
+    Widget build(BuildContext context) {
+      return Container(
+        // Mantém a mesma altura mínima aproximada para evitar os pulos de tela
+        constraints: const BoxConstraints(minHeight: 82), 
+        decoration: BoxDecoration(
+          color: _Palette.surface,
+          borderRadius: BorderRadius.circular(_Corner.sm),
+          border: Border.all(color: _Palette.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const SizedBox(width: _Space.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+          ],
+        ),
+        padding: const EdgeInsets.all(_Space.md),
+        child: product == null
+            ? const Center(
+                child: Text(
+                  'Nenhum produto selecionado',
+                  style: TextStyle(
                     fontSize: 14,
-                    color: _Palette.textPrimary,
+                    fontWeight: FontWeight.w500,
+                    color: _Palette.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Código: ${product.productId}  •  Barras: ${product.barcode ?? '—'}',
-                  style: const TextStyle(fontSize: 12, color: _Palette.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Remover produto selecionado',
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: _Palette.textSecondary, size: 20),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onPressed: onClear,
-            ),
-          ),
-        ],
-      ),
-    );
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(_Corner.sm),
+                    child: _ProductThumbnail(
+                      imageUrl: imageUrl,
+                      decodeImage: decodeImage,
+                      imageZipBase64: product!.imageZipBase64,
+                    ),
+                  ),
+                  const SizedBox(width: _Space.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          product!.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: _Palette.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Código: ${product!.productId}  •  Barras: ${product!.barcode ?? '—'}',
+                          style: const TextStyle(fontSize: 12, color: _Palette.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Semantics(
+                    button: true,
+                    label: 'Remover produto selecionado',
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: _Palette.textSecondary, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: onClear,
+                    ),
+                  ),
+                ],
+              ),
+      );
+    }
   }
-}
 
 class _ProductThumbnail extends StatelessWidget {
   final String? imageUrl;
@@ -1293,17 +1437,6 @@ class _TvDeviceSectionState extends State<_TvDeviceSection> {
                     ),
                   ),
                 ),
-                const Spacer(),
-                if (_selectedDevice != null)
-                  Flexible(
-                    child: _SelectedTvPill(
-                      label: _tvLabel(_selectedDevice!),
-                      onClear: () {
-                        setState(() => _selectedDevice = null);
-                        widget.onDeviceSelected?.call(null);
-                      },
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: _Space.md),
@@ -1336,48 +1469,6 @@ String _tvLabel(TvDeviceModel device) {
       : (device.deviceName ?? '${device.customDeviceName}');
 }
 
-class _SelectedTvPill extends StatelessWidget {
-  final String label;
-  final VoidCallback onClear;
-
-  const _SelectedTvPill({required this.label, required this.onClear});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(left: 10, right: 4, top: 2, bottom: 2),
-      decoration: BoxDecoration(
-        color: _Palette.primary,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Desmarcar TV selecionada',
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onClear,
-              child: const Padding(
-                padding: EdgeInsets.all(3),
-                child: Icon(Icons.close_rounded, size: 13, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _TvDeviceChip extends StatelessWidget {
   final TvDeviceModel device;
