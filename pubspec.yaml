@@ -64,6 +64,7 @@ dependencies:
   universal_html: ^2.3.0
   url_launcher: ^6.2.0
   device_info_plus: ^11.0.0
+  model_viewer_plus: ^1.9.3
 
 
 dev_dependencies:
@@ -121,6 +122,7 @@ flutter:
     - assets/images/tools.png
     - assets/images/guide.png
     - assets/images/oxford-tv.png
+    - assets/images/developer.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

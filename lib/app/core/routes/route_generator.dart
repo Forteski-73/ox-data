@@ -17,6 +17,7 @@ import 'package:oxdata/app/views/inventory/inventory_adm_page.dart';
 import 'package:oxdata/app/views/assembly/assembly_guide.dart';
 import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
+import 'package:oxdata/app/views/developer/dev_page.dart';
 import 'package:oxdata/app/views/tools/tools_page.dart';
 import 'package:oxdata/app/views/guide/guide_page.dart';
 import 'package:oxdata/app/views/setup/setup_inventory.dart';
@@ -51,6 +52,7 @@ class RouteGenerator {
   static const String setupPage          = 'setupPage';
   static const String setupInitPage      = 'setupInitPage';
   static const String tvPage             = 'tvPage';
+  static const String devPage            = 'devPage';
 
   static Route<dynamic> controller(RouteSettings settings) {
     final args = settings.arguments;
@@ -159,6 +161,8 @@ class RouteGenerator {
             adminRepository: context.read<AdminRepository>(),
           ),
         );
+      case devPage:
+        return MaterialPageRoute(builder: (context) => DevPage());
       default:
         throw Exception('A rota ${settings.name} não existe!');
     }

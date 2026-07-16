@@ -54,6 +54,7 @@ class _HomePageState extends State<HomePage> {
       case 'ADMINISTRADOR': return RouteGenerator.adminPage;
       case 'GUIA':          return RouteGenerator.guidePage;
       case 'TV':            return RouteGenerator.tvPage;
+      case 'DEV':           return RouteGenerator.devPage;
       default:              return '/'; // Rota padrão caso dê ruim
     }
   }

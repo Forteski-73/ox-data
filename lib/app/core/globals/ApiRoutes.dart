@@ -58,5 +58,6 @@ class ApiRoutes {
   // Rotas para o DEVICES
   static const String device = 'Device/Setor';
   static const String tvDevice = 'Device/TvDevice';
+  static const String tvDeviceImg = 'Device/TvDeviceIMG';
 
 }

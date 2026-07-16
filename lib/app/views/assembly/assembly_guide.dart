@@ -189,6 +189,11 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
   }
 
   void _clearSelection() {
+    // Captura a TV selecionada ANTES do setState, pois vamos precisar
+    // dela depois para notificar a API (fora do setState, que é síncrono
+    // e não pode conter await).
+    final device = _selectedTvDevice;
+
     setState(() {
       _selectedProduct = null;
       _suggestions = [];
@@ -196,21 +201,35 @@ class _AssemblyGuidePageState extends State<AssemblyGuidePage> {
       _imageUrl = null;
       _searchController.clear();
     });
+
     context.read<ImageService>().clear();
     _searchFocusNode.requestFocus();
-  }
 
-  /*
-  void _onTvDeviceSelected(TvDeviceModel? device) {
-    setState(() => _selectedTvDevice = device);
-
-    // Se uma TV foi selecionada (não desmarcada) e já existe um produto
-    // escolhido, envia o transCode para essa TV imediatamente.
+    // Se havia uma TV selecionada, desatribui o produto dela na API,
+    // enviando transCode vazio para "zerar" o que está sendo exibido nela.
     if (device != null) {
-      _sendTransCodeIfReady();
+      _clearTransCodeOnDevice(device);
     }
   }
-  */
+
+  /// Envia transCode vazio para a TV , removendo o produto atualmente atribuído a ela na API.
+  Future<void> _clearTransCodeOnDevice(TvDeviceModel device) async {
+    final deviceService = context.read<DeviceService>();
+
+    final success = await deviceService.sendTransCode(
+      deviceId: device.deviceId,
+      setor: _kSetorEmbalagem,
+      transCode: '',
+    );
+
+    if (!mounted) return;
+
+    if (!success) {
+      MessageService.showError(
+        deviceService.errorMessage ?? 'Erro ao limpar produto da TV.',
+      );
+    }
+  }
 
   Future<void> _onTvDeviceSelected(TvDeviceModel? device) async {
     setState(() => _selectedTvDevice = device);
@@ -580,106 +599,99 @@ class _SearchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scanDisabled = onScan == null;
 
-    // Usamos IntrinsicHeight para garantir que a Row force a mesma altura em ambos os lados
-    return IntrinsicHeight(
+    return SizedBox(
+      height: _kSearchRowHeight,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch, // Estica os filhos para terem a mesma altura
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: SizedBox(
-              height: _kSearchRowHeight,
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                onChanged: onChanged,
-                onSubmitted: onSubmitted,
-                textInputAction: TextInputAction.search,
-                autocorrect: false,
-                enableSuggestions: false,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: _Palette.textPrimary,
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              enableSuggestions: false,
+              textAlignVertical: TextAlignVertical.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: _Palette.textPrimary,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: 'Pesquisar produto',
+                labelStyle: const TextStyle(color: _Palette.textSecondary),
+                filled: true,
+                fillColor: _Palette.surface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16, // recalculado abaixo
                 ),
-                decoration: InputDecoration(
-                  labelText: 'Pesquisar produto',
-                  labelStyle: const TextStyle(color: _Palette.textSecondary),
-                  filled: true,
-                  fillColor: _Palette.surface,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  suffixIcon: AnimatedSwitcher(
-                    duration: _Motion.fast,
-                    child: isSearching
-                        ? const Padding(
-                            key: ValueKey('spinner'),
-                            padding: EdgeInsets.all(16.0),
-                            child: SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: SpinKitThreeBounce(
-                                color: _Palette.primary,
-                                size: 14.0,
-                              ),
+                suffixIcon: AnimatedSwitcher(
+                  duration: _Motion.fast,
+                  child: isSearching
+                      ? const Padding(
+                          key: ValueKey('spinner'),
+                          padding: EdgeInsets.all(16.0),
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: SpinKitThreeBounce(
+                              color: _Palette.primary,
+                              size: 14.0,
                             ),
-                          )
-                        : (controller.text.isNotEmpty
-                            ? IconButton(
-                                key: const ValueKey('clear'),
-                                icon: const Icon(Icons.close_rounded, size: 20),
-                                color: _Palette.textSecondary,
-                                tooltip: 'Limpar pesquisa',
-                                onPressed: onClear,
-                              )
-                            : const SizedBox.shrink(key: ValueKey('none'))),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_Corner.sm),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_Corner.sm),
-                    borderSide: const BorderSide(color: _Palette.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(_Corner.sm),
-                    borderSide: const BorderSide(
-                      color: _Palette.primary,
-                      width: 1.5,
-                    ),
+                          ),
+                        )
+                      : (controller.text.isNotEmpty
+                          ? IconButton(
+                              key: const ValueKey('clear'),
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              color: _Palette.textSecondary,
+                              tooltip: 'Limpar pesquisa',
+                              onPressed: onClear,
+                            )
+                          : const SizedBox.shrink(key: ValueKey('none'))),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_Corner.sm),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_Corner.sm),
+                  borderSide: const BorderSide(color: _Palette.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(_Corner.sm),
+                  borderSide: const BorderSide(
+                    color: _Palette.primary,
+                    width: 1.5,
                   ),
                 ),
               ),
             ),
           ),
           const SizedBox(width: _Space.sm),
-          Semantics(
-            button: true,
-            label: 'Ler código de barras ou QR code',
+          SizedBox(
+            width: _kSearchRowHeight,
+            height: _kSearchRowHeight-6,
             child: Material(
-              color: scanDisabled
-                  ? _Palette.disabledBg
-                  : _Palette.primarySoft,
+              color: scanDisabled ? _Palette.disabledBg : _Palette.primarySoft,
               borderRadius: BorderRadius.circular(_Corner.sm),
+              type: MaterialType.button,
               child: InkWell(
                 borderRadius: BorderRadius.circular(_Corner.sm),
-                onTap: onScan,
+                onTap: scanDisabled ? null : onScan,
                 splashColor: _Palette.primary.withOpacity(0.15),
                 highlightColor: _Palette.primaryDark.withOpacity(0.1),
-                child: SizedBox(
-                  // Removido o "- 4" para bater exatamente com a altura do TextField
-                  height: _kSearchRowHeight, 
-                  width: _kSearchRowHeight,
-                  child: Center( // Centraliza o ícone perfeitamente no container quadrado
-                    child: Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: scanDisabled
-                          ? _Palette.textSecondary.withOpacity(0.4)
-                          : _Palette.primary,
-                      size: 28,
-                    ),
+                child: Center(
+                  child: Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: scanDisabled
+                        ? _Palette.textSecondary.withOpacity(0.4)
+                        : _Palette.primary,
+                    size: 30,
                   ),
                 ),
               ),
@@ -690,47 +702,6 @@ class _SearchRow extends StatelessWidget {
     );
   }
 }
-
-
-// =============================================================================
-// _ScanIconButton
-// =============================================================================
-/*
-class _ScanIconButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-
-  const _ScanIconButton({this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = onPressed == null;
-    return Semantics(
-      button: true,
-      label: 'Ler código de barras ou QR code',
-      child: Material(
-        color: disabled ? _Palette.disabledBg : _Palette.primarySoft,
-        borderRadius: BorderRadius.circular(_Corner.sm),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(_Corner.sm),
-          onTap: onPressed,
-          splashColor: _Palette.primary.withOpacity(0.15),
-          highlightColor: _Palette.primaryDark.withOpacity(0.1),
-          child: SizedBox(
-            height: _kSearchRowHeight-4,
-            width: _kSearchRowHeight-4,
-            child: Icon(
-              Icons.qr_code_scanner_rounded,
-              color: disabled ? _Palette.textSecondary.withOpacity(0.4) : _Palette.primary,
-              size: 28,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-*/
-
   // =============================================================================
   // _SuggestionsPanel
   // =============================================================================
@@ -936,7 +907,7 @@ class _AssemblyStepsSection extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.construction_rounded, size: 18, color: _Palette.textSecondary),
+                  const Icon(Icons.conveyor_belt, size: 18, color: _Palette.textSecondary),
                   const SizedBox(width: _Space.sm),
                   Text(
                     'Passo a passo (${images.length})',
@@ -1410,14 +1381,14 @@ class _TvDeviceSectionState extends State<_TvDeviceSection> {
           children: [
             Row(
               children: [
-                Icon(Icons.tv_rounded, size: 20, color: Colors.grey.shade600),
+                Icon(Icons.tv_rounded, size: 22, color: Colors.indigo),
                 const SizedBox(width: _Space.sm),
                 Text(
                   'TVs — ${widget.setor}',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade700,
+                    color: Colors.indigo,
                     letterSpacing: 0.2,
                   ),
                 ),

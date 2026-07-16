@@ -3,8 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:marquee/marquee.dart'; 
-import 'package:oxdata/app/core/services/image_service.dart';
+import 'package:oxdata/app/core/services/device_service.dart';
 import 'package:oxdata/app/core/models/image_url_model.dart';
+import 'package:oxdata/app/core/services/storage_service.dart';
+import 'package:oxdata/app/core/utils/device.dart' as device_utils;
+import 'package:oxdata/app/core/widgets/screensaver_oxford.dart';
+import 'package:oxdata/app/core/widgets/adaptive_fit_image.dart';
 
 class FullScreenTvPopup extends StatefulWidget {
   const FullScreenTvPopup({super.key});
@@ -16,19 +20,42 @@ class FullScreenTvPopup extends StatefulWidget {
 class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
   int _currentIndex = 0;
   bool _sidebarExpanded = true;
-  bool _slideshowOn = true; // <-- 1. Alterado para iniciar como true
+  bool _slideshowOn = true; // inicia com o slider ativo
   
   Timer? _slideshowTimer;
   Timer? _apiRefreshTimer;
 
-  static const String _fixedProduct = '002687';
-  static const String _fixedFinalidade = 'EMBALAGEM';
+  String? _guid;
+  String? _username;
+
+  // Identificação fixa da TV para consulta ao endpoint TvDeviceIMG.
+  //static const String _fixedGuid = '0218805c-ab50-486f-8656-aeb60ad0b769';
+  // static const String _fixedUser = 'diones';
   static const double _sidebarWidth = 200.0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final storage = StorageService();
+
+      // Usa o prefixo do alias para resolver a ambiguidade
+      final guid = await device_utils.DeviceService.getDeviceId();
+
+      final credentials = await storage.readCredentials();
+      final username = credentials['username'];
+
+      if (!mounted) return;
+
+      setState(() {
+        _guid = guid;
+        _username = username;
+      });
+
+      /*if (_guid == null || _guid!.isEmpty || _username == null || _username!.isEmpty) {
+        return;
+      }*/
+
       _fetchData();
       _startApiRefreshTimer();
     });
@@ -43,12 +70,12 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
 
   Future<void> _fetchData() async {
     if (!mounted) return;
-    final imageService = context.read<ImageService>();
-    await imageService.fetchProductImages(_fixedProduct, _fixedFinalidade);
-    
+    final deviceService = context.read<DeviceService>();
+    await deviceService.fetchTvDeviceImages(guid: _guid!, user: _username!);
+
     // 2. Se o slideshow estiver marcado para ligar e houver mais de uma imagem, inicia o Timer
-    if (_slideshowOn && imageService.productImages.length > 1 && _slideshowTimer == null) {
-      _toggleSlideshow(true, imageService.productImages.length);
+    if (_slideshowOn && deviceService.tvDeviceImages.length > 1 && _slideshowTimer == null) {
+      _toggleSlideshow(true, deviceService.tvDeviceImages.length);
     }
   }
 
@@ -82,14 +109,14 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final imageLoading = context.watch<ImageService>().isLoading;
-    final errorMessage = context.watch<ImageService>().errorMessage;
+    final imageLoading = context.watch<DeviceService>().isLoadingTvImages;
+    final errorMessage = context.watch<DeviceService>().errorMessage;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: () {
-          final currentImages = context.read<ImageService>().productImages;
+          final currentImages = context.read<DeviceService>().tvDeviceImages;
           if (imageLoading && currentImages.isEmpty) {
             return const Center(
               child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
@@ -109,24 +136,21 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
             );
           }
 
-          return Consumer<ImageService>(
-            builder: (context, imageService, child) {
-              final images = imageService.productImages;
+          return Consumer<DeviceService>(
+            builder: (context, deviceService, child) {
+              final images = deviceService.tvDeviceImages;
 
               if (images.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Nenhuma imagem disponível no momento.',
-                    style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                  ),
-                );
+                return const ScreensaverOxford();
               }
 
               if (_currentIndex >= images.length) {
                 _currentIndex = 0;
               }
 
-              final currentUrl = imageService.buildFullImageUrl(images[_currentIndex].imagePath);
+              final currentUrl = "https://oxfordtec.com.br/Imagens/${images[_currentIndex].imagePath}";
+              final currentProductId = images[_currentIndex].productId;
+              final currentFinalidade = images[_currentIndex].finalidade;
 
               return Column(
                 children: [
@@ -134,7 +158,7 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
                     height: 68,
                     color: Colors.grey[200],
                     child: Marquee(
-                      text: 'Produto: $_fixedProduct - $_fixedFinalidade',
+                      text: 'Produto: $currentProductId - $currentFinalidade',
                       style: const TextStyle(
                         fontSize: 40, 
                         fontWeight: FontWeight.bold, 
@@ -153,7 +177,7 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildSidebar(images, imageService),
+                        _buildSidebar(images, deviceService),
                         Expanded(
                           child: Stack(
                             children: [
@@ -187,7 +211,7 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
     );
   }
 
-  Widget _buildSidebar(List<ImageUrlModel> images, ImageService imageService) {
+  Widget _buildSidebar(List<ImageUrlModel> images, DeviceService deviceService) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
@@ -228,7 +252,7 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
                     itemCount: images.length,
                     itemBuilder: (context, index) {
                       final isSelected = index == _currentIndex;
-                      final thumbnailUrl = imageService.buildFullImageUrl(images[index].imagePath);
+                      final thumbnailUrl = "https://oxfordtec.com.br/Imagens/${images[index].imagePath}";
                       
                       return GestureDetector(
                         onTap: () => _selectImage(index),
@@ -296,6 +320,7 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
     );
   }
 
+  /*
   Widget _buildMainImage(String url) {
     return InteractiveViewer(
       key: ValueKey(url),
@@ -318,6 +343,26 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
               const Center(
                 child: Icon(Icons.image_not_supported, size: 100, color: Colors.grey),
               ),
+        ),
+      ),
+    );
+  }
+  */
+
+  Widget _buildMainImage(String url) {
+    return InteractiveViewer(
+      key: ValueKey(url),
+      minScale: 1.0,
+      maxScale: 4.0,
+      clipBehavior: Clip.none,
+      child: AdaptiveFitImage(
+        imageUrl: url,
+        letterboxColor: Colors.black,
+        loadingBuilder: (context) => const Center(
+          child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
+        ),
+        errorBuilder: (context) => const Center(
+          child: Icon(Icons.image_not_supported, size: 100, color: Colors.grey),
         ),
       ),
     );

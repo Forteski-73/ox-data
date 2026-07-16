@@ -6,7 +6,7 @@ import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/tv_device_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
-
+import 'package:oxdata/app/core/models/image_url_model.dart';
 
 /// Repositório responsável pela comunicação com a API de TV Devices
 /// (endpoints do DeviceController: /v1/Device).
@@ -286,6 +286,49 @@ class DeviceRepository {
       return ApiResponse(
         success: false,
         message: 'Falha ao buscar TV Device: $e',
+      );
+    }
+  }
+
+/// Busca as imagens do passo a passo de montagem atribuídas à TV,
+  /// identificada por guid + user.
+  /// GET /v1/Device/TvDeviceIMG?guid={guid}&user={user}
+  Future<ApiResponse<List<ImageUrlModel>>> getTvDeviceImages({
+    required String guid,
+    required String user,
+  }) async {
+    try {
+      final uri = Uri(
+        path: ApiRoutes.tvDeviceImg,
+        queryParameters: {
+          'guid': guid,
+          'user': user,
+        },
+      );
+
+      final response = await apiClient.getAuth(uri.toString());
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        final List<ImageUrlModel> images = jsonList
+            .map((json) => ImageUrlModel.fromMap(json as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(success: true, data: images);
+      } else if (response.statusCode == 404) {
+        return ApiResponse(
+          success: false,
+          message: 'Nenhuma imagem encontrada para esta TV.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar imagens da TV: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha ao buscar imagens da TV: $e',
       );
     }
   }

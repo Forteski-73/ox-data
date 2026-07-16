@@ -245,34 +245,29 @@ class _LoginPageState extends State<LoginPage> {
                     }
 
                     // Login OK — decide se precisa sincronizar antes de liberar o app
-                    var existingDeviceId = await DeviceService.getExistingDeviceId();
-                    final needsSetup = existingDeviceId == null || existingDeviceId.isEmpty;
+                    //final needsSetup = existingDeviceId == null || existingDeviceId.isEmpty;
 
-                    if (!mounted) return;
+                    //if (!mounted) return;
 
-                    if (needsSetup) {
+                   // if (needsSetup) {
                       // Primeira vez neste aparelho: obriga passar pela SetupPage
                       Navigator.of(context).pushNamedAndRemoveUntil(
                         RouteGenerator.setupInitPage,
                         (route) => false,
                         arguments: true, // sinaliza "veio do login"
                       );
-                    }
+                    //}
 
                     // Verifica se agora tem o DEVICE ID no dispositivo
-                    existingDeviceId = await DeviceService.getExistingDeviceId();
+                    /*
+                    var existingDeviceId = await DeviceService.getExistingDeviceId();
                     if (existingDeviceId != null && existingDeviceId.isNotEmpty) {
                       Navigator.of(context).pushNamedAndRemoveUntil(
                         RouteGenerator.homePage,
                         (route) => false,
                       );
                     }
-                    /*else {
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        RouteGenerator.loginPage,
-                        (route) => false,
-                      );
-                    }*/
+                    */
                   }
                   else
                   {

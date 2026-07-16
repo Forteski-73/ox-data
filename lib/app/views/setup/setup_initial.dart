@@ -13,7 +13,6 @@ import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/utils/app_info.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 // ---------------------------------------------------------------------------
 // Modelo de passo de configuração
@@ -203,6 +202,7 @@ class _SetupInitPageState extends State<SetupInitPage> {
       final error = await database.saveProductsBatch(response.data!);
       if (error != null) throw Exception('Falha ao gravar lote $page: $error');
 
+      if (!mounted) return;
       setState(() {
         // progresso parcial dentro da própria etapa de produtos
         // (índice 2 nesta versão de 4 etapas)
@@ -227,6 +227,9 @@ class _SetupInitPageState extends State<SetupInitPage> {
   // ── Execução do fluxo ────────────────────────────────────────────────────
 
   Future<void> _runSetup() async {
+    
+    if (!mounted) return;
+
     setState(() {
       _errorMessage = null;
       _allDone = false;
@@ -235,6 +238,7 @@ class _SetupInitPageState extends State<SetupInitPage> {
     final callbacks = _callbacks;
 
     for (int i = 0; i < _steps.length; i++) {
+      if (!mounted) return;
       setState(() {
         _currentStepIndex = i;
         if (_visibleCount <= i) _visibleCount = i + 1;
@@ -243,11 +247,13 @@ class _SetupInitPageState extends State<SetupInitPage> {
 
       try {
         await callbacks[i]();
+        if (!mounted) return;
         setState(() {
           _states[i] = StepState.done;
           _progress = (i + 1) / _steps.length;
         });
       } catch (e) {
+        if (!mounted) return;
         setState(() {
           _states[i] = StepState.error;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -256,10 +262,12 @@ class _SetupInitPageState extends State<SetupInitPage> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _allDone = true);
   }
 
   void _retry() {
+    if (!mounted) return;
     setState(() {
       for (int i = 0; i < _states.length; i++) {
         _states[i] = StepState.pending;

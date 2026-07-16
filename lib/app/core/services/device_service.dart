@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/models/tv_device_model.dart';
 import 'package:oxdata/app/core/repositories/device_repository.dart';
+import 'package:oxdata/app/core/models/image_url_model.dart';
 
 /// Service responsável por expor os dados de TV Devices para a UI,
 /// consumindo o DeviceRepository (que fala com o DeviceController da API).
@@ -21,6 +22,12 @@ class DeviceService with ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  List<ImageUrlModel> _tvDeviceImages = [];
+  List<ImageUrlModel> get tvDeviceImages => _tvDeviceImages;
+
+  bool _isLoadingTvImages = false;
+  bool get isLoadingTvImages => _isLoadingTvImages;
 
   /// Busca todos os devices vinculados a um setor específico.
   /// Ex.: DeviceService.fetchTvDevicesBySetor('EMBALAGEM')
@@ -119,6 +126,63 @@ class DeviceService with ChangeNotifier {
     _errorMessage = response.message;
     notifyListeners();
     return null;
+  }
+
+  /// Busca as imagens do passo a passo de montagem atribuídas à TV
+  /// (identificada por guid + user) e atualiza o estado local.
+  /*
+  Future<void> fetchTvDeviceImages({
+    required String guid,
+    required String user,
+  }) async {
+    _isLoadingTvImages = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final response = await _deviceRepository.getTvDeviceImages(guid: guid, user: user);
+
+    if (response.success && response.data != null) {
+      final images = List<ImageUrlModel>.from(response.data!)
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
+      _tvDeviceImages = images;
+    } else {
+      _tvDeviceImages = [];
+      _errorMessage = response.message;
+    }
+
+    _isLoadingTvImages = false;
+    notifyListeners();
+  }
+  */
+
+  Future<void> fetchTvDeviceImages({
+    required String guid,
+    required String user,
+  }) async {
+    _isLoadingTvImages = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final response = await _deviceRepository.getTvDeviceImages(guid: guid, user: user);
+
+    if (response.success && response.data != null) {
+      final images = List<ImageUrlModel>.from(response.data!)
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
+      _tvDeviceImages = images;
+    } else {
+      _tvDeviceImages = [];
+      // "Nenhuma imagem encontrada" é um estado normal (TV ociosa),
+      // não um erro real — não preenche _errorMessage para isso.
+      // Só mantém erro para falhas genuínas (rede, servidor, etc.).
+    }
+
+    _isLoadingTvImages = false;
+    notifyListeners();
+  }
+
+  void clearTvDeviceImages() {
+    _tvDeviceImages = [];
+    notifyListeners();
   }
 
 }

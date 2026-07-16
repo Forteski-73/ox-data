@@ -131,7 +131,7 @@ class _ProductPageState extends State<ProductPage> {
                   ),
 
                   _buildProductPackCard(
-                    title: 'ESQUEMA DE MONTAGEM',
+                    title: 'SEQUÊNCIA DE EMBALAGEM',
                     productPack: productPack,
                     productName: '${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto não disponível'}',
                   ),
@@ -1199,11 +1199,11 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
       throw Exception('Não foi possível decodificar a imagem para redimensionar.');
     }
 
-    // Redimensiona para caber dentro de 512x512, mantendo a proporção.
+    // Redimensiona para caber dentro de 612x612, mantendo a proporção.
     final img.Image resizedImage = img.copyResize(
       decodedImage,
-      width: 512,
-      height: 512,
+      width: 640,
+      height: 640,
       // Mantém a proporção e preenche o espaço extra, se necessário.
       interpolation: img.Interpolation.linear,
     );
