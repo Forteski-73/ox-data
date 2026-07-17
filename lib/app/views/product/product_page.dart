@@ -76,149 +76,151 @@ class _ProductPageState extends State<ProductPage> {
 
     return Scaffold(
       appBar: const AppBarCustom(title: 'Detalhes do Produto'),
-      body: Consumer<ProductService>(
-        builder: (context, productService, child) {
-          final ProductComplete? productComplete = productService.productComplete;
+      body: SafeArea(
+        child: Consumer<ProductService>(
+          builder: (context, productService, child) {
+            final ProductComplete? productComplete = productService.productComplete;
 
-          if (productComplete == null) {
-            loadingService.show();
-            return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
-          } else {
-            loadingService.hide();
+            if (productComplete == null) {
+              loadingService.show();
+              return const Center(child: SpinKitThreeBounce(color: Colors.white, size: 30.0),);
+            } else {
+              loadingService.hide();
 
-            final productImages       = productComplete.images?.where((img) => img.finalidade == 'PRODUTO')     .toList() ?? [];
-            final packagingImages     = productComplete.images?.where((img) => img.finalidade == 'EMBALAGEM')   .toList() ?? [];
-            final palletizationImages = productComplete.images?.where((img) => img.finalidade == 'PALETIZACAO') .toList() ?? [];
-            final productPack = productComplete.pack;
+              final productImages       = productComplete.images?.where((img) => img.finalidade == 'PRODUTO')     .toList() ?? [];
+              final packagingImages     = productComplete.images?.where((img) => img.finalidade == 'EMBALAGEM')   .toList() ?? [];
+              final palletizationImages = productComplete.images?.where((img) => img.finalidade == 'PALETIZACAO') .toList() ?? [];
+              final productPack = productComplete.pack;
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 34,
-                    color: Colors.grey[200],
-                    child: Marquee(
-                      text: ' ${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto Não Disponível'}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      blankSpace: 40.0,
-                      velocity: 50.0,
-                      pauseAfterRound: const Duration(seconds: 1),
-                      startPadding: 16.0,
-                      fadingEdgeStartFraction: 0.1,
-                      fadingEdgeEndFraction: 0.1,
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 34,
+                      color: Colors.grey[200],
+                      child: Marquee(
+                        text: ' ${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto Não Disponível'}',
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        blankSpace: 40.0,
+                        velocity: 50.0,
+                        pauseAfterRound: const Duration(seconds: 1),
+                        startPadding: 16.0,
+                        fadingEdgeStartFraction: 0.1,
+                        fadingEdgeEndFraction: 0.1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 0),
+                    const SizedBox(height: 0),
 
-                  _buildImageCarouselCard(
-                    title: 'PRODUTO',
-                    images: productImages,
-                    finalidade: 'PRODUTO',
-                  ),
+                    _buildImageCarouselCard(
+                      title: 'PRODUTO',
+                      images: productImages,
+                      finalidade: 'PRODUTO',
+                    ),
 
-                  _buildImageCarouselCard(
-                    title: 'EMBALAGEM',
-                    images: packagingImages,
-                    finalidade: 'EMBALAGEM',
-                  ),
+                    _buildImageCarouselCard(
+                      title: 'EMBALAGEM',
+                      images: packagingImages,
+                      finalidade: 'EMBALAGEM',
+                    ),
 
-                  _buildImageCarouselCard(
-                    title: 'PALETIZAÇÃO',
-                    images: palletizationImages,
-                    finalidade: 'PALETIZACAO',
-                  ),
+                    _buildProductPackCard(
+                      title: 'SEQUÊNCIA DE EMBALAGEM',
+                      productPack: productPack,
+                      productName: '${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto não disponível'}',
+                    ),
 
-                  _buildProductPackCard(
-                    title: 'SEQUÊNCIA DE EMBALAGEM',
-                    productPack: productPack,
-                    productName: '${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto não disponível'}',
-                  ),
+                    _buildImageCarouselCard(
+                      title: 'PALETIZAÇÃO',
+                      images: palletizationImages,
+                      finalidade: 'PALETIZACAO',
+                    ),
 
-                  _buildExpansionTile(
-                    title: 'INFORMAÇÕES DO PRODUTO',
-                    children: [
-                      _buildDetailRow(context, 'Cód. Barras:',    productComplete.product?.barcode),
-                      _buildDetailRow(context, 'Código:',         productComplete.product?.productId),
-                      _buildDetailRow(context, 'Status:',         productComplete.product?.status == true ? 'Ativo' : 'Inativo'),
-                      _buildDetailRow(context, 'Nome:',           productComplete.product?.productName, isFullWidth: true),
-                      _buildDetailRow(context, 'Preço:',          productComplete.location?.price?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Quantidade:',     productComplete.location?.quantity?.toStringAsFixed(0)),
-                      _buildDetailRow(context, 'ID Localização:', productComplete.location?.locationId),
-                    ],
-                  ),
-                  _buildExpansionTile(
-                    title: 'DIMENSÕES',
-                    children: [
-                      _buildDetailRow(context, 'Peso Líquido:',       productComplete.invent?.netWeight?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Tara:',               productComplete.invent?.taraWeight?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Peso Bruto:',         productComplete.invent?.grossWeight?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Profundidade Bruta:', productComplete.invent?.grossDepth?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Largura Bruta:',      productComplete.invent?.grossWidth?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Altura Bruta:',       productComplete.invent?.grossHeight?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Volume Unitário:',    productComplete.invent?.unitVolume?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Volume Unitário ML:', productComplete.invent?.unitVolumeML?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Número de Itens:',    productComplete.invent?.nrOfItems?.toString()),
-                      _buildDetailRow(context, 'Unidade:',            productComplete.invent?.unitId),
-                    ],
-                  ),
-                  _buildExpansionTile(
-                    title: 'INFORMAÇÕES FISCAIS',
-                    children: [
-                      _buildDetailRow(context, 'Origem da Tributação:', productComplete.taxInformation?.taxationOrigin, isFullWidth: true),
-                      _buildDetailRow(context, 'Classificação Fiscal:', productComplete.taxInformation?.taxFiscalClassification),
-                      _buildDetailRow(context, 'Tipo do Produto:',      productComplete.taxInformation?.productType),
-                      _buildDetailRow(context, 'CEST:',                 productComplete.taxInformation?.cestCode),
-                      _buildDetailRow(context, 'Grupo Fiscal:',         productComplete.taxInformation?.fiscalGroupId),
-                      _buildDetailRow(context, 'Imposto Federal:',      productComplete.taxInformation?.approxTaxValueFederal?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Imposto Estadual:',     productComplete.taxInformation?.approxTaxValueState?.toStringAsFixed(2)),
-                      _buildDetailRow(context, 'Imposto Municipal:',    productComplete.taxInformation?.approxTaxValueCity?.toStringAsFixed(2)),
-                    ],
-                  ),
-                  _buildExpansionTile(
-                    title: 'OXFORD',
-                    children: [
-                      _buildDetailRow(
-                        context,
-                        'Marca:',
-                        '${productComplete.oxford?.brandId} - ${productComplete.oxford?.brandDescription}',
-                        isFullWidth: true
-                      ),
-                      _buildDetailRow(
-                        context,
-                        'Linha:',
-                        '${productComplete.oxford?.lineId} - ${productComplete.oxford?.lineDescription}',
-                        isFullWidth: true
-                      ),
-                      _buildDetailRow(
-                        context, 
-                        'Decoração:', 
-                        '${productComplete.oxford?.decorationId} - ${productComplete.oxford?.decorationDescription}',
-                        isFullWidth: true
-                      ),
-                      _buildDetailRow(
-                        context, 
-                        'Família:', 
-                        '${productComplete.oxford?.familyId} - ${productComplete.oxford?.familyDescription}',
-                        isFullWidth: true
-                      ),
-                      _buildDetailRow(context, 'Tipo:',             productComplete.oxford?.typeId),
-                      _buildDetailRow(context, 'Processo:',         productComplete.oxford?.processId),
-                      _buildDetailRow(context, 'Situação:',         productComplete.oxford?.situationId),
-                      _buildDetailRow(context, 'Qualidade:',        productComplete.oxford?.qualityId),
-                      _buildDetailRow(context, 'Produto Base:',     productComplete.oxford?.baseProductId),
-                      _buildDetailRow(context, 'Grupo de Produto:', productComplete.oxford?.productGroupId),                      
-                      _buildDetailRow(context, 'Descrição Base:',   productComplete.oxford?.baseProductDescription, isFullWidth: true),
-                    ],
-                  ),
-                  _buildTagExpansionTile(productComplete),
-                  _buildBOMExpansionTile(productComplete.bom),
-                ],
-              ),
-            );
-          }
-        },
+                    _buildExpansionTile(
+                      title: 'INFORMAÇÕES DO PRODUTO',
+                      children: [
+                        _buildDetailRow(context, 'Cód. Barras:',    productComplete.product?.barcode),
+                        _buildDetailRow(context, 'Código:',         productComplete.product?.productId),
+                        _buildDetailRow(context, 'Status:',         productComplete.product?.status == true ? 'Ativo' : 'Inativo'),
+                        _buildDetailRow(context, 'Nome:',           productComplete.product?.productName, isFullWidth: true),
+                        _buildDetailRow(context, 'Preço:',          productComplete.location?.price?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Quantidade:',     productComplete.location?.quantity?.toStringAsFixed(0)),
+                        _buildDetailRow(context, 'ID Localização:', productComplete.location?.locationId),
+                      ],
+                    ),
+                    _buildExpansionTile(
+                      title: 'DIMENSÕES',
+                      children: [
+                        _buildDetailRow(context, 'Peso Líquido:',       productComplete.invent?.netWeight?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Tara:',               productComplete.invent?.taraWeight?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Peso Bruto:',         productComplete.invent?.grossWeight?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Profundidade Bruta:', productComplete.invent?.grossDepth?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Largura Bruta:',      productComplete.invent?.grossWidth?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Altura Bruta:',       productComplete.invent?.grossHeight?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Volume Unitário:',    productComplete.invent?.unitVolume?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Volume Unitário ML:', productComplete.invent?.unitVolumeML?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Número de Itens:',    productComplete.invent?.nrOfItems?.toString()),
+                        _buildDetailRow(context, 'Unidade:',            productComplete.invent?.unitId),
+                      ],
+                    ),
+                    _buildExpansionTile(
+                      title: 'INFORMAÇÕES FISCAIS',
+                      children: [
+                        _buildDetailRow(context, 'Origem da Tributação:', productComplete.taxInformation?.taxationOrigin, isFullWidth: true),
+                        _buildDetailRow(context, 'Classificação Fiscal:', productComplete.taxInformation?.taxFiscalClassification),
+                        _buildDetailRow(context, 'Tipo do Produto:',      productComplete.taxInformation?.productType),
+                        _buildDetailRow(context, 'CEST:',                 productComplete.taxInformation?.cestCode),
+                        _buildDetailRow(context, 'Grupo Fiscal:',         productComplete.taxInformation?.fiscalGroupId),
+                        _buildDetailRow(context, 'Imposto Federal:',      productComplete.taxInformation?.approxTaxValueFederal?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Imposto Estadual:',     productComplete.taxInformation?.approxTaxValueState?.toStringAsFixed(2)),
+                        _buildDetailRow(context, 'Imposto Municipal:',    productComplete.taxInformation?.approxTaxValueCity?.toStringAsFixed(2)),
+                      ],
+                    ),
+                    _buildExpansionTile(
+                      title: 'OXFORD',
+                      children: [
+                        _buildDetailRow(
+                          context,
+                          'Marca:',
+                          '${productComplete.oxford?.brandId} - ${productComplete.oxford?.brandDescription}',
+                          isFullWidth: true
+                        ),
+                        _buildDetailRow(
+                          context,
+                          'Linha:',
+                          '${productComplete.oxford?.lineId} - ${productComplete.oxford?.lineDescription}',
+                          isFullWidth: true
+                        ),
+                        _buildDetailRow(
+                          context, 
+                          'Decoração:', 
+                          '${productComplete.oxford?.decorationId} - ${productComplete.oxford?.decorationDescription}',
+                          isFullWidth: true
+                        ),
+                        _buildDetailRow(
+                          context, 
+                          'Família:', 
+                          '${productComplete.oxford?.familyId} - ${productComplete.oxford?.familyDescription}',
+                          isFullWidth: true
+                        ),
+                        _buildDetailRow(context, 'Tipo:',             productComplete.oxford?.typeId),
+                        _buildDetailRow(context, 'Processo:',         productComplete.oxford?.processId),
+                        _buildDetailRow(context, 'Situação:',         productComplete.oxford?.situationId),
+                        _buildDetailRow(context, 'Qualidade:',        productComplete.oxford?.qualityId),
+                        _buildDetailRow(context, 'Produto Base:',     productComplete.oxford?.baseProductId),
+                        _buildDetailRow(context, 'Grupo de Produto:', productComplete.oxford?.productGroupId),                      
+                        _buildDetailRow(context, 'Descrição Base:',   productComplete.oxford?.baseProductDescription, isFullWidth: true),
+                      ],
+                    ),
+                    _buildTagExpansionTile(productComplete),
+                    _buildBOMExpansionTile(productComplete.bom),
+                  ],
+                ),
+              );
+            }
+          },
+        ),
       ),
     );
   }
