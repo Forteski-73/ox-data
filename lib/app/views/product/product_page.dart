@@ -921,6 +921,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
       }
     }
 
+/*
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -1009,6 +1010,113 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
         );
       },
     );
+    */
+
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return AlertDialog(
+            title: Text('Reordenar Imagens de $finalidade'),
+            contentPadding: EdgeInsets.zero,
+            insetPadding: const EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                itemCount: tempImages.length,
+                onReorder: (int oldIndex, int newIndex) {
+                  setState(() {
+                    if (newIndex > oldIndex) {
+                      newIndex -= 1;
+                    }
+                    final item = tempImages.removeAt(oldIndex);
+                    tempImages.insert(newIndex, item);
+                  });
+                },
+                proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                  return AnimatedBuilder(
+                    animation: animation,
+                    builder: (BuildContext context, Widget? child) {
+                      return Material(
+                        elevation: 6.0,
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(10.0),
+                        shadowColor: Colors.blue.withAlpha((animation.value * 150).round()),
+                        child: child,
+                      );
+                    },
+                    child: child,
+                  );
+                },
+                itemBuilder: (BuildContext context, int index) {
+                  return Padding(
+                    key: ValueKey(tempImages[index].originalImage.imagePath),
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Card(
+                      elevation: 4.0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.memory(
+                            tempImages[index].bytes,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        title: Text(
+                          'Imagem ${index + 1}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.0),
+                        ),
+                        trailing: const Icon(
+                          Icons.drag_handle,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Cancelar'),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+              ElevatedButton(
+                child: const Text('Salvar'),
+                onPressed: () async {
+                  await CallAction.run(
+                    action: () async {
+                      loadingService.show();
+                      final newOrder = tempImages.map((e) => e.originalImage).toList();
+                      await _handleImageReorderBase64(newOrder, finalidade);
+                    },
+                    onFinally: () {
+                      loadingService.hide();
+                      Navigator.of(dialogContext).pop();
+                    },
+                  );
+                },
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+
   }
 
   Future<void> _handleImageReorderBase64(
