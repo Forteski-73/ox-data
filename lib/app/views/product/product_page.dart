@@ -16,14 +16,15 @@ import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/call_action.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 import 'package:oxdata/app/views/pages/full_screen_image_dialog.dart'; 
-import 'package:oxdata/app/views/palletizing/full_screen_pallet_group_popup.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:oxdata/app/core/models/menu_item_model.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
-import 'package:oxdata/app/core/models/product_packing_model.dart';
+import 'package:oxdata/app/core/models/product_packing_bom.dart';
 import 'package:oxdata/app/core/models/product_bom_model.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutter/services.dart';
 
 class ProductPage extends StatefulWidget {
   final String productId;
@@ -39,14 +40,22 @@ class _ProductPageState extends State<ProductPage> {
   int _currentPage = 0;
   final TextEditingController _tagController = TextEditingController();
   final TextEditingController _packSearchController = TextEditingController();
+  final TextEditingController _insertBomItemController = TextEditingController();
+  final TextEditingController _insertBomItemQuantityController = TextEditingController();
+  int? _insertAfterIndex; // índice após o qual o campo de inserção está aberto
   List<MenuItemModel> _menuOptions = []; 
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await context.read<ProductService>().fetchProductComplete(widget.productId);
-      await context.read<ProductPackingService>().fetchAllPackings();
+      
+      final packingService = context.read<ProductPackingService>();
+      await Future.wait([
+        context.read<ProductService>().fetchProductComplete(widget.productId),
+        packingService.fetchAllPackings(),
+        packingService.fetchPackingBom(widget.productId),
+      ]);
     });
     _loadUserData();
   }
@@ -56,6 +65,8 @@ class _ProductPageState extends State<ProductPage> {
     _pageController.dispose();
     _tagController.dispose();
     _packSearchController.dispose();
+    _insertBomItemController.dispose();
+    _insertBomItemQuantityController.dispose();
     super.dispose();
   }
 
@@ -90,7 +101,11 @@ class _ProductPageState extends State<ProductPage> {
               final productImages       = productComplete.images?.where((img) => img.finalidade == 'PRODUTO')     .toList() ?? [];
               final packagingImages     = productComplete.images?.where((img) => img.finalidade == 'EMBALAGEM')   .toList() ?? [];
               final palletizationImages = productComplete.images?.where((img) => img.finalidade == 'PALETIZACAO') .toList() ?? [];
-              final productPack = productComplete.pack;
+              
+              final List<ProductPackingBom> packingBomItems = context.watch<ProductPackingService>().bomItems;
+
+              
+              //final productPack = productComplete.pack;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0.0),
@@ -127,8 +142,8 @@ class _ProductPageState extends State<ProductPage> {
 
                     _buildProductPackCard(
                       title: 'SEQUÊNCIA DE EMBALAGEM',
-                      productPack: productPack,
-                      productName: '${productComplete.product?.productId ?? ''}  -  ${productComplete.product?.productName ?? 'Nome do Produto não disponível'}',
+                      bomItems: packingBomItems,
+                      finalidade: 'EMBALAGEM',
                     ),
 
                     _buildImageCarouselCard(
@@ -408,12 +423,24 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
     );
   }
 
-// widget para exibição da embalagem do produto (pack)
+
+  // widget para exibição da lista de BOM (Bill of Materials) do produto
+  // O card já é reordenável, e cada divider permite inserir um novo item na posição
+
   Widget _buildProductPackCard({
     required String title,
-    required ProductPackingModel? productPack,
-    required String productName,
+    required List<ProductPackingBom> bomItems,
+    required String finalidade,
   }) {
+
+    final bool canEdit = _menuOptions.any((m) => m.routeName == 'PRODUTO' && m.isReadOnly == false);
+    final loadingService = context.read<LoadingService>();
+    final bool isBomLoading = context.watch<ProductPackingService>().isLoading;
+
+    // Garante que a lista exibida esteja ordenada por productSeq
+    final List<ProductPackingBom> sortedItems = List.from(bomItems)
+      ..sort((a, b) => a.productSeq.compareTo(b.productSeq));
+
     return Theme(
       data: Theme.of(context).copyWith(
         dividerColor: Colors.transparent,
@@ -436,94 +463,676 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
             title,
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          childrenPadding: EdgeInsets.zero,
           children: [
-            const Divider(color: Colors.black12, height: 1, thickness: 1),
-            const SizedBox(height: 8),
-            
-            // Campo estático que exibe o nome do Pack cadastrado
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.inventory_2_rounded,
-                    color: Colors.indigo,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      productPack?.packName ?? 'Nenhum Esquema de Embalagem vinculado.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: productPack != null ? FontWeight.w500 : FontWeight.w400,
-                        color: productPack != null ? Colors.black87 : Colors.blueGrey[300],
-                        fontStyle: productPack != null ? FontStyle.normal : FontStyle.italic,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+            const Divider(
+              color: Colors.black12,
+              height: 1,
+              thickness: 1,
             ),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                
+                PulseIconButton(
+                  icon: Icons.backup_table,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: canEdit ? () => _genImageBom(bomItems) : () => null,
+                ),
 
-            // Botão para abrir em tela cheia
-            const SizedBox(height: 12),
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                if (productPack == null) return; // segurança: sem pack, não abre
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) => FullScreenPalletGroupPopup(
-                      packId: productPack.packId,
-                      productName: productName,
+                /*
+                PulseIconButton(
+                  icon: Icons.playlist_add,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: canEdit ? () => _showAddBomItemOptions(finalidade) : () => null,
+                ),
+                
+                
+                PulseIconButton(
+                  icon: Icons.delete_forever,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: (canEdit && sortedItems.isNotEmpty)
+                      ? () => _deleteBomItemConfirm(sortedItems, finalidade)
+                      : () => null,
+                ),
+                */
+              ],
+            ),
+            
+            // Conteúdo abaixo dos botões — reordenável + inserção entre itens
+            sortedItems.isNotEmpty ? ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              itemCount: sortedItems.length,
+              buildDefaultDragHandles: canEdit,
+              proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (BuildContext context, Widget? child) {
+                    return Material(
+                      elevation: 3.0,
+                      color: Colors.transparent,
+                      shadowColor: Colors.blue.withAlpha((animation.value * 150).round()),
+                      child: child,
+                    );
+                  },
+                  child: child,
+                );
+              },
+              onReorder: (int oldIndex, int newIndex) {
+                if (!canEdit) return;
+
+                if (newIndex > oldIndex) {
+                  newIndex -= 1;
+                }
+
+                final List<ProductPackingBom> newOrder = List.from(sortedItems);
+                final item = newOrder.removeAt(oldIndex);
+                newOrder.insert(newIndex, item);
+
+                _handleBomReorder(newOrder);
+              },
+              itemBuilder: (context, index) {
+                final bomItem = sortedItems[index];
+
+                return Column(
+                  key: ValueKey('${bomItem.productBomId}_${bomItem.id}_${bomItem.productSeq}'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Slidable(
+                      key: ValueKey('slidable_${bomItem.productBomId}_${bomItem.id}_${bomItem.productSeq}'),
+                      enabled: canEdit,
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(),
+                        extentRatio: 0.15, // largura da área revelada (15% do item)
+                        children: [
+                        CustomSlidableAction(
+                          onPressed: (_) => _confirmDeleteSingleBomItem(sortedItems, bomItem),
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Define o tamanho do icone (SlidableAction não da)
+                              const Icon(Icons.delete_forever, size: 28), 
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Excluir',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ],
+                      ),
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.indigo.withOpacity(0.1),
+                            child: Text(
+                              '${bomItem.productSeq}',
+                              style: const TextStyle(
+                                color: Colors.indigo,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            bomItem.productName?.isNotEmpty == true
+                                ? bomItem.productName!
+                                : 'Sem descrição',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            bomItem.productBomId?.isNotEmpty == true
+                                ? 'Código: ${bomItem.productBomId}'
+                                : 'Sem código vinculado',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          trailing: Padding(
+                            padding: const EdgeInsets.only(right: 14),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'QTD',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.indigo.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${bomItem.productQty}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                    // Divider com "+" no meio, ou campo de inserção expandido
+                    if (index < sortedItems.length - 1)
+                      _buildInsertBetweenRow(index, sortedItems, finalidade, canEdit),
+                  ],
+                );
+              },
+            )
+          : isBomLoading ? Builder(
+              builder: (_) {
+                loadingService.show();
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: Center(
+                    child: SpinKitThreeBounce(color: Colors.indigo, size: 30.0),
                   ),
                 );
               },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.indigo.withOpacity(0.2)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.tv_rounded, color: Colors.indigo, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Exibir em tela cheia',
-                      style: TextStyle(
-                        color: Colors.indigo,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            )
+          : Builder(
+              builder: (_) {
+                loadingService.hide();
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    'Nenhum item disponível..',
+                    style: TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 4),
           ],
         ),
       ),
     );
   }
+
+  void _confirmDeleteSingleBomItem(
+    List<ProductPackingBom> sortedItems,
+    ProductPackingBom item,
+  ) {
+    //final loadingService = context.read<LoadingService>();
+
+    showConfirmDelete(
+      context: context,
+      message: 'Tem certeza de que deseja excluir "${item.productName ?? 'este item'}"?',
+      onConfirm: () async {
+        await CallAction.run(
+          action: () async {
+            //loadingService.show();
+            await _handleDeleteBomItem(sortedItems, item);
+          },
+          onFinally: () {
+            //loadingService.hide();
+          },
+        );
+      },
+    );
+  }
+
+  /// Divider entre dois itens do BOM com botão "+" central.
+  /// Ao clicar, expande os campos de texto para inserir um novo item nessa posição.
+  Widget _buildInsertBetweenRow(
+    int index,
+    List<ProductPackingBom> sortedItems,
+    String finalidade,
+    bool canEdit,
+  ) {
+    if (!canEdit) {
+      return const Divider(color: Colors.black12, height: 1, thickness: 1);
+    }
+
+    final bool isExpanded = _insertAfterIndex == index;
+
+    // Borda arredondada padronizada
+    final customBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8), // Altere aqui para deixar mais ou menos redondo
+      borderSide: const BorderSide(color: Colors.black26, width: 1),
+    );
+
+    // Borda de quando o usuário clica no campo (Foco)
+    final customFocusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Colors.indigo, width: 1.5),
+    );
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: isExpanded
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Campo Descrição
+                        TextField(
+                          controller: _insertBomItemController,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            hintText: 'Descrição do novo item',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            // Força a borda arredondada em todos os estados:
+                            border: customBorder,
+                            enabledBorder: customBorder,
+                            focusedBorder: customFocusedBorder,
+                          ),
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 8), // Espaço entre os campos
+                        // Novo Campo Quantidade
+                        TextField(
+                          controller: _insertBomItemQuantityController,
+                          keyboardType: TextInputType.number, // Teclado numérico para INT
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly, // Apenas números inteiros
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'Quantidade',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            // Força a borda arredondada em todos os estados:
+                            border: customBorder,
+                            enabledBorder: customBorder,
+                            focusedBorder: customFocusedBorder,
+                          ),
+                          onSubmitted: (_) async {
+                            //loadingService.show();
+                            await _confirmInsertBomItem(index, sortedItems, finalidade);
+                            //loadingService.hide();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    onPressed: () => _confirmInsertBomItem(index, sortedItems, finalidade),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel_outlined, color: Colors.grey),
+                    onPressed: () {
+                      setState(() {
+                        _insertAfterIndex = null;
+                        _insertBomItemController.clear();
+                        _insertBomItemQuantityController.clear();
+                      });
+                    },
+                  ),
+                ],
+              ),
+            )
+          : SizedBox(
+              height: 24,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Divider(color: Colors.black12, height: 1, thickness: 1),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      setState(() {
+                        _insertAfterIndex = index;
+                        _insertBomItemController.clear();
+                        _insertBomItemQuantityController.clear();
+                      });
+                    },
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: Colors.indigo,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  /// Divider entre dois itens do BOM com botão "+" central.
+  /// Ao clicar, expande um campo de texto para inserir um novo item nessa posição.
+  /*
+  Widget _buildInsertBetweenRow(
+    int index,
+    List<ProductPackingBom> sortedItems,
+    String finalidade,
+    bool canEdit,
+  ) {
+    if (!canEdit) {
+      return const Divider(color: Colors.black12, height: 1, thickness: 1);
+    }
+
+    final bool isExpanded = _insertAfterIndex == index;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: isExpanded
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _insertBomItemController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Descrição do novo item',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onSubmitted: (_) => _confirmInsertBomItem(index, sortedItems, finalidade),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                    onPressed: () => _confirmInsertBomItem(index, sortedItems, finalidade),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.cancel_outlined, color: Colors.grey),
+                    onPressed: () {
+                      setState(() {
+                        _insertAfterIndex = null;
+                        _insertBomItemController.clear();
+                      });
+                    },
+                  ),
+                ],
+              ),
+            )
+          : SizedBox(
+              height: 24,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Divider(color: Colors.black12, height: 1, thickness: 1),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      setState(() {
+                        _insertAfterIndex = index;
+                        _insertBomItemController.clear();
+                      });
+                    },
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        color: Colors.indigo,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+  */
+
+  /// Confirma a inserção do novo item na posição escolhida e readequa a sequência.
+  Future<void> _confirmInsertBomItem(
+    int afterIndex,
+    List<ProductPackingBom> sortedItems,
+    String finalidade,
+  ) async {
+    final text = _insertBomItemController.text.trim();
+    if (text.isEmpty) return;
+
+    final qtyText = _insertBomItemQuantityController.text.trim();
+    final qty = int.tryParse(qtyText) ?? 1;
+
+    final storage = StorageService();
+    final credentials = await storage.readCredentials();
+    final username = credentials['username'];
+
+    final newItem = ProductPackingBom(
+      productId: widget.productId,
+      productName: text,
+      productQty: qty,
+      productSeq: 0, // recalculado em _handleBomReorder
+      updatedUser: username,
+    );
+
+    final List<ProductPackingBom> newList = List.from(sortedItems);
+    newList.insert(afterIndex + 1, newItem);
+
+    setState(() {
+      _insertAfterIndex = null;
+      _insertBomItemController.clear();
+    });
+
+    await CallAction.run(
+      action: () async {
+        await _handleBomReorder(newList);
+      },
+      onFinally: () {
+        //loadingService.hide();
+      },
+    );
+  }
+
+  /*
+  // widget para exibição da lista de BOM (Bill of Materials) do produto
+  // Agora o próprio card já é reordenável (sem precisar abrir um popup)
+  Widget _buildProductPackCard({
+    required String title,
+    required List<ProductPackingBom> bomItems,
+    required String finalidade,
+  }) {
+
+    final bool canEdit = _menuOptions.any((m) => m.routeName == 'PRODUTO' && m.isReadOnly == false);
+
+    // Garante que a lista exibida esteja ordenada por productSeq
+    final List<ProductPackingBom> sortedItems = List.from(bomItems)
+      ..sort((a, b) => a.productSeq.compareTo(b.productSeq));
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 5.0),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide.none,
+        ),
+        child: ExpansionTile(
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          childrenPadding: EdgeInsets.zero,
+          children: [
+            const Divider(
+              color: Colors.black12,
+              height: 1,
+              thickness: 1,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                PulseIconButton(
+                  icon: Icons.playlist_add,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: canEdit ? () => _showAddBomItemOptions(finalidade) : () => null,
+                ),
+
+                PulseIconButton(
+                  icon: Icons.delete_forever,
+                  color: canEdit ? Colors.indigo : Colors.grey.shade400,
+                  onPressed: (canEdit && sortedItems.isNotEmpty)
+                      ? () => _deleteBomItemConfirm(sortedItems, finalidade)
+                      : () => null,
+                ),
+              ],
+            ),
+
+            // Conteúdo abaixo dos botões — agora já reordenável diretamente no card
+            sortedItems.isNotEmpty
+                ? ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    itemCount: sortedItems.length,
+                    buildDefaultDragHandles: canEdit,
+                    proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                      return AnimatedBuilder(
+                        animation: animation,
+                        builder: (BuildContext context, Widget? child) {
+                          return Material(
+                            elevation: 6.0,
+                            color: Colors.transparent,
+                            shadowColor: Colors.blue.withAlpha((animation.value * 150).round()),
+                            child: child,
+                          );
+                        },
+                        child: child,
+                      );
+                    },
+                    onReorder: (int oldIndex, int newIndex) {
+                      if (!canEdit) return;
+
+                      if (newIndex > oldIndex) {
+                        newIndex -= 1;
+                      }
+
+                      final List<ProductPackingBom> newOrder = List.from(sortedItems);
+                      final item = newOrder.removeAt(oldIndex);
+                      newOrder.insert(newIndex, item);
+
+                      _handleBomReorder(newOrder);
+                    },
+                    itemBuilder: (context, index) {
+                      final bomItem = sortedItems[index];
+
+                      // Retornamos a Column para agrupar o ListTile + Divider
+                      return Column(
+                        key: ValueKey('${bomItem.productBomId}_${bomItem.id}_${bomItem.productSeq}'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.indigo.withOpacity(0.1),
+                              child: Text(
+                                '${bomItem.productSeq}',
+                                style: const TextStyle(
+                                  color: Colors.indigo,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              bomItem.productName?.isNotEmpty == true
+                                  ? bomItem.productName!
+                                  : 'Sem descrição',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              bomItem.productBomId?.isNotEmpty == true
+                                  ? 'Código: ${bomItem.productBomId}'
+                                  : 'Sem código vinculado',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 14),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'QTD',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.indigo.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '${bomItem.productQty}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.indigo,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Só renderiza o divisor entre os itens. O último não ganha linha embaixo.
+                          if (index < sortedItems.length - 1)
+                            const Divider(color: Colors.black12, height: 1, thickness: 1),
+                        ],
+                      );
+                    },
+                  )
+                : const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Nenhum item de BOM disponível.',
+                      style: TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+  */
+
+
 
   // widget para as imagens do produto
   Widget _buildImageCarouselCard({
@@ -1576,6 +2185,392 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
     await productService.updateTags(remainingTags);
     MessageService.showSuccess("Tag removida com sucesso!");
   }
+
+
+/* ***************************************** SEQUÊNCIA DE EMBALAGEM ***************************************** */
+
+  /*
+  Future<void> _showReorderBomDialog(
+    List<ProductPackingBom> currentItems,
+    String finalidade,
+  ) async {
+    final loadingService = context.read<LoadingService>();
+    if (currentItems.isEmpty) {
+      return;
+    }
+
+    // Cópia local para manipular a ordem sem afetar o estado original até salvar
+    List<ProductPackingBom> tempItems = List.from(currentItems)
+      ..sort((a, b) => a.productSeq.compareTo(b.productSeq));
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('Reordenar Sequência de Embalagem'),
+              contentPadding: EdgeInsets.zero,
+              insetPadding: const EdgeInsets.all(20),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height,
+                child: ReorderableListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  itemCount: tempItems.length,
+                  onReorder: (int oldIndex, int newIndex) {
+                    setState(() {
+                      if (newIndex > oldIndex) {
+                        newIndex -= 1;
+                      }
+                      final item = tempItems.removeAt(oldIndex);
+                      tempItems.insert(newIndex, item);
+                    });
+                  },
+                  proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (BuildContext context, Widget? child) {
+                        return Material(
+                          elevation: 6.0,
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(10.0),
+                          shadowColor: Colors.blue.withAlpha((animation.value * 150).round()),
+                          child: child,
+                        );
+                      },
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (BuildContext context, int index) {
+                    final item = tempItems[index];
+                    return Padding(
+                      key: ValueKey('${item.productBomId}_${item.id}_$index'),
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Card(
+                        elevation: 4.0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.indigo.withOpacity(0.1),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.indigo,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            item.productName?.isNotEmpty == true ? item.productName! : 'Sem descrição',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.0),
+                          ),
+                          subtitle: Text(
+                            item.productBomId?.isNotEmpty == true
+                                ? 'Código: ${item.productBomId} • Qtd: ${item.productQty}'
+                                : 'Qtd: ${item.productQty}',
+                          ),
+                          trailing: const Icon(
+                            Icons.drag_handle,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Salvar'),
+                  onPressed: () async {
+                    await CallAction.run(
+                      action: () async {
+                        loadingService.show();
+                        await _handleBomReorder(tempItems);
+                      },
+                      onFinally: () {
+                        loadingService.hide();
+                        Navigator.of(dialogContext).pop();
+                      },
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+  */
+
+  Future<void> _handleBomReorder(List<ProductPackingBom> newOrder) async {
+    final packingService = context.read<ProductPackingService>();
+
+    // Recalcula o productSeq de acordo com a nova posição na lista
+    final List<ProductPackingBom> reorderedItems = [
+      for (int i = 0; i < newOrder.length; i++)
+        newOrder[i].copyWith(productSeq: i + 1),
+    ];
+
+    final response = await packingService.savePackingBom(widget.productId, reorderedItems);
+
+    if (response.success) {
+      MessageService.showSuccess("Sequência de embalagem atualizada com sucesso!");
+      setState(() {});
+    } else {
+      MessageService.showSuccess(response.message ?? "Erro ao reordenar sequência.");
+    }
+  }
+
+  /// Gera a imagem da bom
+  Future<void> _genImageBom(List<ProductPackingBom> bomItems) async {
+    await _handleBomReorder(bomItems);
+  }
+
+  /*
+  Future<void> _showAddBomItemOptions(String finalidade) async {
+    final loadingService = context.read<LoadingService>();
+    final codeController = TextEditingController();
+    final nameController = TextEditingController();
+    final qtyController = TextEditingController(text: '1');
+
+    return showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          title: Row(
+            children: [
+              const Icon(Icons.playlist_add, color: Colors.indigo, size: 28),
+              const SizedBox(width: 8),
+              const Text(
+                'Adicionar Item à Sequência',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: codeController,
+                  decoration: InputDecoration(
+                    labelText: 'Código do item (opcional)',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Descrição',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: qtyController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Quantidade',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.grey),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.black87)),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text('Adicionar', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) return;
+
+                Navigator.of(dialogContext).pop();
+                await CallAction.run(
+                  action: () async {
+                    loadingService.show();
+                    await _handleAddBomItem(
+                      codeController.text.trim(),
+                      nameController.text.trim(),
+                      int.tryParse(qtyController.text.trim()) ?? 1,
+                    );
+                  },
+                  onFinally: () {
+                    loadingService.hide();
+                  },
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+
+  Future<void> _handleAddBomItem(String code, String name, int qty) async {
+    final packingService = context.read<ProductPackingService>();
+    
+    final storage = StorageService();
+    final credentials = await storage.readCredentials();
+    final username = credentials['username'];
+
+    final currentItems = List<ProductPackingBom>.from(packingService.bomItems)
+      ..sort((a, b) => a.productSeq.compareTo(b.productSeq));
+
+    final newItem = ProductPackingBom(
+      productId: widget.productId,
+      productBomId: code.isNotEmpty ? code : null,
+      productName: name,
+      productQty: qty,
+      productSeq: currentItems.length + 1,
+      updatedUser: username,
+    );
+
+    currentItems.add(newItem);
+
+    final response = await packingService.savePackingBom(widget.productId, currentItems);
+
+    if (response.success) {
+      MessageService.showSuccess("Item adicionado com sucesso!");
+      setState(() {});
+    } else {
+      MessageService.showSuccess(response.message ?? "Erro ao adicionar item.");
+    }
+  }
+  */
+
+  Future<void> _deleteBomItemConfirm(
+    List<ProductPackingBom> currentItems,
+    String finalidade,
+  ) async {
+    final loadingService = context.read<LoadingService>();
+    if (currentItems.isEmpty) {
+      return;
+    }
+
+    final sortedItems = List<ProductPackingBom>.from(currentItems)
+      ..sort((a, b) => a.productSeq.compareTo(b.productSeq));
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Excluir Item da Sequência'),
+          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: sortedItems.length,
+              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = sortedItems[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.indigo.withOpacity(0.1),
+                    child: Text('${item.productSeq}', style: const TextStyle(color: Colors.indigo)),
+                  ),
+                  title: Text(item.productName?.isNotEmpty == true ? item.productName! : 'Sem descrição'),
+                  subtitle: item.productBomId?.isNotEmpty == true ? Text('Código: ${item.productBomId}') : null,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                    onPressed: () async {
+                      Navigator.of(dialogContext).pop();
+                      await CallAction.run(
+                        action: () async {
+                          loadingService.show();
+                          await _handleDeleteBomItem(sortedItems, item);
+                        },
+                        onFinally: () {
+                          loadingService.hide();
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _handleDeleteBomItem(
+    List<ProductPackingBom> currentItems,
+    ProductPackingBom itemToDelete,
+  ) async {
+    final packingService = context.read<ProductPackingService>();
+
+    final remainingItems = currentItems
+        .where((i) => i != itemToDelete)
+        .toList();
+
+    // Recalcula a sequência para não deixar buracos
+    final List<ProductPackingBom> reorderedItems = [
+      for (int i = 0; i < remainingItems.length; i++)
+        remainingItems[i].copyWith(productSeq: i + 1),
+    ];
+
+    final response = await packingService.savePackingBom(widget.productId, reorderedItems);
+
+    if (response.success) {
+      MessageService.showSuccess("Item removido com sucesso!");
+      setState(() {});
+    } else {
+      MessageService.showSuccess(response.message ?? "Erro ao remover item.");
+    }
+  }
+
+  /* ***************************************** SEQUÊNCIA DE EMBALAGEM ***************************************** */
+
 
 }
 

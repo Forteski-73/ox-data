@@ -5,6 +5,7 @@ import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_packing_model.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
 import 'package:oxdata/app/core/models/product_pack_item.dart';
+import 'package:oxdata/app/core/models/product_packing_bom.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 
 /// Repositório responsável pela comunicação com a API de Embalagens/Packs.
@@ -341,6 +342,93 @@ class ProductPackingRepository {
       return ApiResponse(
         success: false,
         message: 'Falha na comunicação ao deletar montagem: $e',
+      );
+    }
+  }
+
+  /// Busca a lista de itens do BOM (Bill of Materials) de um produto específico.
+  /// GET: /v1/ProductPacking/PackingBom/ByProduct/{productId}
+  Future<ApiResponse<List<ProductPackingBom>>> getPackingBomByProduct(String productId) async {
+    try {
+      final response = await apiClient.getAuth(
+        '${ApiRoutes.productPacking}/PackingBom/ByProduct/$productId',
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+
+        final List<ProductPackingBom> bomItems = jsonList
+            .map((json) => ProductPackingBom.fromJson(json as Map<String, dynamic>))
+            .toList();
+
+        return ApiResponse(
+          success:  true,
+          data:     bomItems,
+          message:  'BOM carregado com sucesso.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar BOM: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de BOM: $e',
+      );
+    }
+  }
+
+  /// Cria/substitui o BOM (Bill of Materials) de um produto.
+  /// POST: /v1/ProductPacking/PackingBom
+  Future<ApiResponse<List<ProductPackingBom>>> createPackingBom(
+    String productId,
+    List<ProductPackingBom> bomItems,
+  ) async {
+    try {
+      final Map<String, dynamic> jsonRequest = {
+        "productId":      productId,
+        "bomItems":       bomItems.map((item) => {
+          "productBomId": item.productBomId,
+          "productName":  item.productName,
+          "productQty":   item.productQty,
+          "productSeq":   item.productSeq,
+          "updatedUser":  item.updatedUser,
+        }).toList(),
+      };
+
+      final response = await apiClient.postAuth(
+        '${ApiRoutes.productPacking}/PackingBom',
+        body: jsonRequest,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // A API pode retornar a lista atualizada do BOM ou apenas confirmação
+        final dynamic decoded = json.decode(response.body);
+
+        List<ProductPackingBom> resultItems = [];
+        if (decoded is List) {
+          resultItems = decoded
+              .map((json) => ProductPackingBom.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+
+        return ApiResponse(
+          success: true,
+          data: resultItems,
+          message: 'BOM salvo com sucesso.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao salvar BOM: Código ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na comunicação ao salvar BOM: $e',
       );
     }
   }

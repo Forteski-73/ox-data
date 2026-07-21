@@ -4,6 +4,7 @@ import 'package:oxdata/app/core/models/product_pack_item.dart';
 import 'package:oxdata/app/core/models/product_pack_image_base64.dart';
 import 'package:oxdata/app/core/repositories/product_packing_repository.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
+import 'package:oxdata/app/core/models/product_packing_bom.dart';
 
 class ProductPackingService with ChangeNotifier {
   final ProductPackingRepository repository;
@@ -17,6 +18,10 @@ class ProductPackingService with ChangeNotifier {
 
   List<ImagePackBase64> _packImages = [];
   List<ImagePackBase64> get packImages => _packImages;
+
+    // --- Estado do BOM para sequência de embalagem para as TVs ---
+  List<ProductPackingBom> _bomItems = [];
+  List<ProductPackingBom> get bomItems => _bomItems;
 
   bool _isLoading = false;
 
@@ -232,36 +237,6 @@ class ProductPackingService with ChangeNotifier {
     }
   }
 
-  /// Quando adicionar um novo item com sucesso, você também pode atualizar localmente
-  /*Future<ApiResponse<bool>> addItem(String productId, String username) async {
-    if (_selectedPacking == null) return ApiResponse(success: false);
-
-    _isLoading = true;
-    notifyListeners();
-
-    final response = await repository.addItemToPack(
-      _selectedPacking!.packId,
-      productId,
-      username,
-    );
-
-    if (response.success) {
-      // 1. Recarrega os itens atualizados da API para o selecionado
-      final updatedItems = await fetchSelectedPackItems(_selectedPacking!.packId);
-      _selectedPacking!.items = updatedItems;
-
-      _selectedPacking!.items = List.from(updatedItems);
-
-      // 2. Sincroniza com a lista global (_allPackings)
-      _updateLocalListWithSelected();
-    }
-
-    _isLoading = false;
-    notifyListeners();
-    return response;
-  }
-  */
-
   Future<List<ProductPackItem>> fetchSelectedPackItems(int packId) async {
     // Chama o repositório que retorna ApiResponse<List<ProductPackItemModel>>
     debugPrint("packId: $packId");
@@ -323,6 +298,66 @@ class ProductPackingService with ChangeNotifier {
       // Se houver um filtro ativo, atualiza a lista filtrada também
       _filteredPackings = List.from(_allPackings); 
       // Nota: Se quiser manter o termo da pesquisa atual, chame filterPackings novamente em vez de redefinir.
+    }
+  }
+
+
+  /// Busca o BOM (Bill of Materials) de um produto específico
+  Future<List<ProductPackingBom>> fetchPackingBom(String productId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await repository.getPackingBomByProduct(productId);
+
+      if (response.success && response.data != null) {
+        _bomItems = response.data!;
+      } else {
+        _bomItems = [];
+        debugPrint("Erro ao buscar BOM: ${response.message}");
+      }
+
+      return _bomItems;
+    } catch (e) {
+      debugPrint("Erro no service ao buscar BOM: $e");
+      _bomItems = [];
+      return _bomItems;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Cria/substitui o BOM de um produto e atualiza o estado local
+  Future<ApiResponse<List<ProductPackingBom>>> savePackingBom(
+    String productId,
+    List<ProductPackingBom> bomItems,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await repository.createPackingBom(productId, bomItems);
+
+      if (response.success) {
+        // Se a API retornou a lista atualizada, usa ela; senão mantém o que foi enviado
+        _bomItems = (response.data != null && response.data!.isNotEmpty)
+            ? response.data!
+            : bomItems;
+      } else {
+        debugPrint("Erro ao salvar BOM: ${response.message}");
+      }
+
+      return response;
+    } catch (e) {
+      _isLoading = false;
+      return ApiResponse(
+        success: false,
+        message: 'Erro no service ao salvar BOM: $e',
+      );
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
