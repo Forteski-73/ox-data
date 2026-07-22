@@ -16,6 +16,7 @@ import 'package:oxdata/app/core/repositories/admin_repository.dart';
 import 'package:oxdata/app/core/repositories/ftp_repository.dart';
 import 'package:oxdata/app/core/repositories/device_repository.dart';
 import 'package:oxdata/app/core/repositories/image_repository.dart';
+import 'package:oxdata/app/core/repositories/video_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
@@ -28,10 +29,11 @@ import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/services/admin_service.dart';
 import 'package:oxdata/app/core/services/device_service.dart';
 import 'package:oxdata/app/core/services/image_service.dart';
+import 'package:oxdata/app/core/services/sync_manager.dart';
+import 'package:oxdata/app/core/services/video_service.dart';
 import 'package:oxdata/app/core/sync/sync_api_client_impl.dart';
 import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/db/daos/sync_queue_dao.dart';
-import 'package:oxdata/app/core/services/sync_manager.dart';
 
 
 class Injector {
@@ -206,6 +208,18 @@ class Injector {
       ChangeNotifierProvider<ImageService>(
         create: (context) => ImageService(
           imageRepository: context.read<ImageRepository>(),
+        ),
+      ),
+
+      // 26. VideoRepository
+      Provider<VideoRepository>(
+        create: (context) => VideoRepository(apiClient: context.read<ApiClient>()),
+      ),
+
+      // 27. VideoService
+      ChangeNotifierProvider<VideoService>(
+        create: (context) => VideoService(
+          videoRepository: context.read<VideoRepository>(),
         ),
       ),
 

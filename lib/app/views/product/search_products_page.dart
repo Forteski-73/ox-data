@@ -79,7 +79,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
     'oxfordAtt'   : 'ATRIBUTOS OXFORD',
   };
 
-  void _addFilter() {
+  Future<void> _addFilter() async {
     if (_searchController.text.isNotEmpty) {
       final inputValue = _searchController.text;
       _applyFilter(_currentFilterType, inputValue);
@@ -294,7 +294,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 136.0, left: 10.0, right: 10.0), // Para não ficar atrás da barra de pesquisa
+            padding: const EdgeInsets.only(top: 136.0, left: 4.0, right: 4.0), // Para não ficar atrás da barra de pesquisa
             child: Consumer<ProductService>(
               builder: (context, productService, child) {
                 final searchResults = productService.searchResults;
@@ -310,7 +310,7 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                             color: Colors.white,
                             elevation: 2,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(0),
+                              borderRadius: BorderRadius.circular(2),
                             ),
                             margin: const EdgeInsets.only(bottom: 2.0, top: 3.0),
                             child: InkWell(
@@ -466,6 +466,8 @@ class _SearchProductsPageState extends State<SearchProductsPage> {
                         onPressed: () async {
                           await CallAction.run(
                             action: () async {
+                              await _addFilter();
+
                               loadingService.show();
                               FocusScope.of(context).unfocus();
 

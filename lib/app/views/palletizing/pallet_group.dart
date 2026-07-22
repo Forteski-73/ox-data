@@ -597,9 +597,9 @@ class _PalletGroupPageState extends State<PalletGroupPage> with SingleTickerProv
             indicatorColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             tabs: const [
-              Tab(text: 'MONTAGEM', icon: Icon(Icons.pallet)),
+              Tab(text: 'MONTAGEM', icon: Icon(Icons.dashboard_rounded)),
               Tab(text: 'IMAGENS', icon: Icon(Icons.photo_library)),
-              Tab(text: 'PRODUTOS', icon: Icon(Icons.list_alt)),
+              Tab(text: 'PRODUTOS', icon: Icon(Icons.pallet)),
             ],
           ),
         ),

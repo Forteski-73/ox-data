@@ -60,4 +60,7 @@ class ApiRoutes {
   static const String tvDevice = 'Device/TvDevice';
   static const String tvDeviceImg = 'Device/TvDeviceIMG';
 
+  // Rotas para o VIDEOS
+  static const String video = 'Video';
+
 }

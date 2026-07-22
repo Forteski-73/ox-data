@@ -1,25 +1,13 @@
+// -----------------------------------------------------------
+// app/pages/guide/guide_page.dart
+// -----------------------------------------------------------
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-class VideoModel {
-  final String title;
-  final String driveId;
-  final String description;
-  final String duration;
-  final String category;
-
-  const VideoModel({
-    required this.title,
-    required this.driveId,
-    required this.description,
-    this.duration = '',
-    this.category = '',
-  });
-
-  String get viewUrl => 'https://drive.google.com/file/d/$driveId/view';
-}
+import 'package:oxdata/app/core/models/video_model.dart';
+import 'package:oxdata/app/core/services/video_service.dart';
+import 'package:oxdata/app/core/services/loading_service.dart';
 
 // ─────────────────────────────────────────────────────────────────
 // CATALOG PAGE
@@ -33,45 +21,30 @@ class GuidePage extends StatefulWidget {
 }
 
 class _GuidePageState extends State<GuidePage> {
-  final List<VideoModel> _videos = const [
-    VideoModel(
-      title: 'INTRODUÇÃO AO APP',
-      driveId: '1fcsw5PHrzGRaLfNRcz0o7hJxIMhInMuH',
-      description:
-          'Conceitos básicos e utilidade geral do App: ACEP - Aplicativo de Consulta, Estrutura e Processos.',
-      duration: '00:03:00',
-      category: 'INTRODUÇÃO',
-    ),
-    VideoModel(
-      title: 'MÓDULO DE INVENTÁRIO',
-      driveId: '1fcsw5PHrzGRaLfNRcz0o7hJxIMhInMuH',
-      description:
-          'Passo a passo detalhado de como criar um inventário e fazer a contagem das peças',
-      duration: '00:05:28',
-      category: 'INVENTÁRIO',
-    ),
-    VideoModel(
-      title: 'MÓDULO DE INVENTÁRIO',
-      driveId: '1fcsw5PHrzGRaLfNRcz0o7hJxIMhInMuH',
-      description:
-          'Passo a passo detalhado de como criar um inventário e fazer a contagem das peças',
-      duration: '00:05:28',
-      category: 'INVENTÁRIO',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadVideos());
+  }
+
+  /// Busca os vídeos usando o LoadingService global pra exibir o overlay.
+  Future<void> _loadVideos() async {
+    final loadingService = context.read<LoadingService>();
+    loadingService.show();
+    try {
+      await context.read<VideoService>().fetchAllVideos();
+    } finally {
+      if (mounted) loadingService.hide();
+    }
+  }
 
   Future<void> _openPlayer(VideoModel video) async {
-    final uri = Uri.parse(video.viewUrl);
-    
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível abrir o vídeo.')),
-        );
-      }
-    }
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black87,
+      builder: (_) => _VideoPlayerDialog(video: video),
+    );
   }
 
   int _getColumnCount(double screenWidth) {
@@ -99,40 +72,127 @@ class _GuidePageState extends State<GuidePage> {
         child: AppBarCustom(title: 'GUIA DO USUÁRIO'),
       ),
       backgroundColor: const Color(0xFFF1F4F9),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          paddingHorizontal,
-          20,
-          paddingHorizontal,
-          24 + MediaQuery.paddingOf(context).bottom,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                '${_videos.length} vídeos disponíveis',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.3,
-                ),
+      body: Consumer<VideoService>(
+        builder: (context, videoService, _) {
+          // Enquanto o LoadingService global está mostrando o overlay,
+          // não faz sentido também renderizar erro/vazio por baixo —
+          // então só decide o conteúdo quando não está carregando.
+          final loadingService = context.watch<LoadingService>();
+
+          if (loadingService.isLoading && videoService.videos.isEmpty) {
+            // o overlay global (montado no root do app)
+            // já cobre a tela inteira durante o carregamento.
+            return const SizedBox.shrink();
+          }
+
+          if (videoService.errorMessage != null) {
+            return _buildErrorState(
+              message: videoService.errorMessage!,
+              onRetry: _loadVideos,
+            );
+          }
+
+          final videos = videoService.videos;
+
+          if (videos.isEmpty) {
+            return _buildEmptyState(onRetry: _loadVideos);
+          }
+
+          return RefreshIndicator(
+            onRefresh: _loadVideos,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                paddingHorizontal,
+                20,
+                paddingHorizontal,
+                24 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 12),
+                    child: Text(
+                      '${videos.length} vídeos disponíveis',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: List.generate(videos.length, (index) {
+                      return SizedBox(
+                        width: cardWidth,
+                        child: _VideoCard(
+                          video: videos[index],
+                          index: index,
+                          onTap: () => _openPlayer(videos[index]),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
               ),
             ),
-            Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: List.generate(_videos.length, (index) {
-                return SizedBox(
-                  width: cardWidth,
-                  child: _VideoCard(
-                    video: _videos[index],
-                    index: index,
-                    onTap: () => _openPlayer(_videos[index]),
-                  ),
-                );
-              }),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorState({
+    required String message,
+    required VoidCallback onRetry,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                size: 40, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({required VoidCallback onRetry}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.video_library_outlined,
+                size: 40, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 12),
+            const Text(
+              'Nenhum vídeo disponível no momento.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Atualizar'),
             ),
           ],
         ),
@@ -156,23 +216,34 @@ class _VideoCard extends StatelessWidget {
     required this.onTap,
   });
 
-  Color _categoryColor(String category) {
-    switch (category) {
-      case 'INTRODUÇÃO':
-        return const Color(0xFF22C55E);
-      default:
-        return const Color(0xFFF59E0B);
+  /// Converte a cor hex vinda da API (ex: '#22C55E') em Color.
+  /// Se vier nula/inválida, cai num laranja padrão.
+  Color _categoryColor(String? hex) {
+    if (hex == null || hex.isEmpty) return const Color(0xFFF59E0B);
+    var value = hex.replaceAll('#', '');
+    if (value.length == 6) value = 'FF$value';
+    try {
+      return Color(int.parse(value, radix: 16));
+    } catch (_) {
+      return const Color(0xFFF59E0B);
     }
   }
 
-  IconData _thumbIcon(int i) {
-    const icons = [
-      Icons.space_dashboard_rounded,
-      Icons.inventory_2_rounded,
-      Icons.inventory_rounded,
-      Icons.bar_chart_rounded,
-    ];
-    return icons[i % icons.length];
+  /// Mapeia o nome do ícone (vindo da API) pro IconData do Flutter.
+  /// Adicione novos casos aqui conforme surgirem novas categorias.
+  IconData _categoryIconData(String? iconName) {
+    switch (iconName) {
+      case 'space_dashboard_rounded':
+        return Icons.space_dashboard_rounded;
+      case 'inventory_2_rounded':
+        return Icons.inventory_2_rounded;
+      case 'inventory_rounded':
+        return Icons.inventory_rounded;
+      case 'bar_chart_rounded':
+        return Icons.bar_chart_rounded;
+      default:
+        return Icons.play_circle_outline_rounded;
+    }
   }
 
   @override
@@ -205,32 +276,33 @@ class _VideoCard extends StatelessWidget {
                   Container(
                     color: const Color(0xFF1E293B),
                     child: Icon(
-                      _thumbIcon(index),
+                      _categoryIconData(video.categoryIcon),
                       size: 52,
                       color: Colors.white.withOpacity(0.15),
                     ),
                   ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _categoryColor(video.category),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        video.category,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
+                  if (video.categoryName != null)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _categoryColor(video.categoryColor),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          video.categoryName!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   Positioned(
                     top: 8,
                     right: 8,
@@ -242,7 +314,7 @@ class _VideoCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
-                        video.duration,
+                        video.formattedDuration,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -294,7 +366,7 @@ class _VideoCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    video.description,
+                    video.description ?? '',
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -304,6 +376,233 @@ class _VideoCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// VIDEO PLAYER DIALOG
+// ─────────────────────────────────────────────────────────────────
+
+class _VideoPlayerDialog extends StatefulWidget {
+  final VideoModel video;
+
+  const _VideoPlayerDialog({required this.video});
+
+  @override
+  State<_VideoPlayerDialog> createState() => _VideoPlayerDialogState();
+}
+
+class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
+  late VideoPlayerController _controller;
+  bool _isReady = false;
+  bool _hasError = false;
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.video.videoUrl),
+    );
+    _controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() => _isReady = true);
+      _controller.play();
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _hasError = true);
+    });
+
+    _controller.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: _hasError
+          ? _buildErrorState()
+          : _isReady
+              ? _buildPlayer()
+              : _buildLoadingState(),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const SizedBox(
+      height: 220,
+      child: Center(
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return SizedBox(
+      height: 220,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white70, size: 40),
+            const SizedBox(height: 12),
+            const Text(
+              'Não foi possível carregar o vídeo.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fechar', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayer() {
+    return GestureDetector(
+      onTap: _toggleControls,
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio == 0
+            ? 16 / 9
+            : _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          fit: StackFit.expand,
+          children: [
+            VideoPlayer(_controller),
+
+            // Overlay de controles (fade)
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _showControls ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !_showControls,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.35),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.55),
+                      ],
+                      stops: const [0.0, 0.2, 0.7, 1.0],
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Botão fechar
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+
+                      // Play/Pause central
+                      Center(
+                        child: IconButton(
+                          icon: Icon(
+                            _controller.value.isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_filled,
+                            color: Colors.white,
+                            size: 56,
+                          ),
+                          onPressed: _togglePlayPause,
+                        ),
+                      ),
+
+                      // Barra de progresso + tempo
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 8,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            VideoProgressIndicator(
+                              _controller,
+                              allowScrubbing: true,
+                              padding: EdgeInsets.zero,
+                              colors: const VideoProgressColors(
+                                playedColor: Color(0xFF4A6CF7),
+                                bufferedColor: Colors.white30,
+                                backgroundColor: Colors.white12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDuration(_controller.value.position),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                Text(
+                                  _formatDuration(_controller.value.duration),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],

@@ -12,8 +12,7 @@ class ImageCacheService extends ChangeNotifier {
   List<FtpImageResponse> get cachedImages => _cachedImages;
 
   /// Retorna apenas a lista de caminhos (URL/ImagePath) como String.
-  List<String> get imagePaths => 
-      _cachedImages.map((image) => image.url).toList();
+  List<String> get imagePaths => _cachedImages.map((image) => image.url).toList();
 
   /// Limpa todas as imagens armazenadas no cache.
   void clearCache() {
