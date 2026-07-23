@@ -246,6 +246,34 @@ class _VideoCard extends StatelessWidget {
     }
   }
 
+    Widget _buildThumbnail() {
+    if (video.thumbnailUrl != null && video.thumbnailUrl!.isNotEmpty) {
+      return Image.network(
+        video.thumbnailUrl!,
+        fit: BoxFit.cover,
+        // Enquanto carrega, mostra o fundo escuro com ícone.
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return _buildIconFallback();
+        },
+        // Se a URL falhar (404, sem internet, etc.), cai no ícone.
+        errorBuilder: (context, error, stackTrace) => _buildIconFallback(),
+      );
+    }
+    return _buildIconFallback();
+  }
+
+  Widget _buildIconFallback() {
+    return Container(
+      color: const Color(0xFF1E293B),
+      child: Icon(
+        _categoryIconData(video.categoryIcon),
+        size: 52,
+        color: Colors.white.withOpacity(0.15),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -273,14 +301,16 @@ class _VideoCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   // Thumbnail: ícone temático por categoria
-                  Container(
+                  /*Container(
                     color: const Color(0xFF1E293B),
                     child: Icon(
                       _categoryIconData(video.categoryIcon),
                       size: 52,
                       color: Colors.white.withOpacity(0.15),
                     ),
-                  ),
+                  ),*/
+                  // Thumbnail: imagem da API (se houver) ou ícone temático por categoria
+                  _buildThumbnail(),
                   if (video.categoryName != null)
                     Positioned(
                       top: 8,
@@ -328,11 +358,11 @@ class _VideoCard extends StatelessWidget {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.92),
+                        color: Colors.white.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
+                            color: Colors.black.withValues(alpha: 0.20),
                             blurRadius: 8,
                           ),
                         ],
