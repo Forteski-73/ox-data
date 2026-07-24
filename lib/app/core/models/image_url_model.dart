@@ -7,6 +7,7 @@ class ImageUrlModel {
   final int sequence;
   final bool imageMain;
   final String finalidade;
+  final DateTime? updatedAt;
 
   ImageUrlModel({
     required this.productId,
@@ -14,6 +15,7 @@ class ImageUrlModel {
     required this.sequence,
     required this.imageMain,
     required this.finalidade,
+    this.updatedAt,
   });
 
   factory ImageUrlModel.fromMap(Map<String, dynamic> map) {
@@ -23,6 +25,9 @@ class ImageUrlModel {
       sequence: map['sequence'] as int,
       imageMain: map['imageMain'] as bool,
       finalidade: map['finalidade'] as String,
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.tryParse(map['updatedAt'] as String)
+          : null,
     );
   }
 
@@ -34,5 +39,16 @@ class ImageUrlModel {
       'imageMain': imageMain,
       'finalidade': finalidade,
     };
+  }
+
+  /// Retorna a URL da imagem com cache busting baseado em updatedAt.
+  /// Garante que o Flutter (e o navegador) baixem a versão nova
+  /// sempre que a imagem for atualizada no servidor, mesmo mantendo
+  /// o mesmo nome de arquivo.
+  String buildUrl(String baseUrl) {
+    final url = "$baseUrl/$imagePath";
+    if (updatedAt == null) return url;
+
+    return "$url?v=${updatedAt!.millisecondsSinceEpoch}";
   }
 }

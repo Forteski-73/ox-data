@@ -185,15 +185,18 @@ class _CopyableInfoRowState extends State<_CopyableInfoRow> {
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: _copy,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                _copied ? Icons.check_circle_rounded : Icons.copy_rounded,
-                key: ValueKey(_copied),
-                color: _copied ? Colors.greenAccent : Colors.cyanAccent,
-                size: 20,
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: _copy,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  _copied ? Icons.check_circle_rounded : Icons.copy_rounded,
+                  key: ValueKey(_copied),
+                  color: _copied ? Colors.greenAccent : Colors.cyanAccent,
+                  size: 20,
+                ),
               ),
             ),
           ),

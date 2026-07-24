@@ -749,7 +749,7 @@ class _AdminPageState extends State<AdminPage> {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Aplicativo de Consulta e Execução de Processos',
+                  'Aplicativo de Consultas e Execução de Processos',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
