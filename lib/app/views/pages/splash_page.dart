@@ -47,20 +47,18 @@ class _SplashPageState extends State<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Remove a cor de fundo do Scaffold
       backgroundColor: Colors.white,
       body: Stack(
         fit: StackFit.expand,
         children: [
           Image.asset(
             'assets/images/oxford-background1.jpg',
-            fit: BoxFit.cover, // Preenche a tela inteira
+            fit: BoxFit.cover,
+            alignment: Alignment.centerRight, // mantém lado direito
           ),
-          
           Container(
             color: Colors.black.withAlpha(166),
           ),
-          
           const Center(
             child: SpinKitThreeBounce(
               color: Colors.white,
@@ -71,4 +69,5 @@ class _SplashPageState extends State<SplashPage> {
       ),
     );
   }
+
 }

@@ -31,6 +31,7 @@ import 'package:oxdata/app/core/services/device_service.dart';
 import 'package:oxdata/app/core/services/image_service.dart';
 import 'package:oxdata/app/core/services/sync_manager.dart';
 import 'package:oxdata/app/core/services/video_service.dart';
+import 'package:oxdata/app/core/services/update_service.dart';
 import 'package:oxdata/app/core/sync/sync_api_client_impl.dart';
 import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/db/daos/sync_queue_dao.dart';
@@ -221,6 +222,11 @@ class Injector {
         create: (context) => VideoService(
           videoRepository: context.read<VideoRepository>(),
         ),
+      ),
+
+      // 28. UpdateService
+      ChangeNotifierProvider<UpdateService>(
+        create: (_) => UpdateService(),
       ),
 
     ];

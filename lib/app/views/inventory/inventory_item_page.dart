@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:oxdata/app/core/models/dto/inventory_record_input.dart';
-import 'package:oxdata/app/core/models/dto/status_result.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:oxdata/app/core/utils/mask_validate.dart';

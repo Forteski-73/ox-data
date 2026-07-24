@@ -1,21 +1,12 @@
-// -----------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────
 // app/core/widgets/device_session_info.dart
-// -----------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Abre um diálogo mostrando o usuário logado, o token de autenticação
-/// e o Device GUID, com botão de copiar em cada campo.
-///
-/// Exemplo de uso:
-/// ```dart
-/// showDeviceSessionInfoDialog(
-///   context,
-///   userName: 'Fulano de Tal',
-///   authToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-///   deviceGuid: '458f56d8f-84f5d4-d8f74d65-de222',
-/// );
-/// ```
+/// e o Device GUID
+
 void showDeviceSessionInfoDialog(
   BuildContext context, {
   required String userName,

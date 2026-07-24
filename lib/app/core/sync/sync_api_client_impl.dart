@@ -61,33 +61,6 @@ class SyncApiClientImpl implements SyncApiClient {
     if (!response.success) throw Exception(response.message);
   }
 
-  /*
-  Future<void> _pushInventory(Map<String, dynamic> payload) async {
-    final response = await inventoryRepository.createOrUpdateInventory(InventoryModel.fromMap(payload));
-    if (!response.success) throw Exception(response.message);
-  }*/
-
-  /*
-  Future<void> _pushInventory(
-    SyncOperation operation,
-    Map<String, dynamic> payload,
-  ) async {
-    if (operation == SyncOperation.delete) {
-      final response = await inventoryRepository.deleteInventory(
-        payload['inventCode'] as String,
-      );
-      if (!response.success) throw Exception(response.message);
-      return;
-    }
-
-    // insert ou update
-    final response = await inventoryRepository.createOrUpdateInventory(
-      InventoryModel.fromMap(payload),
-    );
-    if (!response.success) throw Exception(response.message);
-  }
-  */
-
   Future<void> _pushInventory(
     SyncOperation operation,
     Map<String, dynamic> payload,
@@ -106,11 +79,13 @@ class SyncApiClientImpl implements SyncApiClient {
           ..where((t) => t.inventCode.equals(inventCode)))
         .getSingleOrNull();
 
+    /*
     if (row != null) {
       debugPrint('📦 📦 📦 📦 📦 📦 📦 ****************DADOS DO BANCO: ${row.toJson()}');
     } else {
       debugPrint('📦 📦 📦 📦 📦 📦 📦 **********DADOS DO BANCO: Nenhum registro encontrado para o código $inventCode');
     }
+    */
 
     if (row == null) throw Exception('Inventário não encontrado localmente: $inventCode');
 
