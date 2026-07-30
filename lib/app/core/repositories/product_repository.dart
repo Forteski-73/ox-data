@@ -6,6 +6,7 @@ import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/product_model.dart';
 import 'package:oxdata/app/core/models/product_complete.dart';
+import 'package:oxdata/app/core/models/product_simple_model.dart';
 import 'package:oxdata/app/core/models/product_image_model.dart';
 import 'package:oxdata/app/core/models/product_tag_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
@@ -175,6 +176,33 @@ class ProductRepository {
       return ApiResponse(
         success: false,
         message: 'Falha na requisição dos detalhes do produto: $e',
+      );
+    }
+  }
+
+  /// Busca as informações resumidas de um produto pelo seu ID (Ex: Product/002687)
+  Future<ApiResponse<ProductSimpleModel>> getProductById(String productId) async {
+    try {
+      // Monta a requisição GET para 'Product/002687'
+      final response = await apiClient.getAuth('${ApiRoutes.product}/$productId');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonMap = json.decode(response.body);
+        
+        // Converte o JSON diretamente para o seu model de produto
+        final product = ProductSimpleModel.fromMap(jsonMap);
+        
+        return ApiResponse(success: true, data: product);
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar o produto: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição do produto: $e',
       );
     }
   }

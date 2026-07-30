@@ -10,6 +10,7 @@ import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/models/product_brand.dart';
 import 'package:oxdata/app/core/models/product_line.dart';
 import 'package:oxdata/app/core/models/product_decoration.dart';
+import 'package:oxdata/app/core/models/product_simple_model.dart';
 //import 'package:uuid/uuid.dart';
 
 class ProductService with ChangeNotifier {
@@ -77,6 +78,18 @@ class ProductService with ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Busca as informações resumidas de um produto pelo ID e as retorna diretamente.
+  Future<ProductSimpleModel?> getProductSimple(String productId) async {
+    final ApiResponse<ProductSimpleModel> response =
+        await productRepository.getProductById(productId);
+
+    if (response.success && response.data != null) {
+      return response.data;
+    } else {
+      throw Exception('Erro ao buscar resumo do produto $productId: ${response.message}');
+    }
   }
 
   Future<void> fetchProductComplete(String productId) async {

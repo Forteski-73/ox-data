@@ -25,8 +25,7 @@ class UpdateService with ChangeNotifier {
   final Dio _dio;
 
   // Domínio público do link do json da versão
-  static const String _versionUrl =
-  'https://oxfordtec.com.br/acep/apk/version.json';
+  static const String _versionUrl = 'https://oxfordtec.com.br/acep/apk/version.json';
 
   UpdateStatus status = UpdateStatus.idle;
   double progress = 0.0; // 0.0 a 1.0

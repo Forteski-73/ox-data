@@ -139,11 +139,13 @@ class _FullScreenTvPopupState extends State<FullScreenTvPopup> {
   Future<void> _fetchProductName(String productId) async {
     try {
       final productService = context.read<ProductService>();
-      await productService.fetchProductComplete(productId);
-      final name = productService.productComplete?.product?.productName ?? '';
+      final productSimple = await productService.getProductSimple(productId);
+      final name = productSimple?.productName ?? '';
 
       _productNameCache[productId] = name;
+
       if (!mounted) return;
+      
       setState(() => _currentProductName = name);
     } catch (_) {
       // Evita ficar tentando buscar repetidamente um produto que falhou.
