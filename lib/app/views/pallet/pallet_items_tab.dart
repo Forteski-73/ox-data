@@ -155,11 +155,14 @@ class _PalletItemsTabState extends State<PalletItemsTab> {
                                           color: Colors.grey.shade600)),
                                 ),
                                 Expanded(
-                                  child: Text('Status',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade600)),
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text('Status',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade600)),
+                                  ),
                                 ),
                               ],
                             ),

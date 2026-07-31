@@ -201,20 +201,6 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
       );
       return;
     }
-
-    /*
-    final remote = await service.checkExistingRecordRemote(unitizer, position, product);
-    if (!mounted) return;
-
-    if (remote != null) {
-      _applyContagem(
-        qtdPilha:  remote.inventStandardStack,
-        numPilhas: remote.inventQtdStack,
-        qtdAvulsa: remote.inventQtdIndividual,
-        message:   "Contagem remota carregada.",
-      );
-    }
-    */
   }
 
   void _applyContagem({
@@ -687,41 +673,6 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
       ],
     );
   }
-
-  /*
-  Widget _buildSwitchHeader(
-    String title, {
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Row(
-      mainAxisAlignment:  MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.dashboard_customize, size: 20, color: _primaryColor),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _primaryColor),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            const Text("Apenas Avulsos?", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            const SizedBox(width: 4),
-            Transform.scale(
-              scale: 0.75, // ajuste de escala 
-              child: Switch(value: value, onChanged: onChanged, activeColor: Colors.indigo),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-  */
 
   Widget _buildSwitchHeader(
     String title, {

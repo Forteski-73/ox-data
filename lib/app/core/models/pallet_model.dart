@@ -6,6 +6,7 @@ import 'dart:convert';
 /// Classe que representa um palete no aplicativo.
 class PalletModel {
   final int palletId;
+  final String  palletDestination;
   final int totalQuantity;
   final String status;
   final String location;
@@ -16,6 +17,7 @@ class PalletModel {
 
   PalletModel({
     required this.palletId,
+    required this.palletDestination,
     required this.totalQuantity,
     required this.status,
     required this.location,
@@ -29,6 +31,7 @@ class PalletModel {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'palletId': palletId,
+      'palletDestination':  palletDestination,
       'totalQuantity': totalQuantity,
       'status': status,
       'location': location,
@@ -43,6 +46,7 @@ class PalletModel {
   factory PalletModel.fromMap(Map<String, dynamic> map) {
     return PalletModel(
       palletId: map['palletId'] as int,
+      palletDestination:  map['palletDestination']  as String,
       totalQuantity: map['totalQuantity'] as int,
       status: map['status'] as String,
       location: map['location'] as String,
@@ -67,24 +71,26 @@ class PalletModel {
 
   /// Cria uma nova instância com valores atualizados.
   PalletModel copyWith({
-    int? palletId,
-    int? totalQuantity,
-    String? status,
-    String? location,
-    String? createdUser,
-    String? updatedUser,
-    String? imagePath,
+    int?      palletId,
+    String?   palletDestination,
+    int?      totalQuantity,
+    String?   status,
+    String?   location,
+    String?   createdUser,
+    String?   updatedUser,
+    String?   imagePath,
     DateTime? createdAt,
   }) {
     return PalletModel(
-      palletId: palletId ?? this.palletId,
-      totalQuantity: totalQuantity ?? this.totalQuantity,
-      status: status ?? this.status,
-      location: location ?? this.location,
-      createdUser: createdUser ?? this.createdUser,
-      updatedUser: updatedUser ?? this.updatedUser,
-      imagePath: imagePath ?? this.imagePath,
-      createdAt: createdAt ?? this.createdAt,
+      palletId:           palletId ?? this.palletId,
+      palletDestination:  palletDestination ?? this.palletDestination,
+      totalQuantity:  totalQuantity ?? this.totalQuantity,
+      status:         status      ?? this.status,
+      location:       location    ?? this.location,
+      createdUser:    createdUser ?? this.createdUser,
+      updatedUser:    updatedUser ?? this.updatedUser,
+      imagePath:      imagePath   ?? this.imagePath,
+      createdAt:      createdAt   ?? this.createdAt,
     );
   }
 }
