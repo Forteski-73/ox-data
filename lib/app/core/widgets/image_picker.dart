@@ -217,7 +217,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
             );
           }
 
-          // ⭐️ 3. ITEM: O item é pego da lista ATUALIZADA do Provider
+          // O item é pego da lista ATUALIZADA do Provider
           final imagePath = currentImagePaths[index];
           final base64Image = currentImagesBase64[imagePath]; 
           return Container(
@@ -228,7 +228,7 @@ class _ImagesPickerState extends State<ImagesPicker> {
               children: [
                 // Imagem
                 GestureDetector(
-                // ⭐️ Implementação do onDoubleTap
+                // Implementação do onDoubleTap
                 onDoubleTap: base64Image != null && base64Image.isNotEmpty
                     ? () => _openFullScreenImage(base64Image)
                     : null,

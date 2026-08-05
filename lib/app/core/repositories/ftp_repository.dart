@@ -188,18 +188,19 @@ class FtpRepository {
   Future<ApiResponse<List<FtpImageResponse>>> setImagesBase64(
     List<FtpImageResponse> imagesToUpload,
   ) async {
-    // 1️ Validação inicial
+
+    // Validação inicial
     if (imagesToUpload.isEmpty) {
       return ApiResponse(success: false, message: 'Nenhuma imagem fornecida para upload.');
     }
 
-    // 2️ Prepara os caminhos das imagens existentes (para exclusão no FTP)
+    // 2Prepara os caminhos das imagens existentes (para exclusão no FTP)
     final List<String> existingUrls = imagesToUpload
         .where((img) => img.url.isNotEmpty)
         .map((img) => img.url)
         .toList();
 
-    // 3️ Monta o corpo do DELETE
+    // Monta o corpo do DELETE
     final Map<String, dynamic> deleteBody = {
       'ImageUrls': existingUrls,
     };
@@ -237,10 +238,10 @@ class FtpRepository {
 
       for (var imgToUpload in imagesToUpload) {
         try {
-          // 1. Decodifica o Base64 para bytes brutos
+          // Decodifica o Base64 para bytes brutos
           final Uint8List originalBytes = base64Decode(imgToUpload.base64Content!);
           
-          // 2. Decodifica os bytes para um objeto Image
+          // Decodifica os bytes para um objeto Image
           final img.Image? decodedImage = img.decodeImage(originalBytes);
 
           if (decodedImage == null) {
@@ -248,7 +249,7 @@ class FtpRepository {
             continue; // Pula para a próxima imagem
           }
 
-          // 3. Redimensiona para caber dentro de 512x512, mantendo a proporção.
+          // Redimensiona para caber dentro de 512x512, mantendo a proporção.
           final img.Image resizedImage = img.copyResize(
             decodedImage,
             width: 640,
@@ -257,16 +258,26 @@ class FtpRepository {
             interpolation: img.Interpolation.linear,
           );
 
-          // 4. Converte a imagem redimensionada de volta para bytes (como JPG com qualidade 85)
+          // Converte a imagem redimensionada de volta para bytes (como JPG com qualidade 85)
           final Uint8List resizedBytes = Uint8List.fromList(img.encodeJpg(resizedImage, quality: 85));
 
-          // 5. Codifica os bytes redimensionados para Base64
+          // Codifica os bytes redimensionados para Base64
           final String newBase64Content = base64Encode(resizedBytes);
 
-          // 6. Cria um novo objeto com o Base64 atualizado
+
+          // SEMPRE é reencodado como JPG acima.
+          final String fixedUrl = imgToUpload.url.replaceAll(RegExp(r'\.\w+$'), '.jpg');
+          resizedImagesToUpload.add(imgToUpload.copyWith(
+            url: fixedUrl,
+            base64Content: newBase64Content,
+          ));
+
+          /*
+          // Cria um novo objeto com o Base64 atualizado
           resizedImagesToUpload.add(imgToUpload.copyWith(
             base64Content: newBase64Content,
           ));
+          */
 
         } catch (e) {
           print('❌ Erro ao processar a imagem ${imgToUpload.url}: $e');

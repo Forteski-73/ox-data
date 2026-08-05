@@ -482,7 +482,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
           collapsedBackgroundColor: Colors.transparent,
           iconColor: Colors.blueGrey,
           collapsedIconColor: Colors.indigo,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 10.0),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
           title: Text(
             title,
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -674,7 +674,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                 );
               },
             )
-          : Builder(
+            : Builder(
               builder: (_) {
                 //loadingService.hide();
                 return const Padding(
