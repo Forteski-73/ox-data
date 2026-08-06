@@ -233,7 +233,7 @@ class InventoryRecordsRepository {
         operation:  operation,  // ← usado aqui
         payload:    jsonEncode({}),
       );
-      debugPrint('********** INSERIU JSON ********* : $inventCode -> Dados: ${row.toJson()}');
+      //debugPrint('********** INSERIU JSON ********* : $inventCode -> Dados: ${row.toJson()}');
       return row;
     });
   }

@@ -63,7 +63,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   /// Itens pendentes, em ordem de criação (FIFO), já filtrando os que
   /// estourou o número máximo de tentativas (circuit breaker) e os que
   /// ainda estão "esperando" o backoff exponencial.
-  Future<List<SyncQueueData>> getReadyToSync({int limit = 50}) async {
+  Future<List<SyncQueueData>> getReadyToSync({int limit = 1000}) async {
     final all = await (select(syncQueue)
           ..where((t) =>
               t.isSynced.equals(false) & t.retryCount.isSmallerThanValue(maxRetries))

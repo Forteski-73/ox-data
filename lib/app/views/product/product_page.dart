@@ -25,6 +25,7 @@ import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/services/product_packing_service.dart';
 import 'package:oxdata/app/core/models/product_packing_bom.dart';
 import 'package:oxdata/app/core/models/product_bom_model.dart';
+import 'package:oxdata/app/core/models/product_packing_bom_ax_model.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter/services.dart';
 
@@ -43,10 +44,11 @@ class _ProductPageState extends State<ProductPage> {
   final TextEditingController _tagController = TextEditingController();
   final TextEditingController _packSearchController = TextEditingController();
   final TextEditingController _insertBomItemController = TextEditingController();
+  final TextEditingController _insertBomItemDescController = TextEditingController();
   final TextEditingController _insertBomItemQuantityController = TextEditingController();
   int? _insertAfterIndex; // índice após o qual o campo de inserção está aberto
   List<MenuItemModel> _menuOptions = []; 
-
+  final _quantityFocusNode = FocusNode(); 
   /// ainda não enviada para a API. É resetada após o envio bem-sucedido.
   List<ProductPackingBom>? _pendingBomOrder;
 
@@ -71,6 +73,7 @@ class _ProductPageState extends State<ProductPage> {
     _tagController.dispose();
     _packSearchController.dispose();
     _insertBomItemController.dispose();
+    _insertBomItemDescController.dispose();
     _insertBomItemQuantityController.dispose();
     super.dispose();
   }
@@ -233,6 +236,7 @@ class _ProductPageState extends State<ProductPage> {
                     ),
                     _buildTagExpansionTile(productComplete),
                     _buildBOMExpansionTile(productComplete.bom),
+                    _buildBomEmbExpansionTile(productComplete.bomPacking),
                   ],
                 ),
               );
@@ -243,60 +247,117 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-Widget _buildBOMExpansionTile(List<ProductBomModel>? bom) {
-  return Theme(
-    data: Theme.of(context).copyWith(
-      dividerColor: Colors.transparent,
-      iconTheme: const IconThemeData(size: 36),
-    ),
-    child: Card(
-      margin: const EdgeInsets.symmetric(vertical: 5.0),
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(0),
-        side: BorderSide.none,
+  Widget _buildBOMExpansionTile(List<ProductBomModel>? bom) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
       ),
-      child: ExpansionTile(
-        backgroundColor: Colors.transparent,
-        collapsedBackgroundColor: Colors.transparent,
-        iconColor: Colors.blueGrey,
-        collapsedIconColor: Colors.indigo,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
-        title: const Text(
-          'BOM',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 5.0),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide.none,
         ),
-        childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        children: [
-          const Divider(color: Colors.black12, height: 1, thickness: 1),
-          if (bom != null && bom.isNotEmpty)
-            ..._buildBomItems(bom)
-          else
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(
-                'Informações de BOM não disponíveis neste momento.',
-                style: TextStyle(fontStyle: FontStyle.italic),
+        child: ExpansionTile(
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: const Text(
+            'BOM DO PRODUTO',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          children: [
+            const Divider(color: Colors.black12, height: 1, thickness: 1),
+            if (bom != null && bom.isNotEmpty)
+              ..._buildBomItems(bom)
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'Informações de BOM não disponíveis neste momento.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
-List<Widget> _buildBomItems(List<ProductBomModel> bom) {
-  final widgets = <Widget>[];
-
-  for (var i = 0; i < bom.length; i++) {
-    widgets.add(_buildBomItemTile(bom[i]));
-    if (i < bom.length - 1) {
-      widgets.add(const Divider(color: Colors.black12, height: 1, thickness: 1));
-    }
+    );
   }
 
-  return widgets;
-}
+  Widget _buildBomEmbExpansionTile(List<ProductPackingBomAxModel>? packingBomAx) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        dividerColor: Colors.transparent,
+        iconTheme: const IconThemeData(size: 36),
+      ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 5.0),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(0),
+          side: BorderSide.none,
+        ),
+        child: ExpansionTile(
+          backgroundColor: Colors.transparent,
+          collapsedBackgroundColor: Colors.transparent,
+          iconColor: Colors.blueGrey,
+          collapsedIconColor: Colors.indigo,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          title: const Text(
+            'BOM DA EMBALAGEM',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          children: [
+            const Divider(color: Colors.black12, height: 1, thickness: 1),
+            if (packingBomAx != null && packingBomAx.isNotEmpty)
+              ..._buildPackingBomAxItems(packingBomAx)
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'Informações de BOM não disponíveis neste momento.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  List<Widget> _buildBomItems(List<ProductBomModel> packingBomAx) {
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < packingBomAx.length; i++) {
+      widgets.add(_buildBomItemTile(packingBomAx[i]));
+      if (i < packingBomAx.length - 1) {
+        widgets.add(const Divider(color: Colors.black12, height: 1, thickness: 1));
+      }
+    }
+
+    return widgets;
+  }
+
+
+  List<Widget> _buildPackingBomAxItems(List<ProductPackingBomAxModel> bom) {
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < bom.length; i++) {
+      widgets.add(_buildPackingBomAxItemTile(bom[i]));
+      if (i < bom.length - 1) {
+        widgets.add(const Divider(color: Colors.black12, height: 1, thickness: 1));
+      }
+    }
+
+    return widgets;
+  }
 
   Widget _buildBomItemTile(ProductBomModel item) {
     final nomeExibido =
@@ -322,6 +383,75 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                     padding: const EdgeInsets.only(top: 2.0),
                     child: Text(
                       'Código: ${item.productBomId}',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: Text(
+                  'QTD',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                margin: const EdgeInsets.only(right: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${item.productQty}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildPackingBomAxItemTile(ProductPackingBomAxModel item) {
+    final nomeExibido =
+        (item.productName != null && item.productName!.trim().isNotEmpty)
+            ? item.productName!
+            : '------';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nomeExibido,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                if (item.productPackingBomId != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      'Código: ${item.productPackingBomId}',
                       style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
                   ),
@@ -615,11 +745,47 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                                 style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                             ),
-                            subtitle: Text(
-                              bomItem.productBomId?.isNotEmpty == true
-                                ? 'Código: ${bomItem.productBomId}'
-                                : 'Sem código vinculado',
-                              style: const TextStyle(fontSize: 14),
+                            subtitle: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    bomItem.productBomId?.isNotEmpty == true
+                                      ? 'Código..: ${bomItem.productBomId}'
+                                      : 'Sem código vinculado',
+                                    style: const TextStyle(fontSize: 14, color: Colors.indigo),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () {
+                                    // Função de duplicar o card
+                                    //_duplicateBomItem(bomItem);
+                                  
+                                    setState(() {
+                                      _insertAfterIndex = index;
+                                      _insertBomItemController.text = bomItem.productId;
+                                      _insertBomItemDescController.text = bomItem.productName.toString();
+                                      _insertBomItemQuantityController.text = bomItem.productQty.toString();
+                                    });
+                                    
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _quantityFocusNode.requestFocus();
+                                    });
+                                    
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.copy_all_outlined,
+                                      size: 16,
+                                      color: Colors.indigoAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             trailing: Padding(
                               padding: const EdgeInsets.only(right: 4),
@@ -686,7 +852,6 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                 );
               },
             ),
-            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -754,9 +919,26 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Campo Descrição
+                  // Campo Cógigo do Produto
                   TextField(
                     controller: _insertBomItemController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Cógigo do novo item',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: customBorder,
+                      enabledBorder: customBorder,
+                      focusedBorder: customFocusedBorder,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
+                  ),
+                  const SizedBox(height: 7),
+                  // Campo Descrição
+                  TextField(
+                    controller: _insertBomItemDescController,
                     autofocus: true,
                     decoration: InputDecoration(
                       hintText: 'Descrição do novo item',
@@ -770,10 +952,11 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                     textCapitalization: TextCapitalization.characters,
                     inputFormatters: [UpperCaseTextFormatter()],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 7),
                   // Campo Quantidade
                   TextField(
                     controller: _insertBomItemQuantityController,
+                    focusNode: _quantityFocusNode,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
@@ -816,6 +999,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                   setState(() {
                     _insertAfterIndex = null;
                     _insertBomItemController.clear();
+                    _insertBomItemDescController.clear();
                     _insertBomItemQuantityController.clear();
                   });
                 },
@@ -842,6 +1026,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
                 setState(() {
                   _insertAfterIndex = index;
                   _insertBomItemController.clear();
+                  _insertBomItemDescController.clear();
                   _insertBomItemQuantityController.clear();
                 });
               },
@@ -867,7 +1052,10 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
     String finalidade,
   ) async {
     
-    final text = _insertBomItemController.text.trim();
+    final codItem = _insertBomItemController.text.trim();
+    if (codItem.isEmpty) return;
+
+    final text = _insertBomItemDescController.text.trim();
     if (text.isEmpty) return;
 
     final qtyText = _insertBomItemQuantityController.text.trim();
@@ -879,6 +1067,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
 
     final newItem = ProductPackingBom(
       productId: widget.productId,
+      productBomId: codItem,
       productName: text,
       productQty: qty,
       productSeq: 0, // recalculado abaixo
@@ -897,6 +1086,7 @@ List<Widget> _buildBomItems(List<ProductBomModel> bom) {
     setState(() {
       _insertAfterIndex = null;
       _insertBomItemController.clear();
+      _insertBomItemDescController.clear();
       _insertBomItemQuantityController.clear();
       _pendingBomOrder = reorderedForDisplay;
     });

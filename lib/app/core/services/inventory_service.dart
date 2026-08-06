@@ -781,7 +781,7 @@ class InventoryService with ChangeNotifier {
       return StatusResult(status: 1, message: infoSynchronize);
     } catch (e) {
       infoSynchronize = 'Erro inesperado: $e';
-      debugPrint('❌ startSyncInventory: $e');
+      //debugPrint('❌ startSyncInventory: $e');
       return StatusResult(status: 0, message: 'Erro inesperado: $e');
     } finally {
       await Future.delayed(const Duration(seconds: 1));

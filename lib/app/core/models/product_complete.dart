@@ -1,6 +1,7 @@
 import 'package:oxdata/app/core/models/product_tag_model.dart';
 import 'package:oxdata/app/core/models/product_packing_model.dart';
 import 'package:oxdata/app/core/models/product_bom_model.dart';
+import 'package:oxdata/app/core/models/product_packing_bom_ax_model.dart';
 
 /// Representa a entidade Product do C#.
 class Product {
@@ -320,6 +321,7 @@ class ProductComplete {
   InventDim? location;
   TaxInformation? taxInformation;
   List<ProductBomModel>? bom;
+  List<ProductPackingBomAxModel>? bomPacking;
   List<ImageBase64>? images;
   List<ProductTagModel>? tags;
   ProductPackingModel? pack;
@@ -331,6 +333,7 @@ class ProductComplete {
     this.location,
     this.taxInformation,
     this.bom,
+    this.bomPacking,
     this.images,
     this.tags,
     this.pack,
@@ -359,6 +362,9 @@ class ProductComplete {
       bom: (json['bom'] as List<dynamic>?)
           ?.map((e) => ProductBomModel.fromJson(e as Map<String, dynamic>))
           .toList(),
+      bomPacking: (json['bomEmb'] as List<dynamic>?)
+          ?.map((e) => ProductPackingBomAxModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
       tags: (json['tags'] as List<dynamic>?)
           ?.map((e) => ProductTagModel.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -376,6 +382,7 @@ class ProductComplete {
       'location'      : location?.toJson(),
       'taxInformation': taxInformation?.toJson(),
       'bom'           : bom?.map((e) => e.toJson()).toList(),
+      'bomEmb'        : bomPacking?.map((e) => e.toJson()).toList(),
       'images'        : images?.map((e) => e.toJson()).toList(),
       'tags'          : tags?.map((e) => e.toJson()).toList(),
       'pack'          : pack?.toJson(),
