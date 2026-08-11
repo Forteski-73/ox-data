@@ -31,44 +31,40 @@ class AppFooter extends StatelessWidget {
     return FutureBuilder(
       future: PackageInfo.fromPlatform(),
       builder: (context, AsyncSnapshot<PackageInfo> snapshot) {
+        final bottomInset = MediaQuery.of(context).padding.bottom;
+
+        Widget content;
         if (snapshot.hasData) {
           final appVersion = snapshot.data!.version;
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => _showSessionInfo(context),
-              behavior: HitTestBehavior.opaque,
-              child: SafeArea(
-                top: false,
-                child: Container(
-                  color: Colors.white,
-                  child: SizedBox(
-                    height: 50,
-                    child: Center(
-                      child: Text(
-                        'Grupo Oxford | Versão $appVersion © ${DateTime.now().year}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          content = GestureDetector(
+            onTap: () => _showSessionInfo(context),
+            behavior: HitTestBehavior.opaque,
+            child: Text(
+              'Grupo Oxford | Versão $appVersion © ${DateTime.now().year}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+                height: 1.0, // remove o espaço extra da fonte
+              ),
+              strutStyle: const StrutStyle(
+                fontSize: 12,
+                height: 1.0,
+                forceStrutHeight: true, // corta o leading de verdade
               ),
             ),
           );
+        } else {
+          content = const SpinKitThreeBounce(color: Colors.white, size: 30.0);
         }
-        return SafeArea(
-          top: false,
+
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
           child: Container(
             color: Colors.white,
-            child: const SizedBox(
-              height: 50,
-              child: Center(
-                child: SpinKitThreeBounce(color: Colors.white, size: 30.0),
-              ),
-            ),
+            width: double.infinity,
+            padding: EdgeInsets.only(top: 6, bottom: 6 + bottomInset),
+            child: content,
           ),
         );
       },

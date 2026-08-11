@@ -492,21 +492,8 @@ class _LoadReceivePageState extends State<LoadReceivePage> {
                       flex: 3,
                       child: Text(item.quantity.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 22.0,), ),
                     ),
-                    // Campo para input da quantidade recebida
-                    /*Expanded(flex: 3, child: TextFormField(
-                      initialValue: item.quantityReceived.toString(),
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 28.0,),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        item.quantityReceived = int.tryParse(value) ?? 0;
-                      },
-                    )),*/
+                    
+                    /*
                     Expanded(
                       flex: 3,
                       child: TextFormField(
@@ -538,7 +525,55 @@ class _LoadReceivePageState extends State<LoadReceivePage> {
                           item.quantityReceived = received;
                         },
                       ),
-                    )
+                    ),
+                    */
+                    Expanded(
+                      flex: 3,
+                      child: TextFormField(
+                        initialValue: item.quantityReceived.toString(),
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 28.0,
+                          color: Colors.black,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          filled: true,
+                          fillColor: (item.quantityReceived < item.quantity)
+                              ? Colors.red.withOpacity(0.3)
+                              : Colors.white,
+                          
+                          // Borda padrão quando o campo NÃO está focado
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Colors.indigo,
+                              width: 2.0, // Espessura da linha
+                            ),
+                          ),
+                          
+                          // Borda quando o usuário clica/foca no campo
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Colors.indigo,
+                              width: 3.0, // Espessura em destaque
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          int received = int.tryParse(value) ?? 0;
+                          
+                          // Lembre-se de usar o setState aqui se precisar atualizar
+                          // visualmente o fillColor na digitação:
+                          // setState(() {
+                          //   item.quantityReceived = received;
+                          // });
+                          
+                          item.quantityReceived = received;
+                        },
+                      ),
+                    ),
                   ],
                 ),
               );

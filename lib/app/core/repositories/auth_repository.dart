@@ -6,6 +6,7 @@ import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/globals/ApiRoutes.dart';
 import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/dto/login_response.dart';
+import 'package:oxdata/app/core/models/senior_employee_info.dart';
 
 // Classe para o response da API.
 class ApiResponse<T> {
@@ -92,6 +93,96 @@ class AuthRepository {
     }
   }
 
+  // -----------------------------------------------------------
+  // LOGIN / VALIDAÇÃO POR CRACHÁ - SENIOR
+  // -----------------------------------------------------------
+  Future<ApiResponse<SeniorEmployeeInfo>> loginWithBadge({
+    required String badgeCode,
+  }) async {
+    try {
+      final response = await apiClient.postAuth(
+        ApiRoutes.loginSenior,
+        body: {
+          'badgeCode': badgeCode.trim(),
+        },
+      );
+
+      // -------------------------------------------------------
+      // SUCESSO
+      // -------------------------------------------------------
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          return ApiResponse(
+            success: false,
+            message: 'A API retornou uma resposta vazia.',
+          );
+        }
+
+        final Map<String, dynamic> data =
+            json.decode(response.body) as Map<String, dynamic>;
+
+        final employeeInfo = SeniorEmployeeInfo.fromJson(data);
+
+        if (employeeInfo.token.isEmpty) {
+          return ApiResponse(
+            success: false,
+            message: 'A API não retornou o token do colaborador.',
+            rawJson: data,
+          );
+        }
+
+        // O token retornado pelo Senior passa a ser o token
+        // utilizado pelo ApiClient nas próximas requisições.
+        //apiClient.updateToken(employeeInfo.token);
+
+        return ApiResponse(
+          success: true,
+          data: employeeInfo,
+          rawJson: data,
+        );
+      }
+
+      // -------------------------------------------------------
+      // ERRO
+      // -------------------------------------------------------
+      String message = 'Não foi possível validar o crachá.';
+
+      if (response.body.isNotEmpty) {
+        try {
+          final decoded = json.decode(response.body);
+
+          if (decoded is Map<String, dynamic>) {
+            message =
+                decoded['message']?.toString() ??
+                decoded['error']?.toString() ??
+                decoded['title']?.toString() ??
+                message;
+          } else {
+            message = response.body;
+          }
+        } catch (_) {
+          // Caso a API retorne texto puro em vez de JSON.
+          message = response.body;
+        }
+      }
+
+      return ApiResponse(
+        success: false,
+        message: message,
+      );
+    } on FormatException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Resposta inválida da API: $e',
+      );
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erro de rede ao validar o crachá: $e',
+      );
+    }
+  }
+
   /// Método para registrar um novo usuário na API.
   Future<ApiResponse<String>> register({
     required String name,
@@ -105,6 +196,7 @@ class AuthRepository {
           'user':     name,
           'password': password,
           'account':  email,
+          'profileId': 5
         },
       );
 

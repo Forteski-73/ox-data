@@ -3,6 +3,8 @@ class ApiRoutes {
   static String login                    = 'User/login';
   static String loginUser                = 'User/LoginUser';
   static String loginRegister            = 'User/register';
+  static const String loginSenior        = 'AuthSenior/Login';
+
   static const String registerDevice     = 'User/Device';
   static String users                    = 'User/Users';
   static String profiles                 = 'User/Profiles';
