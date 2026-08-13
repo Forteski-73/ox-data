@@ -19,6 +19,7 @@ import 'package:oxdata/app/core/models/dto/product_db_local.dart';
 import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
+import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/utils/logger.dart';
 import 'dart:developer' as dev;
@@ -178,6 +179,18 @@ class InventoryRepository {
     _requestString(
       () => apiClient.deleteAuth('$_base/Record/ByCode/$inventCode/$unitizer/$location/$item'),
       fallback: 'Registro excluído com sucesso.',
+    );
+
+  // =========================================================================
+  // AUDIT
+  // =========================================================================
+
+  Future<ApiResponse<List<InventoryAuditModel>>> getInventoryAuditResult(String inventLocationId,) =>
+    _requestList(
+      () => apiClient.getAuth(
+        '$_base/${ApiRoutes.AuditResult}?inventLocationId=${Uri.encodeQueryComponent(inventLocationId)}',
+      ),
+      fromMap: InventoryAuditModel.fromJson,
     );
 
   // =========================================================================

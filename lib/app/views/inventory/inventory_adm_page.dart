@@ -1,3 +1,123 @@
+// =========================================
+// WIDGETS DAS ABAS (arquivos separados)
+// =========================================
+import 'package:oxdata/app/views/inventory/inventory_tab_lista.dart';
+import 'package:oxdata/app/views/inventory/inventory_tab_check_diff.dart';
+import 'package:oxdata/app/views/inventory/inventory_tab_usuarios.dart';
+import 'package:oxdata/app/views/inventory/inventory_tab_avisos.dart';
+
+import 'package:flutter/material.dart';
+import 'package:oxdata/app/core/widgets/app_bar.dart';
+import 'package:oxdata/app/core/widgets/pulse_icon.dart';
+
+enum _InventoryTab { lista, differences, usuarios, avisos }
+
+class InventoryAdmPage extends StatefulWidget {
+  const InventoryAdmPage({super.key});
+
+  @override
+  State<InventoryAdmPage> createState() => _InventoryAdmPageState();
+}
+
+class _InventoryAdmPageState extends State<InventoryAdmPage> {
+  // Aba Lista de Inventários já entra selecionada ao abrir a página.
+  _InventoryTab _currentTab = _InventoryTab.lista;
+
+  // Contador de recarga por aba. É incrementado a cada toque no ícone
+  // (mesmo quando a aba já está selecionada), e vira parte da Key do
+  // widget correspondente. Como a Key muda, o Flutter entende que é
+  // uma instância "nova" e descarta o State antigo, remontando a aba
+  // do zero — ou seja, refazendo o fetch.
+  final Map<_InventoryTab, int> _reloadTicks = {
+    for (final tab in _InventoryTab.values) tab: 0,
+  };
+
+  void _selectTab(_InventoryTab tab) {
+    setState(() {
+      _currentTab = tab;
+      _reloadTicks[tab] = (_reloadTicks[tab] ?? 0) + 1;
+    });
+  }
+
+  Widget _buildCurrentTabContent() {
+    final key = ValueKey('${_currentTab.name}-${_reloadTicks[_currentTab]}');
+
+    switch (_currentTab) {
+      case _InventoryTab.lista:
+        return InventoryTabLista(key: key);
+      case _InventoryTab.differences:
+        return InventoryTabChkDiff(key: key);
+      case _InventoryTab.usuarios:
+        return InventoryTabUsuarios(key: key);
+      case _InventoryTab.avisos:
+        return InventoryTabAvisos(key: key);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: const AppBarCustom(title: 'Apuração do Inventário'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // =========================================
+            // HEADER COM OS 4 ÍCONES (mesmo padrão da AdminPage)
+            // =========================================
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.inventory_2_outlined,
+                      color: Colors.indigo,
+                      onPressed: () => _selectTab(_InventoryTab.lista),
+                    ),
+                  ),
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.checklist_rtl_rounded,
+                      color: Colors.indigo,
+                      onPressed: () => _selectTab(_InventoryTab.differences),
+                    ),
+                  ),
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.announcement_outlined, // fact_check_rounded
+                      color: Colors.indigo,
+                      onPressed: () => _selectTab(_InventoryTab.usuarios),
+                    ),
+                  ),
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.announcement_outlined,
+                      color: Colors.indigo,
+                      onPressed: () => _selectTab(_InventoryTab.avisos),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // =========================================
+            // CORPO: troca de acordo com o ícone selecionado
+            // =========================================
+            Expanded(
+              child: _buildCurrentTabContent(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/*
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -243,6 +363,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.close_rounded, size: 20),
+                            style: IconButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -282,6 +407,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
               ),
               IconButton(
                 icon: Icon(Icons.filter_list_rounded, color: _selectedStatus != null ? Colors.indigo : Colors.grey),
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 onPressed: () async {
                   final String? result = await showModalBottomSheet<String>(
                     context: context,
@@ -299,6 +429,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
               ),
               IconButton(
                 icon: Icon(Icons.calendar_today_rounded, color: _selectedDateRange != null ? Colors.indigo : Colors.grey),
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 onPressed: () async {
                   final range = await showDateRangePicker(
                     context: context,
@@ -312,6 +447,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
               if (_selectedStatus != null || _selectedDateRange != null)
                 IconButton(
                   icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.red),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                   onPressed: () => setState(() {
                     _selectedStatus = null;
                     _selectedDateRange = null;
@@ -319,6 +459,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                 ),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: Colors.indigo),
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 tooltip: 'Atualizar Lista',
                 onPressed: _isLoading ? null : () => _fetchInventories(),
               ),
@@ -330,7 +475,7 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
   }
 
   Widget _buildTotalizersCards(int files, double items, bool isDesktop) {
-    final formatter = NumberFormat.decimalPattern('pt_BR');
+    //final formatter = NumberFormat.decimalPattern('pt_BR');
 
     final cards = [
       _buildKPIItem("Total Contagens", files.toDouble(), Icons.folder_open_rounded, Colors.indigo,),
@@ -599,8 +744,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               iconSize: 18,
-                              icon: const Icon(
-                                Icons.file_download_rounded,
+                              icon: const Icon(Icons.file_download_rounded,),
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                               tooltip: 'Baixar TXT',
                               onPressed: isFinalizado
@@ -614,6 +762,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                                 Icons.delete_outline_rounded,
                                 color: Colors.red,
                               ),
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
                               tooltip: 'Excluir',
                               onPressed: () => _confirmDelete(item),
                             ),
@@ -623,6 +776,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                               icon: const Icon(
                                 Icons.arrow_forward_rounded,
                                 color: Colors.indigo,
+                              ),
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                               tooltip: 'Abrir',
                               onPressed: () => _selectInventoryRow(item),
@@ -758,6 +916,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                                     constraints: const BoxConstraints(
                                         minWidth: 32, minHeight: 32),
                                     icon: const Icon(Icons.file_download_rounded, size: 22),
+                                    style: IconButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                     onPressed: isFinalizado
                                         ? () => _downloadInventoryTxt(item)
                                         : null,
@@ -768,6 +931,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                                         minWidth: 32, minHeight: 32),
                                     icon: const Icon(Icons.delete_outline_rounded,
                                         color: Colors.red, size: 22),
+                                    style: IconButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                     onPressed: () => _confirmDelete(item),
                                   ),
                                   IconButton(
@@ -776,6 +944,11 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                                         minWidth: 32, minHeight: 32),
                                     icon: const Icon(Icons.arrow_forward_rounded,
                                         color: Colors.indigo, size: 22),
+                                    style: IconButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                     onPressed: () => _selectInventoryRow(item),
                                   ),
                                 ],
@@ -819,3 +992,4 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
   String _formatDateTime(DateTime? dateTime) => dateTime == null ? '--' : DateFormat('dd/MM/yyyy').format(dateTime);
   String _formatQty(double? value) => value?.toString() ?? "0";
 }
+*/

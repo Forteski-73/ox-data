@@ -199,9 +199,9 @@ class _InventoryAdmRecordsPageState extends State<InventoryAdmRecordsPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBarCustom(
+      /*appBar: AppBarCustom(
         title: widget.inventory.inventName ?? '',
-      ),
+      ),*/
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(),
@@ -213,7 +213,7 @@ class _InventoryAdmRecordsPageState extends State<InventoryAdmRecordsPage> {
                   children: [
                     // Campo de Pesquisa no Topo
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
                       child: _buildSearchField(),
                     ),
 

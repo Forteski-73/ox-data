@@ -45,25 +45,26 @@ class ApiRoutes {
   static String palletLoadInvoice      = 'PalletLoad/Invoice';
 
   // Rotas para GET e SET de imagens no FTP
-  static String ftpGetImage              = 'Ftp/Images/GetBase64';
-  static String ftpSetImage              = 'Ftp/Images/SetBase64';
-  static String ftpDelImage              = 'Ftp/Images';
+  static String ftpGetImage       = 'Ftp/Images/GetBase64';
+  static String ftpSetImage       = 'Ftp/Images/SetBase64';
+  static String ftpDelImage       = 'Ftp/Images';
 
   // Rotas para o INVENTÁRIO
-  static String inventory             = 'Inventory';
+  static String inventory         = 'Inventory';
+  static String AuditResult       = 'AuditResult';
 
   // Rotas para o EMBALAGEM
-  static String productPacking        = 'ProductPacking';
-  static String productPackImage      = 'ProductPacking/Images';
-  static String productPackItem       = 'ProductPacking/Items';
-  static String image                 = 'Image';
+  static String productPacking    = 'ProductPacking';
+  static String productPackImage  = 'ProductPacking/Images';
+  static String productPackItem   = 'ProductPacking/Items';
+  static String image             = 'Image';
 
   // Rotas para o DEVICES
-  static const String device = 'Device/Setor';
-  static const String tvDevice = 'Device/TvDevice';
+  static const String device      = 'Device/Setor';
+  static const String tvDevice    = 'Device/TvDevice';
   static const String tvDeviceImg = 'Device/TvDeviceIMG';
 
   // Rotas para o VIDEOS
-  static const String video = 'Video';
+  static const String video       = 'Video';
 
 }

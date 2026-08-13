@@ -193,10 +193,10 @@ class AuthRepository {
       final response = await apiClient.postAuth(
         ApiRoutes.loginRegister, // Rota para cadastro
         body: {
-          'user':     name,
-          'password': password,
-          'account':  email,
-          'profileId': 5
+          'user':       name,
+          'password':   password,
+          'account':    email,
+          'profileId':  5
         },
       );
 

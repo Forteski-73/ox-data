@@ -20,6 +20,7 @@ import 'package:oxdata/app/core/models/dto/status_result.dart';
 import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
+import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/services/sync_manager.dart';
@@ -79,6 +80,11 @@ class InventoryService with ChangeNotifier {
   List<InventoryMaskData> get listMask => _listMask;
   InventoryModel? get selectedInventory => _selectedInventory;
   InventoryRecordInput? get draft => _draft;
+
+  // ── AUDITORIA DE INVENTÁRIO ──────────────────────────────────────────────────
+
+  List<InventoryAuditModel> _auditResults = [];
+  List<InventoryAuditModel> get auditResults => _auditResults;
 
   // ── Configuração de sync ──────────────────────────────────────────────────
 
@@ -298,12 +304,6 @@ class InventoryService with ChangeNotifier {
     return response.success ? response.data : null;
   }
 
-  /*void setSelectedInventory(InventoryModel inventory) {
-    _selectedInventory = inventory;
-    inventoryStatus = inventory.inventStatus;
-    notifyListeners();
-  }*/
-
   void setSelectedInventory(InventoryModel inventory) {
     _selectedInventory = inventory;
     inventoryStatus = inventory.inventStatus;
@@ -346,9 +346,6 @@ class InventoryService with ChangeNotifier {
 
     return StatusResult(status: 1, message: 'Inventário salvo.');
   }
-    //await database.insertOrUpdateInventoryOffline(inventory, synced: false);
-    //return StatusResult(status: 1, message: 'Inventário salvo com sucesso.');
-  
 
   Future<StatusResult> createOrUpdateInventoryCurr(InventoryModel inventory) async {
       if (!await NetworkUtils.hasInternetConnection()) {
@@ -477,18 +474,6 @@ class InventoryService with ChangeNotifier {
       notifyListeners();
     }
   }
-  /*
-  Future<void> loadMenuPermissions() async {
-    try {
-      final storage = StorageService();
-      final menus = await storage.readMenus();
-      _hasInventAdmMenu = menus.any((m) => m.routeName == 'INVENTADM');
-    } catch (e) {
-      debugPrint('⚠️ loadMenuPermissions: $e');
-      _hasInventAdmMenu = false;
-    }
-    notifyListeners();
-  }*/
 
   Future<void> loadMenuPermissions() async {
     try {
@@ -515,46 +500,6 @@ class InventoryService with ChangeNotifier {
 
     return [];
   }
-
-  /*
-  Future<void> deleteInventoryRecord(
-      String inventCode, String unitizer, String location, String item) async {
-
-    final hasInternet = await NetworkUtils.hasInternetConnection();
-
-    // Se tiver internet, deleta na API primeiro
-    // Só continua se a API confirmar — garante que ambos ficam em sincronizados
-    if (hasInternet) {
-      final response = await inventoryRepository.deleteInventoryRecord(
-          inventCode, unitizer, location, item);
-      if (!response.success) {
-        throw Exception('Erro ao excluir registro na API: ${response.message}');
-      }
-    }
-
-    // 2API confirmou, ou sem internet -> deleta local
-    await database.deleteRecordByKey(
-      inventCode: inventCode,
-      unitizer: unitizer,
-      location: location,
-      product: item,
-    );
-
-    // Atualiza lista em memória
-    final idx = _inventoryRecords.indexWhere((r) =>
-        r.inventCode == inventCode &&
-        r.inventUnitizer == unitizer &&
-        r.inventLocation == location &&
-        r.inventProduct == item);
-
-    if (idx == -1) return;
-
-    final removed = _inventoryRecords.removeAt(idx);
-    _decrementInventoryTotal(removed);
-
-    notifyListeners();
-  }
-  */
 
   Future<void> deleteInventoryRecord(
       String inventCode, String unitizer, String location, String item) async {
@@ -625,17 +570,7 @@ class InventoryService with ChangeNotifier {
     }
   }
 
-  /*
-  Future<void> searchProductLocally(String query) async {
-    if (query.length < 4) {
-      _searchResults = [];
-      notifyListeners();
-      return;
-    }
-    _searchResults = await database.searchProducts(query);
-    notifyListeners();
-  }
-  */
+
 
   // =========================================================================
   // MASKS
@@ -939,6 +874,22 @@ class InventoryService with ChangeNotifier {
       if (idx != -1) list[idx] = list[idx].copyWith(inventTotal: total);
     }
   }
+
+  Future<List<InventoryAuditModel>> getInventoryAuditResult(String inventLocationId) async
+  {
+    try {
+      if (await NetworkUtils.hasInternetConnection()) {
+        final response = await inventoryRepository.getInventoryAuditResult(inventLocationId);
+        if (response.success && response.data != null) {
+          return response.data!;
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
 }
 
 /// Suprime o warning "unawaited_futures" para chamadas fire-and-forget intencionais.
