@@ -51,7 +51,8 @@ class ApiRoutes {
 
   // Rotas para o INVENTÁRIO
   static String inventory         = 'Inventory';
-  static String AuditResult       = 'AuditResult';
+  static String auditResult       = 'AuditResult';
+  static String locations         = 'Locations';
 
   // Rotas para o EMBALAGEM
   static String productPacking    = 'ProductPacking';

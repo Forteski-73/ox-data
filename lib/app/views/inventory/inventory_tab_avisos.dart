@@ -10,6 +10,7 @@ class InventoryTabAvisos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -21,7 +22,7 @@ class InventoryTabAvisos extends StatelessWidget {
           ),
           SizedBox(height: 16),
           Text(
-            'Hello World - Avisos',
+            'Em Construção',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -30,5 +31,6 @@ class InventoryTabAvisos extends StatelessWidget {
         ],
       ),
     );
+    
   }
 }

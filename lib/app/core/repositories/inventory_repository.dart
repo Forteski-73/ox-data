@@ -19,6 +19,7 @@ import 'package:oxdata/app/core/models/dto/product_db_local.dart';
 import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
+import 'package:oxdata/app/core/models/invent_location_model.dart';
 import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/utils/logger.dart';
@@ -188,7 +189,7 @@ class InventoryRepository {
   Future<ApiResponse<List<InventoryAuditModel>>> getInventoryAuditResult(String inventLocationId,) =>
     _requestList(
       () => apiClient.getAuth(
-        '$_base/${ApiRoutes.AuditResult}?inventLocationId=${Uri.encodeQueryComponent(inventLocationId)}',
+        '$_base/${ApiRoutes.auditResult}?inventLocationId=${Uri.encodeQueryComponent(inventLocationId)}',
       ),
       fromMap: InventoryAuditModel.fromJson,
     );
@@ -202,6 +203,17 @@ class InventoryRepository {
         () => apiClient.getAuth('$_base/Masks'),
         fromMap: InventoryMaskLocal.fromMap,
       );
+
+
+   // =========================================================================
+  // LOCATIONS (depósitos — endpoint fica no InventController, não no Inventory)
+  // =========================================================================
+  Future<ApiResponse<List<InventorLocationModel>>> getActiveLocations() =>
+    _requestList(
+      () => apiClient.getAuth('Invent/${ApiRoutes.locations}'),
+      fromMap: InventorLocationModel.fromJson,
+    );
+
 
   // =========================================================================
   // HELPERS PRIVADOS

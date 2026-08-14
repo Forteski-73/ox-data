@@ -21,6 +21,7 @@ import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
+import 'package:oxdata/app/core/models/invent_location_model.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
 import 'package:oxdata/app/core/services/sync_manager.dart';
@@ -82,9 +83,12 @@ class InventoryService with ChangeNotifier {
   InventoryRecordInput? get draft => _draft;
 
   // ── AUDITORIA DE INVENTÁRIO ──────────────────────────────────────────────────
-
   List<InventoryAuditModel> _auditResults = [];
   List<InventoryAuditModel> get auditResults => _auditResults;
+
+  // ── LOCATIONS (depósitos) ───────────────────────────────────────────────
+  List<InventorLocationModel> _activeLocations = [];
+  List<InventorLocationModel> get activeLocations => _activeLocations;
 
   // ── Configuração de sync ──────────────────────────────────────────────────
 
@@ -565,12 +569,34 @@ class InventoryService with ChangeNotifier {
     try {
       return await database.findProductByCode(code);
     } catch (e) {
-      debugPrint('❌ searchProductLocallyByCode: $e');
       return null;
     }
   }
 
+  // =========================================================================
+  // LOCATIONS (depósitos)
+  // =========================================================================
 
+  Future<List<InventorLocationModel>> getActiveLocations() async {
+    try {
+      final response = await inventoryRepository.getActiveLocations();
+
+      if (response.success && response.data != null) {
+        _activeLocations = response.data!;
+        notifyListeners();
+        return _activeLocations;
+      }
+
+      _activeLocations = [];
+      notifyListeners();
+      return [];
+
+    } catch (e) {
+      _activeLocations = [];
+      notifyListeners();
+      return [];
+    }
+  }
 
   // =========================================================================
   // MASKS

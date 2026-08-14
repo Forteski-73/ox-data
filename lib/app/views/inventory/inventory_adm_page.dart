@@ -3,14 +3,13 @@
 // =========================================
 import 'package:oxdata/app/views/inventory/inventory_tab_lista.dart';
 import 'package:oxdata/app/views/inventory/inventory_tab_check_diff.dart';
-import 'package:oxdata/app/views/inventory/inventory_tab_usuarios.dart';
 import 'package:oxdata/app/views/inventory/inventory_tab_avisos.dart';
 
 import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 
-enum _InventoryTab { lista, differences, usuarios, avisos }
+enum _InventoryTab { lista, differences, avisos }
 
 class InventoryAdmPage extends StatefulWidget {
   const InventoryAdmPage({super.key});
@@ -47,8 +46,6 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
         return InventoryTabLista(key: key);
       case _InventoryTab.differences:
         return InventoryTabChkDiff(key: key);
-      case _InventoryTab.usuarios:
-        return InventoryTabUsuarios(key: key);
       case _InventoryTab.avisos:
         return InventoryTabAvisos(key: key);
     }
@@ -62,9 +59,9 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // =========================================
+            // =========================================================
             // HEADER COM OS 4 ÍCONES (mesmo padrão da AdminPage)
-            // =========================================
+            // =========================================================
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -83,13 +80,6 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                       icon: Icons.checklist_rtl_rounded,
                       color: Colors.indigo,
                       onPressed: () => _selectTab(_InventoryTab.differences),
-                    ),
-                  ),
-                  Expanded(
-                    child: PulseIconButton(
-                      icon: Icons.announcement_outlined, // fact_check_rounded
-                      color: Colors.indigo,
-                      onPressed: () => _selectTab(_InventoryTab.usuarios),
                     ),
                   ),
                   Expanded(

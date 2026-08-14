@@ -272,121 +272,131 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
 
   Widget _buildSearchField(bool isDesktop) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 16.0 : 10.0, vertical: 14.0),
+      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 16.0 : 10.0, vertical: 10.0),
       decoration: const BoxDecoration(
         color: Colors.white,
       ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1400),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  decoration: InputDecoration(
-                    hintText: 'Filtrar inventários..',
-                    hintStyle: TextStyle(
-                      color: Colors.blueGrey[300],
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: Colors.indigo,
-                      size: 22,
-                    ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 20),
-                            style: IconButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFE2E8F0),
-                        width: 1,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      hintText: 'Filtrar inventários..',
+                      hintStyle: TextStyle(
+                        color: Colors.blueGrey[300],
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
                       ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
                         color: Colors.indigo,
-                        width: 1,
+                        size: 22,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              style: IconButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFE2E8F0),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(
+                          color: Colors.indigo,
+                          width: 1,
+                        ),
                       ),
                     ),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.filter_list_rounded, color: _selectedStatus != null ? Colors.indigo : Colors.grey),
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () async {
-                  final String? result = await showModalBottomSheet<String>(
-                    context: context,
-                    builder: (ctx) => Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ListTile(title: const Text("Todos"), onTap: () => Navigator.pop(ctx, null)),
-                        ListTile(title: const Text("Concluído"), onTap: () => Navigator.pop(ctx, "Concluído")),
-                        ListTile(title: const Text("Em andamento"), onTap: () => Navigator.pop(ctx, "Em andamento")),
-                      ],
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
-                  );
-                  setState(() => _selectedStatus = result);
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.calendar_today_rounded, color: _selectedDateRange != null ? Colors.indigo : Colors.grey),
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: () async {
-                  final range = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2023),
-                    lastDate: DateTime.now(),
-                    initialDateRange: _selectedDateRange,
-                  );
-                  if (range != null) setState(() => _selectedDateRange = range);
-                },
-              ),
-              if (_selectedStatus != null || _selectedDateRange != null)
+                const SizedBox(width: 4),
                 IconButton(
-                  icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.red),
+                  icon: Icon(Icons.filter_list_rounded, color: _selectedStatus != null ? Colors.indigo : Colors.grey),
                   style: IconButton.styleFrom(
+                    minimumSize: const Size(50, double.infinity),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final String? result = await showModalBottomSheet<String>(
+                      context: context,
+                      builder: (ctx) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(title: const Text("Todos"), onTap: () => Navigator.pop(ctx, null)),
+                          ListTile(title: const Text("Concluído"), onTap: () => Navigator.pop(ctx, "Concluído")),
+                          ListTile(title: const Text("Em andamento"), onTap: () => Navigator.pop(ctx, "Em andamento")),
+                        ],
+                      ),
+                    );
+                    setState(() => _selectedStatus = result);
+                  },
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.calendar_today_rounded, color: _selectedDateRange != null ? Colors.indigo : Colors.grey),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(50, double.infinity),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final range = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2023),
+                      lastDate: DateTime.now(),
+                      initialDateRange: _selectedDateRange,
+                    );
+                    if (range != null) setState(() => _selectedDateRange = range);
+                  },
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.filter_alt_off_rounded, color: (_selectedStatus != null || _selectedDateRange != null) ? Colors.indigo : Colors.grey),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(50, double.infinity),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
                     ),
                   ),
                   onPressed: () => setState(() {
@@ -394,17 +404,21 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
                     _selectedDateRange = null;
                   }),
                 ),
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: Colors.indigo),
-                style: IconButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.indigo),
+                  style: IconButton.styleFrom (
+                    minimumSize: const Size(50, double.infinity),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
                   ),
+                  tooltip: 'Atualizar Lista',
+                  onPressed: _isLoading ? null : () => _fetchInventories(),
                 ),
-                tooltip: 'Atualizar Lista',
-                onPressed: _isLoading ? null : () => _fetchInventories(),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -418,10 +432,7 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
     ];
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isDesktop ? 6.0 : 1.0,
-        vertical: isDesktop ? 4.0 : 1.0,
-      ),
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1400),
@@ -499,7 +510,6 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
       margin: const EdgeInsets.only(top: 8, bottom: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(

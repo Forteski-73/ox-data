@@ -2,6 +2,694 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
+import 'package:oxdata/app/core/models/invent_location_model.dart';
+import 'package:oxdata/app/core/services/inventory_service.dart';
+import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+
+/// Aba "Conferência de Divergência" da InventoryAdmPage.
+///
+/// Busca no endpoint `AuditResult` os itens de um ou mais depósitos,
+/// comparando o total contado (`totalInvent`) com o saldo do sistema
+/// (`availPhysical`), e lista o resultado em formato de grid
+/// (tabela no desktop / cards no mobile), seguindo o mesmo padrão
+/// visual da InventoryTabLista.
+class InventoryTabChkDiff extends StatefulWidget {
+  const InventoryTabChkDiff({super.key});
+
+  @override
+  State<InventoryTabChkDiff> createState() => _InventoryTabChkDiffState();
+}
+
+class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
+  bool _isLoading = false;
+  bool _hasSearched = false;
+  List<InventoryAuditModel> _results = [];
+
+  bool _loadingLocations = false;
+  List<InventorLocationModel> _availableLocations = [];
+  List<InventorLocationModel> _selectedLocations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLocations();
+    });
+  }
+
+  Future<void> _loadLocations() async {
+    if (!mounted) return;
+    setState(() => _loadingLocations = true);
+
+    try {
+      final inventoryService = context.read<InventoryService>();
+      final locations = await inventoryService.getActiveLocations();
+
+      if (mounted) {
+        setState(() {
+          _availableLocations = locations;
+          _loadingLocations = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar depósitos: $e");
+      if (mounted) {
+        setState(() => _loadingLocations = false);
+        MessageService.showError("Erro ao carregar a lista de depósitos.");
+      }
+    }
+  }
+
+  Future<void> _fetchAuditResult() async {
+    if (_selectedLocations.isEmpty) {
+      MessageService.showError("Selecione ao menos um depósito para buscar.");
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _hasSearched = true;
+    });
+
+    try {
+      final inventoryService = context.read<InventoryService>();
+      final combined = <InventoryAuditModel>[];
+
+      // Busca sequencialmente cada depósito selecionado e agrega os resultados.
+      for (final location in _selectedLocations) {
+        final results = await inventoryService.getInventoryAuditResult(
+          location.inventLocationId,
+        );
+        combined.addAll(results);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _results = combined;
+      });
+
+      if (combined.isEmpty) {
+        MessageService.showError("Nenhum registro encontrado para os depósitos selecionados.");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        MessageService.showError("Erro ao buscar resultado da conferência.");
+      }
+    }
+  }
+
+  Future<void> _openLocationPicker() async {
+    // Trabalha com uma cópia temporária para só aplicar ao confirmar.
+    final tempSelected = List<InventorLocationModel>.from(_selectedLocations);
+
+    final result = await showModalBottomSheet<List<InventorLocationModel>>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Selecione os depósitos',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => setModalState(() => tempSelected.clear()),
+                            child: const Text('Limpar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                      ),
+                      child: _loadingLocations
+                          ? const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : _availableLocations.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text('Nenhum depósito disponível.'),
+                                )
+                              : ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: _availableLocations.length,
+                                  itemBuilder: (context, index) {
+                                    final location = _availableLocations[index];
+                                    final isChecked = tempSelected.any(
+                                      (l) => l.inventLocationId == location.inventLocationId,
+                                    );
+
+                                    return CheckboxListTile(
+                                      value: isChecked,
+                                      activeColor: Colors.indigo,
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                      title: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 70,
+                                            child: Text(
+                                              location.inventLocationId,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.indigo,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              location.inventLocationName,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      onChanged: (checked) {
+                                        setModalState(() {
+                                          if (checked == true) {
+                                            tempSelected.add(location);
+                                          } else {
+                                            tempSelected.removeWhere(
+                                              (l) => l.inventLocationId == location.inventLocationId,
+                                            );
+                                          }
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                    ),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.indigo),
+                          onPressed: () => Navigator.pop(ctx, tempSelected),
+                          child: Text('Aplicar (${tempSelected.length})'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() => _selectedLocations = result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int totalProdutos = _results.length;
+    final int totalDivergencias = _results.where((r) => r.hasDivergence).length;
+    final bool isDesktop = MediaQuery.of(context).size.width >= 900;
+
+    return Column(
+      children: [
+        _buildSearchField(isDesktop),
+        if (_hasSearched) _buildTotalizersCards(totalProdutos, totalDivergencias, isDesktop),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: SpinKitThreeBounce(color: Colors.indigo, size: 30.0))
+              : !_hasSearched
+                  ? _buildInitialState()
+                  : _results.isEmpty
+                      ? _buildEmptyState()
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1400),
+                            child: isDesktop
+                                ? _buildWebGridTable(_results)
+                                : _buildMobileCardsList(_results),
+                          ),
+                        ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchField(bool isDesktop) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 16.0 : 10.0, vertical: 14.0),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _buildLocationSelector()),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.search_rounded, color: Colors.indigo),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(50, double.infinity),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
+                  ),
+                  tooltip: 'Buscar',
+                  onPressed: _isLoading ? null : _fetchAuditResult,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.indigo),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(50, double.infinity),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
+                  ),
+                  tooltip: 'Atualizar',
+                  onPressed: (_isLoading || !_hasSearched) ? null : _fetchAuditResult,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Campo estilo combobox: abre um seletor múltiplo de depósitos.
+  Widget _buildLocationSelector() {
+    final hasSelection = _selectedLocations.isNotEmpty;
+    final label = !hasSelection
+        ? 'Depósitos'
+        : _selectedLocations.map((l) => l.inventLocationId).join(', ');
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: _loadingLocations ? null : _openLocationPicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warehouse_outlined, color: Colors.indigo, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: hasSelection ? const Color(0xFF0F172A) : Colors.blueGrey[300],
+                ),
+              ),
+            ),
+            if (hasSelection)
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  setState(() {
+                    _selectedLocations = [];
+                    _hasSearched = false;
+                    _results = [];
+                  });
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(2),
+                  child: Icon(Icons.close_rounded, size: 20),
+                ),
+              ),
+            if (hasSelection) const SizedBox(width: 8),
+            const Icon(Icons.arrow_drop_down_rounded, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalizersCards(int totalProdutos, int totalDivergencias, bool isDesktop) {
+    final cards = [
+      _buildKPIItem("Total Produtos", totalProdutos.toDouble(), Icons.inventory_2_outlined, Colors.indigo),
+      _buildKPIItem("Divergências", totalDivergencias.toDouble(), Icons.report_gmailerrorred_outlined, Colors.red),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1400),
+          child: isDesktop
+              ? Row(
+                  children: [
+                    Expanded(child: cards[0]),
+                    const SizedBox(width: 16),
+                    Expanded(child: cards[1]),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: cards[0]),
+                    const SizedBox(width: 8),
+                    Expanded(child: cards[1]),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKPIItem(String title, double value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 0).format(value),
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebGridTable(List<InventoryAuditModel> list) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: const Color(0xFFF1F5F9),
+            child: const Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    "PRODUTO",
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    "CÓD. BARRAS",
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    "CONTADO",
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    "SISTEMA",
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    "DIFERENÇA",
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.separated(
+              itemCount: list.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = list[index];
+                final diffColor = !item.hasDivergence
+                    ? Colors.grey.shade700
+                    : (item.difference > 0 ? Colors.green.shade700 : Colors.red.shade700);
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          item.inventProduct,
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.indigo),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          item.inventBarcode ?? '',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.totalInvent),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.availPhysical),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.difference),
+                          textAlign: TextAlign.right,
+                          style: TextStyle(fontWeight: FontWeight.w700, color: diffColor),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileCardsList(List<InventoryAuditModel> list) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        final item = list[index];
+        final diffColor = !item.hasDivergence
+            ? Colors.grey.shade700
+            : (item.difference > 0 ? Colors.green : Colors.red);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      color: diffColor,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.inventProduct,
+                                  style: const TextStyle(
+                                    color: Colors.indigo,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: diffColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.difference),
+                                  style: TextStyle(color: diffColor, fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.inventBarcode ?? '',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Contado: ${NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.totalInvent)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  'Sistema: ${NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits: 2).format(item.availPhysical)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInitialState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.warehouse_outlined, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Selecione o(s) depósito(s) e toque em buscar',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(child: Text("Nenhum registro encontrado para os depósitos selecionados."));
+  }
+}
+
+
+/*
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -117,7 +805,7 @@ class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _fetchAuditResult(),
                   decoration: InputDecoration(
-                    hintText: 'Depósito (ex: 101-101)',
+                    hintText: 'Depósitos',
                     hintStyle: TextStyle(
                       color: Colors.blueGrey[300],
                       fontSize: 15,
@@ -528,3 +1216,4 @@ class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
     return const Center(child: Text("Nenhum registro encontrado para esse depósito."));
   }
 }
+*/
