@@ -104,8 +104,6 @@ class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
   }
 
   /// Abre o popup "Selecione os Depósitos", no mesmo padrão visual dos
-  /// demais popups da página (ícone circular + título em caixa alta,
-  /// cartões com borda para cada opção, botões Cancelar/Aplicar).
   Future<void> _openLocationPicker() async {
     // Trabalha com uma cópia temporária para só aplicar ao confirmar.
     final tempSelected = List<InventorLocationModel>.from(_selectedLocations);
