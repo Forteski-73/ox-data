@@ -103,121 +103,129 @@ class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
     }
   }
 
+  /// Abre o popup "Selecione os Depósitos", no mesmo padrão visual dos
+  /// demais popups da página (ícone circular + título em caixa alta,
+  /// cartões com borda para cada opção, botões Cancelar/Aplicar).
   Future<void> _openLocationPicker() async {
     // Trabalha com uma cópia temporária para só aplicar ao confirmar.
     final tempSelected = List<InventorLocationModel>.from(_selectedLocations);
 
-    final result = await showModalBottomSheet<List<InventorLocationModel>>(
+    final result = await showDialog<List<InventorLocationModel>>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'Selecione os depósitos',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () => setModalState(() => tempSelected.clear()),
-                            child: const Text('Limpar'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-                      ),
-                      child: _loadingLocations
-                          ? const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          : _availableLocations.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Text('Nenhum depósito disponível.'),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: _availableLocations.length,
-                                  itemBuilder: (context, index) {
-                                    final location = _availableLocations[index];
-                                    final isChecked = tempSelected.any(
-                                      (l) => l.inventLocationId == location.inventLocationId,
-                                    );
-
-                                    return CheckboxListTile(
-                                      value: isChecked,
-                                      activeColor: Colors.indigo,
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                      title: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 70,
-                                            child: Text(
-                                              location.inventLocationId,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.indigo,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              location.inventLocationName,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      onChanged: (checked) {
-                                        setModalState(() {
-                                          if (checked == true) {
-                                            tempSelected.add(location);
-                                          } else {
-                                            tempSelected.removeWhere(
-                                              (l) => l.inventLocationId == location.inventLocationId,
-                                            );
-                                          }
-                                        });
-                                      },
-                                    );
-                                  },
-                                ),
-                    ),
-                    const Divider(height: 1),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(backgroundColor: Colors.indigo),
-                          onPressed: () => Navigator.pop(ctx, tempSelected),
-                          child: Text('Aplicar (${tempSelected.length})'),
+          builder: (dialogContext, setModalState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Material(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                elevation: 12,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLocationPickerTitle(),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                "Selecione um ou mais depósitos:",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => setModalState(() => tempSelected.clear()),
+                              child: const Text('Limpar'),
+                            ),
+                          ],
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 320),
+                            child: _loadingLocations
+                                ? const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Center(child: CircularProgressIndicator(color: Colors.indigo)),
+                                  )
+                                : _availableLocations.isEmpty
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: Text('Nenhum depósito disponível.'),
+                                      )
+                                    : ListView.separated(
+                                        shrinkWrap: true,
+                                        padding: EdgeInsets.zero,
+                                        itemCount: _availableLocations.length,
+                                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                        itemBuilder: (context, index) {
+                                          final location = _availableLocations[index];
+                                          final isChecked = tempSelected.any(
+                                            (l) => l.inventLocationId == location.inventLocationId,
+                                          );
+
+                                          return _buildLocationOptionTile(
+                                            location: location,
+                                            isSelected: isChecked,
+                                            onTap: () {
+                                              setModalState(() {
+                                                if (isChecked) {
+                                                  tempSelected.removeWhere(
+                                                    (l) => l.inventLocationId == location.inventLocationId,
+                                                  );
+                                                } else {
+                                                  tempSelected.add(location);
+                                                }
+                                              });
+                                            },
+                                          );
+                                        },
+                                      ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  side: const BorderSide(color: Colors.indigo),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => Navigator.pop(dialogContext),
+                                child: const Text('CANCELAR', style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.indigo,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => Navigator.pop(dialogContext, tempSelected),
+                                child: Text(
+                                  'APLICAR (${tempSelected.length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -229,6 +237,85 @@ class _InventoryTabChkDiffState extends State<InventoryTabChkDiff> {
     if (result != null) {
       setState(() => _selectedLocations = result);
     }
+  }
+
+  /// Cabeçalho do popup de depósitos, no mesmo padrão visual dos demais
+  /// popups da página (ícone circular + título em caixa alta).
+  Widget _buildLocationPickerTitle() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.indigo.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.warehouse_rounded, color: Colors.indigo, size: 28),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'SELECIONE OS DEPÓSITOS',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Uma opção de depósito no seletor (`_openLocationPicker`), no mesmo
+  /// estilo de "cartão" com borda usado nos demais popups da página.
+  Widget _buildLocationOptionTile({
+    required InventorLocationModel location,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.indigo.withOpacity(0.1) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? Colors.indigo : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              color: isSelected ? Colors.indigo : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 60,
+              child: Text(
+                location.inventLocationId,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.indigo : const Color(0xFF0F172A),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                location.inventLocationName,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isSelected ? Colors.indigo : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

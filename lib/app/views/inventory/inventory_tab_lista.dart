@@ -427,7 +427,7 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
 
   Widget _buildTotalizersCards(int files, double items, bool isDesktop) {
     final cards = [
-      _buildKPIItem("Total Contagens", files.toDouble(), Icons.folder_open_rounded, Colors.indigo,),
+      _buildKPIItem("Contagens", files.toDouble(), Icons.folder_open_rounded, Colors.indigo,),
       _buildKPIItem("Total Itens", items.toDouble(), Icons.playlist_add_check_rounded, Colors.teal, 2,),
     ];
 
@@ -487,10 +487,8 @@ class _InventoryTabListaState extends State<InventoryTabLista> {
                 ),
               ),
               Text(
-                NumberFormat.decimalPatternDigits(
-                  locale: 'pt_BR',
-                  decimalDigits: decimalDigits,
-                ).format(value ?? 0.0),
+                NumberFormat.decimalPattern('pt_BR')
+                    .format((value ?? 0.0).round()),
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 18,

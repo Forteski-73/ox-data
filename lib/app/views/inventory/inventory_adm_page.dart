@@ -3,13 +3,14 @@
 // =========================================
 import 'package:oxdata/app/views/inventory/inventory_tab_lista.dart';
 import 'package:oxdata/app/views/inventory/inventory_tab_check_diff.dart';
-import 'package:oxdata/app/views/inventory/inventory_tab_avisos.dart';
+import 'package:oxdata/app/views/inventory/inventory_tab_config.dart';
+import 'package:oxdata/app/views/inventory/inventory_tab_header.dart';
 
 import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/widgets/app_bar.dart';
 import 'package:oxdata/app/core/widgets/pulse_icon.dart';
 
-enum _InventoryTab { lista, differences, avisos }
+enum _InventoryTab { lista, differences, config, header }
 
 class InventoryAdmPage extends StatefulWidget {
   const InventoryAdmPage({super.key});
@@ -46,8 +47,10 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
         return InventoryTabLista(key: key);
       case _InventoryTab.differences:
         return InventoryTabChkDiff(key: key);
-      case _InventoryTab.avisos:
-        return InventoryTabAvisos(key: key);
+      case _InventoryTab.config:
+        return InventoryTabConfig(key: key);
+      case _InventoryTab.header:
+        return InventoryTabHeader(key: key);
     }
   }
 
@@ -84,9 +87,16 @@ class _InventoryAdmPageState extends State<InventoryAdmPage> {
                   ),
                   Expanded(
                     child: PulseIconButton(
-                      icon: Icons.announcement_outlined,
+                      icon: Icons.devices_other_outlined,
                       color: Colors.indigo,
-                      onPressed: () => _selectTab(_InventoryTab.avisos),
+                      onPressed: () => _selectTab(_InventoryTab.config),
+                    ),
+                  ),
+                  Expanded(
+                    child: PulseIconButton(
+                      icon: Icons.playlist_add_rounded,
+                      color: Colors.indigo,
+                      onPressed: () => _selectTab(_InventoryTab.header),
                     ),
                   ),
                 ],

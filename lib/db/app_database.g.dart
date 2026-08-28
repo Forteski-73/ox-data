@@ -66,6 +66,21 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _salesChannelMeta = const VerificationMeta(
+    'salesChannel',
+  );
+  @override
+  late final GeneratedColumn<bool> salesChannel = GeneratedColumn<bool>(
+    'sales_channel',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sales_channel" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _lastSyncMeta = const VerificationMeta(
     'lastSync',
   );
@@ -83,6 +98,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     barcode,
     productName,
     status,
+    salesChannel,
     lastSync,
   ];
   @override
@@ -130,6 +146,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
       );
     }
+    if (data.containsKey('sales_channel')) {
+      context.handle(
+        _salesChannelMeta,
+        salesChannel.isAcceptableOrUnknown(
+          data['sales_channel']!,
+          _salesChannelMeta,
+        ),
+      );
+    }
     if (data.containsKey('last_sync')) {
       context.handle(
         _lastSyncMeta,
@@ -161,6 +186,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.bool,
         data['${effectivePrefix}status'],
       )!,
+      salesChannel: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sales_channel'],
+      )!,
       lastSync: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_sync'],
@@ -179,12 +208,18 @@ class Product extends DataClass implements Insertable<Product> {
   final String barcode;
   final String productName;
   final bool status;
+
+  /// Se o produto pertence a algum canal de vendas (`product.sales_channel`
+  /// na API) — usado para bloquear a contagem quando o inventory_header do
+  /// device é "somente canal de vendas".
+  final bool salesChannel;
   final DateTime? lastSync;
   const Product({
     required this.productId,
     required this.barcode,
     required this.productName,
     required this.status,
+    required this.salesChannel,
     this.lastSync,
   });
   @override
@@ -194,6 +229,7 @@ class Product extends DataClass implements Insertable<Product> {
     map['barcode'] = Variable<String>(barcode);
     map['product_name'] = Variable<String>(productName);
     map['status'] = Variable<bool>(status);
+    map['sales_channel'] = Variable<bool>(salesChannel);
     if (!nullToAbsent || lastSync != null) {
       map['last_sync'] = Variable<DateTime>(lastSync);
     }
@@ -206,6 +242,7 @@ class Product extends DataClass implements Insertable<Product> {
       barcode: Value(barcode),
       productName: Value(productName),
       status: Value(status),
+      salesChannel: Value(salesChannel),
       lastSync: lastSync == null && nullToAbsent
           ? const Value.absent()
           : Value(lastSync),
@@ -222,6 +259,7 @@ class Product extends DataClass implements Insertable<Product> {
       barcode: serializer.fromJson<String>(json['barcode']),
       productName: serializer.fromJson<String>(json['productName']),
       status: serializer.fromJson<bool>(json['status']),
+      salesChannel: serializer.fromJson<bool>(json['salesChannel']),
       lastSync: serializer.fromJson<DateTime?>(json['lastSync']),
     );
   }
@@ -233,6 +271,7 @@ class Product extends DataClass implements Insertable<Product> {
       'barcode': serializer.toJson<String>(barcode),
       'productName': serializer.toJson<String>(productName),
       'status': serializer.toJson<bool>(status),
+      'salesChannel': serializer.toJson<bool>(salesChannel),
       'lastSync': serializer.toJson<DateTime?>(lastSync),
     };
   }
@@ -242,12 +281,14 @@ class Product extends DataClass implements Insertable<Product> {
     String? barcode,
     String? productName,
     bool? status,
+    bool? salesChannel,
     Value<DateTime?> lastSync = const Value.absent(),
   }) => Product(
     productId: productId ?? this.productId,
     barcode: barcode ?? this.barcode,
     productName: productName ?? this.productName,
     status: status ?? this.status,
+    salesChannel: salesChannel ?? this.salesChannel,
     lastSync: lastSync.present ? lastSync.value : this.lastSync,
   );
   Product copyWithCompanion(ProductsCompanion data) {
@@ -258,6 +299,9 @@ class Product extends DataClass implements Insertable<Product> {
           ? data.productName.value
           : this.productName,
       status: data.status.present ? data.status.value : this.status,
+      salesChannel: data.salesChannel.present
+          ? data.salesChannel.value
+          : this.salesChannel,
       lastSync: data.lastSync.present ? data.lastSync.value : this.lastSync,
     );
   }
@@ -269,14 +313,21 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('barcode: $barcode, ')
           ..write('productName: $productName, ')
           ..write('status: $status, ')
+          ..write('salesChannel: $salesChannel, ')
           ..write('lastSync: $lastSync')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(productId, barcode, productName, status, lastSync);
+  int get hashCode => Object.hash(
+    productId,
+    barcode,
+    productName,
+    status,
+    salesChannel,
+    lastSync,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -285,6 +336,7 @@ class Product extends DataClass implements Insertable<Product> {
           other.barcode == this.barcode &&
           other.productName == this.productName &&
           other.status == this.status &&
+          other.salesChannel == this.salesChannel &&
           other.lastSync == this.lastSync);
 }
 
@@ -293,6 +345,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String> barcode;
   final Value<String> productName;
   final Value<bool> status;
+  final Value<bool> salesChannel;
   final Value<DateTime?> lastSync;
   final Value<int> rowid;
   const ProductsCompanion({
@@ -300,6 +353,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.barcode = const Value.absent(),
     this.productName = const Value.absent(),
     this.status = const Value.absent(),
+    this.salesChannel = const Value.absent(),
     this.lastSync = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -308,6 +362,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     required String barcode,
     required String productName,
     this.status = const Value.absent(),
+    this.salesChannel = const Value.absent(),
     this.lastSync = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : productId = Value(productId),
@@ -318,6 +373,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? barcode,
     Expression<String>? productName,
     Expression<bool>? status,
+    Expression<bool>? salesChannel,
     Expression<DateTime>? lastSync,
     Expression<int>? rowid,
   }) {
@@ -326,6 +382,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (barcode != null) 'barcode': barcode,
       if (productName != null) 'product_name': productName,
       if (status != null) 'status': status,
+      if (salesChannel != null) 'sales_channel': salesChannel,
       if (lastSync != null) 'last_sync': lastSync,
       if (rowid != null) 'rowid': rowid,
     });
@@ -336,6 +393,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<String>? barcode,
     Value<String>? productName,
     Value<bool>? status,
+    Value<bool>? salesChannel,
     Value<DateTime?>? lastSync,
     Value<int>? rowid,
   }) {
@@ -344,6 +402,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       barcode: barcode ?? this.barcode,
       productName: productName ?? this.productName,
       status: status ?? this.status,
+      salesChannel: salesChannel ?? this.salesChannel,
       lastSync: lastSync ?? this.lastSync,
       rowid: rowid ?? this.rowid,
     );
@@ -364,6 +423,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (status.present) {
       map['status'] = Variable<bool>(status.value);
     }
+    if (salesChannel.present) {
+      map['sales_channel'] = Variable<bool>(salesChannel.value);
+    }
     if (lastSync.present) {
       map['last_sync'] = Variable<DateTime>(lastSync.value);
     }
@@ -380,6 +442,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('barcode: $barcode, ')
           ..write('productName: $productName, ')
           ..write('status: $status, ')
+          ..write('salesChannel: $salesChannel, ')
           ..write('lastSync: $lastSync, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1087,6 +1150,18 @@ class $InventoryTable extends Inventory
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _inventHeaderIdMeta = const VerificationMeta(
+    'inventHeaderId',
+  );
+  @override
+  late final GeneratedColumn<int> inventHeaderId = GeneratedColumn<int>(
+    'invent_header_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
   static const VerificationMeta _inventSectorMeta = const VerificationMeta(
     'inventSector',
   );
@@ -1182,6 +1257,7 @@ class $InventoryTable extends Inventory
     inventCode,
     inventName,
     inventGuid,
+    inventHeaderId,
     inventSector,
     inventCreated,
     inventUser,
@@ -1228,6 +1304,15 @@ class $InventoryTable extends Inventory
       );
     } else if (isInserting) {
       context.missing(_inventGuidMeta);
+    }
+    if (data.containsKey('invent_header_id')) {
+      context.handle(
+        _inventHeaderIdMeta,
+        inventHeaderId.isAcceptableOrUnknown(
+          data['invent_header_id']!,
+          _inventHeaderIdMeta,
+        ),
+      );
     }
     if (data.containsKey('invent_sector')) {
       context.handle(
@@ -1306,6 +1391,10 @@ class $InventoryTable extends Inventory
         DriftSqlType.string,
         data['${effectivePrefix}invent_guid'],
       )!,
+      inventHeaderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}invent_header_id'],
+      )!,
       inventSector: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}invent_sector'],
@@ -1363,6 +1452,10 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
   /// GUID do dispositivo / inventário
   final String inventGuid;
 
+  /// Cabeçalho de inventário (inventory_header) vinculado no momento da
+  /// criação — espelha o `invent_header_id` do inventory_guid do device.
+  final int inventHeaderId;
+
   /// Setor
   final String? inventSector;
 
@@ -1388,6 +1481,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     required this.inventCode,
     required this.inventName,
     required this.inventGuid,
+    required this.inventHeaderId,
     this.inventSector,
     this.inventCreated,
     this.inventUser,
@@ -1403,6 +1497,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     map['invent_code'] = Variable<String>(inventCode);
     map['invent_name'] = Variable<String>(inventName);
     map['invent_guid'] = Variable<String>(inventGuid);
+    map['invent_header_id'] = Variable<int>(inventHeaderId);
     if (!nullToAbsent || inventSector != null) {
       map['invent_sector'] = Variable<String>(inventSector);
     }
@@ -1433,6 +1528,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
       inventCode: Value(inventCode),
       inventName: Value(inventName),
       inventGuid: Value(inventGuid),
+      inventHeaderId: Value(inventHeaderId),
       inventSector: inventSector == null && nullToAbsent
           ? const Value.absent()
           : Value(inventSector),
@@ -1463,6 +1559,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
       inventCode: serializer.fromJson<String>(json['inventCode']),
       inventName: serializer.fromJson<String>(json['inventName']),
       inventGuid: serializer.fromJson<String>(json['inventGuid']),
+      inventHeaderId: serializer.fromJson<int>(json['inventHeaderId']),
       inventSector: serializer.fromJson<String?>(json['inventSector']),
       inventCreated: serializer.fromJson<DateTime?>(json['inventCreated']),
       inventUser: serializer.fromJson<String?>(json['inventUser']),
@@ -1482,6 +1579,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
       'inventCode': serializer.toJson<String>(inventCode),
       'inventName': serializer.toJson<String>(inventName),
       'inventGuid': serializer.toJson<String>(inventGuid),
+      'inventHeaderId': serializer.toJson<int>(inventHeaderId),
       'inventSector': serializer.toJson<String?>(inventSector),
       'inventCreated': serializer.toJson<DateTime?>(inventCreated),
       'inventUser': serializer.toJson<String?>(inventUser),
@@ -1499,6 +1597,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     String? inventCode,
     String? inventName,
     String? inventGuid,
+    int? inventHeaderId,
     Value<String?> inventSector = const Value.absent(),
     Value<DateTime?> inventCreated = const Value.absent(),
     Value<String?> inventUser = const Value.absent(),
@@ -1511,6 +1610,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     inventCode: inventCode ?? this.inventCode,
     inventName: inventName ?? this.inventName,
     inventGuid: inventGuid ?? this.inventGuid,
+    inventHeaderId: inventHeaderId ?? this.inventHeaderId,
     inventSector: inventSector.present ? inventSector.value : this.inventSector,
     inventCreated: inventCreated.present
         ? inventCreated.value
@@ -1535,6 +1635,9 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
       inventGuid: data.inventGuid.present
           ? data.inventGuid.value
           : this.inventGuid,
+      inventHeaderId: data.inventHeaderId.present
+          ? data.inventHeaderId.value
+          : this.inventHeaderId,
       inventSector: data.inventSector.present
           ? data.inventSector.value
           : this.inventSector,
@@ -1564,6 +1667,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
           ..write('inventCode: $inventCode, ')
           ..write('inventName: $inventName, ')
           ..write('inventGuid: $inventGuid, ')
+          ..write('inventHeaderId: $inventHeaderId, ')
           ..write('inventSector: $inventSector, ')
           ..write('inventCreated: $inventCreated, ')
           ..write('inventUser: $inventUser, ')
@@ -1581,6 +1685,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
     inventCode,
     inventName,
     inventGuid,
+    inventHeaderId,
     inventSector,
     inventCreated,
     inventUser,
@@ -1597,6 +1702,7 @@ class InventoryData extends DataClass implements Insertable<InventoryData> {
           other.inventCode == this.inventCode &&
           other.inventName == this.inventName &&
           other.inventGuid == this.inventGuid &&
+          other.inventHeaderId == this.inventHeaderId &&
           other.inventSector == this.inventSector &&
           other.inventCreated == this.inventCreated &&
           other.inventUser == this.inventUser &&
@@ -1611,6 +1717,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
   final Value<String> inventCode;
   final Value<String> inventName;
   final Value<String> inventGuid;
+  final Value<int> inventHeaderId;
   final Value<String?> inventSector;
   final Value<DateTime?> inventCreated;
   final Value<String?> inventUser;
@@ -1623,6 +1730,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     this.inventCode = const Value.absent(),
     this.inventName = const Value.absent(),
     this.inventGuid = const Value.absent(),
+    this.inventHeaderId = const Value.absent(),
     this.inventSector = const Value.absent(),
     this.inventCreated = const Value.absent(),
     this.inventUser = const Value.absent(),
@@ -1636,6 +1744,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     required String inventCode,
     required String inventName,
     required String inventGuid,
+    this.inventHeaderId = const Value.absent(),
     this.inventSector = const Value.absent(),
     this.inventCreated = const Value.absent(),
     this.inventUser = const Value.absent(),
@@ -1652,6 +1761,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     Expression<String>? inventCode,
     Expression<String>? inventName,
     Expression<String>? inventGuid,
+    Expression<int>? inventHeaderId,
     Expression<String>? inventSector,
     Expression<DateTime>? inventCreated,
     Expression<String>? inventUser,
@@ -1665,6 +1775,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
       if (inventCode != null) 'invent_code': inventCode,
       if (inventName != null) 'invent_name': inventName,
       if (inventGuid != null) 'invent_guid': inventGuid,
+      if (inventHeaderId != null) 'invent_header_id': inventHeaderId,
       if (inventSector != null) 'invent_sector': inventSector,
       if (inventCreated != null) 'invent_created': inventCreated,
       if (inventUser != null) 'invent_user': inventUser,
@@ -1680,6 +1791,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     Value<String>? inventCode,
     Value<String>? inventName,
     Value<String>? inventGuid,
+    Value<int>? inventHeaderId,
     Value<String?>? inventSector,
     Value<DateTime?>? inventCreated,
     Value<String?>? inventUser,
@@ -1693,6 +1805,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
       inventCode: inventCode ?? this.inventCode,
       inventName: inventName ?? this.inventName,
       inventGuid: inventGuid ?? this.inventGuid,
+      inventHeaderId: inventHeaderId ?? this.inventHeaderId,
       inventSector: inventSector ?? this.inventSector,
       inventCreated: inventCreated ?? this.inventCreated,
       inventUser: inventUser ?? this.inventUser,
@@ -1717,6 +1830,9 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
     }
     if (inventGuid.present) {
       map['invent_guid'] = Variable<String>(inventGuid.value);
+    }
+    if (inventHeaderId.present) {
+      map['invent_header_id'] = Variable<int>(inventHeaderId.value);
     }
     if (inventSector.present) {
       map['invent_sector'] = Variable<String>(inventSector.value);
@@ -1751,6 +1867,7 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
           ..write('inventCode: $inventCode, ')
           ..write('inventName: $inventName, ')
           ..write('inventGuid: $inventGuid, ')
+          ..write('inventHeaderId: $inventHeaderId, ')
           ..write('inventSector: $inventSector, ')
           ..write('inventCreated: $inventCreated, ')
           ..write('inventUser: $inventUser, ')
@@ -3524,6 +3641,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       required String barcode,
       required String productName,
       Value<bool> status,
+      Value<bool> salesChannel,
       Value<DateTime?> lastSync,
       Value<int> rowid,
     });
@@ -3533,6 +3651,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<String> barcode,
       Value<String> productName,
       Value<bool> status,
+      Value<bool> salesChannel,
       Value<DateTime?> lastSync,
       Value<int> rowid,
     });
@@ -3563,6 +3682,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<bool> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get salesChannel => $composableBuilder(
+    column: $table.salesChannel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3601,6 +3725,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get salesChannel => $composableBuilder(
+    column: $table.salesChannel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastSync => $composableBuilder(
     column: $table.lastSync,
     builder: (column) => ColumnOrderings(column),
@@ -3629,6 +3758,11 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<bool> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<bool> get salesChannel => $composableBuilder(
+    column: $table.salesChannel,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get lastSync =>
       $composableBuilder(column: $table.lastSync, builder: (column) => column);
@@ -3666,6 +3800,7 @@ class $$ProductsTableTableManager
                 Value<String> barcode = const Value.absent(),
                 Value<String> productName = const Value.absent(),
                 Value<bool> status = const Value.absent(),
+                Value<bool> salesChannel = const Value.absent(),
                 Value<DateTime?> lastSync = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion(
@@ -3673,6 +3808,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 productName: productName,
                 status: status,
+                salesChannel: salesChannel,
                 lastSync: lastSync,
                 rowid: rowid,
               ),
@@ -3682,6 +3818,7 @@ class $$ProductsTableTableManager
                 required String barcode,
                 required String productName,
                 Value<bool> status = const Value.absent(),
+                Value<bool> salesChannel = const Value.absent(),
                 Value<DateTime?> lastSync = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion.insert(
@@ -3689,6 +3826,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 productName: productName,
                 status: status,
+                salesChannel: salesChannel,
                 lastSync: lastSync,
                 rowid: rowid,
               ),
@@ -4082,6 +4220,7 @@ typedef $$InventoryTableCreateCompanionBuilder =
       required String inventCode,
       required String inventName,
       required String inventGuid,
+      Value<int> inventHeaderId,
       Value<String?> inventSector,
       Value<DateTime?> inventCreated,
       Value<String?> inventUser,
@@ -4096,6 +4235,7 @@ typedef $$InventoryTableUpdateCompanionBuilder =
       Value<String> inventCode,
       Value<String> inventName,
       Value<String> inventGuid,
+      Value<int> inventHeaderId,
       Value<String?> inventSector,
       Value<DateTime?> inventCreated,
       Value<String?> inventUser,
@@ -4161,6 +4301,11 @@ class $$InventoryTableFilterComposer
 
   ColumnFilters<String> get inventGuid => $composableBuilder(
     column: $table.inventGuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get inventHeaderId => $composableBuilder(
+    column: $table.inventHeaderId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4255,6 +4400,11 @@ class $$InventoryTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get inventHeaderId => $composableBuilder(
+    column: $table.inventHeaderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get inventSector => $composableBuilder(
     column: $table.inventSector,
     builder: (column) => ColumnOrderings(column),
@@ -4315,6 +4465,11 @@ class $$InventoryTableAnnotationComposer
 
   GeneratedColumn<String> get inventGuid => $composableBuilder(
     column: $table.inventGuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get inventHeaderId => $composableBuilder(
+    column: $table.inventHeaderId,
     builder: (column) => column,
   );
 
@@ -4410,6 +4565,7 @@ class $$InventoryTableTableManager
                 Value<String> inventCode = const Value.absent(),
                 Value<String> inventName = const Value.absent(),
                 Value<String> inventGuid = const Value.absent(),
+                Value<int> inventHeaderId = const Value.absent(),
                 Value<String?> inventSector = const Value.absent(),
                 Value<DateTime?> inventCreated = const Value.absent(),
                 Value<String?> inventUser = const Value.absent(),
@@ -4422,6 +4578,7 @@ class $$InventoryTableTableManager
                 inventCode: inventCode,
                 inventName: inventName,
                 inventGuid: inventGuid,
+                inventHeaderId: inventHeaderId,
                 inventSector: inventSector,
                 inventCreated: inventCreated,
                 inventUser: inventUser,
@@ -4436,6 +4593,7 @@ class $$InventoryTableTableManager
                 required String inventCode,
                 required String inventName,
                 required String inventGuid,
+                Value<int> inventHeaderId = const Value.absent(),
                 Value<String?> inventSector = const Value.absent(),
                 Value<DateTime?> inventCreated = const Value.absent(),
                 Value<String?> inventUser = const Value.absent(),
@@ -4448,6 +4606,7 @@ class $$InventoryTableTableManager
                 inventCode: inventCode,
                 inventName: inventName,
                 inventGuid: inventGuid,
+                inventHeaderId: inventHeaderId,
                 inventSector: inventSector,
                 inventCreated: inventCreated,
                 inventUser: inventUser,

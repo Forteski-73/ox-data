@@ -54,6 +54,10 @@ class ApiRoutes {
   static String auditResult       = 'AuditResult';
   static String locations         = 'Locations';
 
+  // Rotas para o cabeçalho de inventário (cadastro)
+  static const String inventoryHeader       = 'Inventory/Header';
+  static const String inventoryHeaderRecent = 'Inventory/Header/Recent';
+
   // Rotas para o EMBALAGEM
   static String productPacking    = 'ProductPacking';
   static String productPackImage  = 'ProductPacking/Images';
@@ -61,9 +65,11 @@ class ApiRoutes {
   static String image             = 'Image';
 
   // Rotas para o DEVICES
-  static const String device      = 'Device/Setor';
-  static const String tvDevice    = 'Device/TvDevice';
-  static const String tvDeviceImg = 'Device/TvDeviceIMG';
+  static const String device              = 'Device/Setor';
+  static const String tvDevice            = 'Device/TvDevice';
+  static const String tvDeviceImg         = 'Device/TvDeviceIMG';
+  static const String deviceInventoryGuid = 'Device/InventoryGuid';
+  static const String deviceUpdate        = 'Device/Update';
 
   // Rotas para o VIDEOS
   static const String video       = 'Video';

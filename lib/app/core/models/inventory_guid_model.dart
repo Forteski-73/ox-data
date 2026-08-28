@@ -6,11 +6,13 @@ class InventoryGuidModel {
   final String inventGuid;        // Corresponde a `invent_guid` (PK, VARCHAR 36)
   final int inventExpSeq;         // Corresponde a `invent_exp_seq` (INT, NOT NULL)
   final DateTime? inventCreated;  // Corresponde a `invent_created` (DATETIME NULL)
+  final int inventHeaderId;       // Corresponde a `invent_header_id` (INT, NOT NULL DEFAULT 1)
 
   InventoryGuidModel({
     required this.inventGuid,
     required this.inventExpSeq,
     this.inventCreated,
+    this.inventHeaderId = 1,
   });
 
   // --- MÉTODOS DE CONVERSÃO ---
@@ -21,7 +23,8 @@ class InventoryGuidModel {
       'inventGuid': inventGuid,
       'inventExpSeq': inventExpSeq,
       // Converte DateTime para String ISO 8601
-      'inventCreated': inventCreated?.toIso8601String(), 
+      'inventCreated': inventCreated?.toIso8601String(),
+      'inventHeaderId': inventHeaderId,
     };
   }
 
@@ -37,9 +40,10 @@ class InventoryGuidModel {
       inventGuid: map['inventGuid'] as String,
       inventExpSeq: parseRequiredInt(map['inventExpSeq']),
       // Tenta parsear a string para DateTime
-      inventCreated: map['inventCreated'] != null 
-          ? DateTime.tryParse(map['inventCreated'].toString()) 
+      inventCreated: map['inventCreated'] != null
+          ? DateTime.tryParse(map['inventCreated'].toString())
           : null,
+      inventHeaderId: map['inventHeaderId'] != null ? parseRequiredInt(map['inventHeaderId']) : 1,
     );
   }
 
@@ -53,7 +57,7 @@ class InventoryGuidModel {
 
   @override
   String toString() {
-    return 'InventoryGuidModel(inventGuid: $inventGuid, inventExpSeq: $inventExpSeq, inventCreated: $inventCreated)';
+    return 'InventoryGuidModel(inventGuid: $inventGuid, inventExpSeq: $inventExpSeq, inventCreated: $inventCreated, inventHeaderId: $inventHeaderId)';
   }
 
   /// Cria uma nova instância com valores atualizados.
@@ -61,11 +65,13 @@ class InventoryGuidModel {
     String? inventGuid,
     int? inventExpSeq,
     DateTime? inventCreated,
+    int? inventHeaderId,
   }) {
     return InventoryGuidModel(
       inventGuid: inventGuid ?? this.inventGuid,
       inventExpSeq: inventExpSeq ?? this.inventExpSeq,
       inventCreated: inventCreated ?? this.inventCreated,
+      inventHeaderId: inventHeaderId ?? this.inventHeaderId,
     );
   }
   

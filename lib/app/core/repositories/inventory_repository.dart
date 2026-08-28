@@ -18,6 +18,7 @@ import 'package:oxdata/app/core/models/dto/mask_db_local.dart';
 import 'package:oxdata/app/core/models/dto/product_db_local.dart';
 import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
+import 'package:oxdata/app/core/models/dto/inventory_header_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/models/invent_location_model.dart';
 import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
@@ -117,6 +118,58 @@ class InventoryRepository {
         () => apiClient.deleteAuth('$_base/Inventory/$inventCode'),
         fallback: 'Inventário excluído com sucesso.',
       );
+
+  // =========================================================================
+  // INVENTORY HEADER (cadastro de Name_inventory/description/sales_channel_only)
+  // =========================================================================
+
+  Future<ApiResponse<List<InventoryHeaderModel>>> getRecentInventoryHeaders() =>
+      _requestList(
+        () => apiClient.getAuth(ApiRoutes.inventoryHeaderRecent),
+        fromMap: InventoryHeaderModel.fromMap,
+      );
+
+  Future<ApiResponse<InventoryHeaderModel>> getInventoryHeaderById(int id) =>
+      _request(
+        () => apiClient.getAuth('${ApiRoutes.inventoryHeader}/$id'),
+        onSuccess: (body, _) => InventoryHeaderModel.fromMap(body),
+      );
+
+  /// Cria ou atualiza (upsert) um cabeçalho de inventário. Envie `id: 0`
+  /// para criar um novo registro, ou o `id` existente para atualizar.
+  Future<ApiResponse<InventoryHeaderModel>> createOrUpdateInventoryHeader(
+    InventoryHeaderModel header,
+  ) async {
+    try {
+      final response = await apiClient.postAuth1(
+        ApiRoutes.inventoryHeader,
+        body: header.toMap(),
+      );
+      final status = response.statusCode;
+
+      if (status == 200 || status == 201) {
+        final body = _decodeBody(response.body);
+
+        if (body.isEmpty) {
+          // Corpo vazio: usa os dados enviados como retorno.
+          return ApiResponse(success: true, data: header);
+        }
+
+        // 201 (criação): o corpo é o próprio header.
+        // 200 (atualização): o corpo vem como `{ message, data: {...} }`.
+        final headerJson = status == 201 ? body : (body['data'] as Map<String, dynamic>? ?? body);
+        return ApiResponse(success: true, data: InventoryHeaderModel.fromMap(headerJson));
+      }
+
+      return ApiResponse(
+        success: false,
+        message: 'Erro ao salvar cabeçalho de inventário: ${response.statusCode} - ${response.body}',
+      );
+    } catch (e) {
+      debugPrint('❌ InventoryRepository.createOrUpdateInventoryHeader: $e');
+      return ApiResponse(success: false, message: 'Falha ao salvar cabeçalho de inventário: $e');
+    }
+  }
 
   // =========================================================================
   // PRODUCTS

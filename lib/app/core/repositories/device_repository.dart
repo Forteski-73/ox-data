@@ -7,6 +7,7 @@ import 'package:oxdata/app/core/http/api_client.dart';
 import 'package:oxdata/app/core/models/tv_device_model.dart';
 import 'package:oxdata/app/core/repositories/auth_repository.dart';
 import 'package:oxdata/app/core/models/image_url_model.dart';
+import 'package:oxdata/app/core/models/dto/device_inventory_guid_model.dart';
 
 /// Repositório responsável pela comunicação com a API de TV Devices
 /// (endpoints do DeviceController: /v1/Device).
@@ -286,6 +287,81 @@ class DeviceRepository {
       return ApiResponse(
         success: false,
         message: 'Falha ao buscar TV Device: $e',
+      );
+    }
+  }
+
+  /// Busca todos os devices vinculados a um inventory_guid, com o
+  /// username do usuário dono do device.
+  /// GET /v1/Device/InventoryGuid
+  Future<ApiResponse<List<DeviceInventoryGuidModel>>> getDevicesWithInventoryGuid() async {
+    try {
+      final response = await apiClient.getAuth(ApiRoutes.deviceInventoryGuid);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(response.body);
+        final List<DeviceInventoryGuidModel> devices = jsonList
+            .map((json) => DeviceInventoryGuidModel.fromJson(json as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(success: true, data: devices);
+      } else if (response.statusCode == 404) {
+        return ApiResponse(
+          success: false,
+          message: 'Nenhum device vinculado a um inventário foi encontrado.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao buscar devices: ${response.statusCode}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha na requisição de devices: $e',
+      );
+    }
+  }
+
+  /// Atualiza o customDeviceName, o isActive e, opcionalmente, o
+  /// inventHeaderId (troca o inventory_header vinculado ao inventory_guid
+  /// do device) de um device.
+  /// PUT /v1/Device/Update/{id}
+  Future<ApiResponse<bool>> updateDeviceInventoryGuid({
+    required int id,
+    String? customDeviceName,
+    required bool isActive,
+    int? inventHeaderId,
+  }) async {
+    try {
+      final requestBody = {
+        'customDeviceName': customDeviceName,
+        'isActive': isActive,
+        'inventHeaderId': inventHeaderId,
+      };
+
+      final response = await apiClient.putAuth(
+        '${ApiRoutes.deviceUpdate}/$id',
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200) {
+        return ApiResponse(success: true, data: true);
+      } else if (response.statusCode == 404) {
+        return ApiResponse(
+          success: false,
+          message: 'Device não encontrado.',
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: 'Erro ao atualizar device: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on Exception catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Falha ao atualizar device: $e',
       );
     }
   }

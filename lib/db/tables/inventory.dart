@@ -4,16 +4,20 @@ import 'package:oxdata/app/core/models/inventory_model.dart';
 class Inventory extends Table {
   
   /// 🔑 Chave primária local autoincrementável
-  IntColumn get id => integer().autoIncrement()(); 
+  IntColumn get id => integer().autoIncrement()();
 
   /// Código do inventário (Mantemos a validação de tamanho)
-  TextColumn get inventCode => text().withLength(min: 1, max: 50)(); 
+  TextColumn get inventCode => text().withLength(min: 1, max: 50)();
 
   /// Nome do inventário
   TextColumn get inventName => text().withLength(min: 1, max: 50)();
 
   /// GUID do dispositivo / inventário
   TextColumn get inventGuid => text().withLength(min: 1, max: 36)();
+
+  /// Cabeçalho de inventário (inventory_header) vinculado no momento da
+  /// criação — espelha o `invent_header_id` do inventory_guid do device.
+  IntColumn get inventHeaderId => integer().withDefault(const Constant(1))();
 
   /// Setor
   TextColumn get inventSector => text().nullable().withLength(min: 1, max: 100)();

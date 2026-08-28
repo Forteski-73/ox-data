@@ -13,6 +13,7 @@ import 'package:oxdata/db/app_database.dart';
 import 'package:oxdata/db/enums/mask_field_name.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 // ---------------------------------------------------------------------------
@@ -227,6 +228,23 @@ class _InventoryItemPageState extends State<InventoryItemPage> {
     if (!mounted) return;
 
     if (product != null) {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+
+      // "Somente canal de vendas" é uma propriedade do inventory_header
+      // vinculado a este device (cacheada em initializeDeviceId()) — quando
+      // ativa, só aceita produtos com product.sales_channel == true.
+      final salesChannelOnly = prefs.getBool('inventory_header') ?? false;
+      if (salesChannelOnly && !product.salesChannel) {
+        setState(() {
+          _productName = ' ';
+          _controllers['product']!.clear();
+        });
+        MessageService.showError("Produto não é de nenhum canal de venda");
+        FocusScope.of(context).requestFocus(_nodes['product']);
+        return;
+      }
+
       setState(() {
         _controllers['product']!.text = product.barcode;
         _isProductBlink = false;

@@ -3,12 +3,14 @@ class ProductLocal {
   final String barcode;
   final String productName;
   final bool status;
+  final bool salesChannel;
 
   ProductLocal({
     required this.productId,
     required this.barcode,
     required this.productName,
     this.status = true,
+    this.salesChannel = true,
   });
 
   factory ProductLocal.fromMap(Map<String, dynamic> map) {
@@ -18,6 +20,7 @@ class ProductLocal {
       barcode:      map['barcode']?.toString() ?? '',
       productName:  map['productName']?.toString() ?? '',
       status:       map['status'] == true,
+      salesChannel: map['salesChannel'] == true,
     );
   }
 
@@ -27,6 +30,7 @@ class ProductLocal {
       'barcode':      barcode,
       'productName':  productName,
       'status':       status,
+      'salesChannel': salesChannel,
     };
   }
 }

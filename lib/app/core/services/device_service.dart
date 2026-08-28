@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:oxdata/app/core/models/tv_device_model.dart';
 import 'package:oxdata/app/core/repositories/device_repository.dart';
 import 'package:oxdata/app/core/models/image_url_model.dart';
+import 'package:oxdata/app/core/models/dto/device_inventory_guid_model.dart';
+import 'package:oxdata/app/core/models/dto/inventory_header_model.dart';
 
 /// Service responsável por expor os dados de TV Devices para a UI,
 /// consumindo o DeviceRepository (que fala com o DeviceController da API).
@@ -68,9 +70,69 @@ class DeviceService with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Atualiza o customDeviceName e/ou o isActive de um device vinculado
+  /// a um inventory_guid — e, opcionalmente, troca o inventory_header
+  /// vinculado ao inventory_guid desse device (envia o novo id via
+  /// inventHeaderId) — refletindo a alteração na lista local em caso
+  /// de sucesso.
+  Future<bool> updateDeviceInventoryGuid({
+    required int id,
+    String? customDeviceName,
+    required bool isActive,
+    InventoryHeaderModel? header,
+  }) async {
+    _errorMessage = null;
+
+    final response = await _deviceRepository.updateDeviceInventoryGuid(
+      id: id,
+      customDeviceName: customDeviceName,
+      isActive: isActive,
+      inventHeaderId: header?.id,
+    );
+
+    if (response.success) {
+      final index = _inventoryGuidDevices.indexWhere((d) => d.id == id);
+      if (index != -1) {
+        _inventoryGuidDevices[index] = _inventoryGuidDevices[index].copyWith(
+          customDeviceName: customDeviceName,
+          isActive: isActive,
+          header: header,
+        );
+      }
+      notifyListeners();
+      return true;
+    }
+
+    _errorMessage = response.message;
+    notifyListeners();
+    return false;
+  }
+
   void clear() {
     _tvDevices = [];
     _errorMessage = null;
+    notifyListeners();
+  }
+
+  List<DeviceInventoryGuidModel> _inventoryGuidDevices = [];
+  List<DeviceInventoryGuidModel> get inventoryGuidDevices => _inventoryGuidDevices;
+
+  /// Busca todos os devices vinculados a um inventory_guid.
+  Future<void> fetchDevicesWithInventoryGuid() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final response = await _deviceRepository.getDevicesWithInventoryGuid();
+
+    if (response.success && response.data != null) {
+      _inventoryGuidDevices = response.data!;
+    } else {
+      _inventoryGuidDevices = [];
+      _errorMessage = response.message;
+    }
+
+    _isLoading = false;
     notifyListeners();
   }
 

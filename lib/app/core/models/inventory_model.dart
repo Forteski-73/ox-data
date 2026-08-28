@@ -18,6 +18,10 @@ class InventoryModel {
   final InventoryStatus inventStatus;
   final double? inventTotal;
 
+  /// Cabeçalho de inventário (inventory_header) vinculado no momento da
+  /// criação — mesmo `invent_header_id` do inventory_guid do device.
+  final int inventHeaderId;
+
   /// 🔥 Controle OFFLINE
   final bool? isSynced;
 
@@ -30,6 +34,7 @@ class InventoryModel {
     this.inventUser,
     this.inventStatus = InventoryStatus.Iniciado,
     this.inventTotal,
+    this.inventHeaderId = 1,
     this.isSynced,
   });
 
@@ -42,6 +47,7 @@ class InventoryModel {
       'InventCode': inventCode,
       'InventName': inventName,
       'InventGuid': inventGuid,
+      'InventHeaderId': inventHeaderId,
       'InventSector': inventSector,
       'InventCreated': inventCreated?.toIso8601String(),
       'InventUser': inventUser,
@@ -63,6 +69,7 @@ class InventoryModel {
       inventCode: map['inventCode'] ?? map['InventCode'] ?? '',
       inventName: map['inventName'] ?? map['InventName'] ?? '',
       inventGuid: map['inventGuid'] ?? map['InventGuid'] ?? '',
+      inventHeaderId: (map['inventHeaderId'] ?? map['InventHeaderId']) as int? ?? 1,
       inventSector: map['inventSector'] ?? map['InventSector'],
       inventCreated: map['inventCreated'] != null
           ? DateTime.tryParse(map['inventCreated'].toString())
@@ -98,6 +105,7 @@ class InventoryModel {
       inventCode: data.inventCode,
       inventName: data.inventName,
       inventGuid: data.inventGuid,
+      inventHeaderId: data.inventHeaderId,
       inventSector: data.inventSector,
       inventCreated: data.inventCreated,
       inventUser: data.inventUser,
@@ -115,6 +123,7 @@ class InventoryModel {
     String? inventCode,
     String? inventName,
     String? inventGuid,
+    int? inventHeaderId,
     String? inventSector,
     DateTime? inventCreated,
     String? inventUser,
@@ -126,6 +135,7 @@ class InventoryModel {
       inventCode: inventCode ?? this.inventCode,
       inventName: inventName ?? this.inventName,
       inventGuid: inventGuid ?? this.inventGuid,
+      inventHeaderId: inventHeaderId ?? this.inventHeaderId,
       inventSector: inventSector ?? this.inventSector,
       inventCreated: inventCreated ?? this.inventCreated,
       inventUser: inventUser ?? this.inventUser,

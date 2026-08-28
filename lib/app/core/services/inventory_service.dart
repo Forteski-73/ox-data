@@ -21,6 +21,7 @@ import 'package:oxdata/app/core/models/inventory_guid_model.dart';
 import 'package:oxdata/app/core/models/inventory_model.dart';
 import 'package:oxdata/app/core/models/inventory_record_model.dart';
 import 'package:oxdata/app/core/models/dto/inventory_audit_model.dart';
+import 'package:oxdata/app/core/models/dto/inventory_header_model.dart';
 import 'package:oxdata/app/core/models/invent_location_model.dart';
 import 'package:oxdata/app/core/repositories/inventory_repository.dart';
 import 'package:oxdata/app/core/services/storage_service.dart';
@@ -90,6 +91,10 @@ class InventoryService with ChangeNotifier {
   List<InventorLocationModel> _activeLocations = [];
   List<InventorLocationModel> get activeLocations => _activeLocations;
 
+  // ── HEADER (cadastro de Name_inventory/description/sales_channel_only) ──
+  List<InventoryHeaderModel> _inventoryHeaders = [];
+  List<InventoryHeaderModel> get inventoryHeaders => _inventoryHeaders;
+
   // ── Configuração de sync ──────────────────────────────────────────────────
 
   bool _isSetupEnabled = false;
@@ -124,13 +129,42 @@ class InventoryService with ChangeNotifier {
     _deviceId = prefs.getString('device_uuid') ?? const Uuid().v4();
     await prefs.setString('device_uuid', _deviceId!);
 
+    InventoryGuidModel? guidModel;
     try {
-      await createInventoryGuid(
-        InventoryGuidModel(inventGuid: _deviceId!, inventExpSeq: 0),
+      // Busca o registro atual antes de (re)registrar: a API sobrescreve
+      // invent_header_id com o que for enviado no POST, então é preciso
+      // reenviar o valor já vinculado (ex.: trocado via InventoryTabConfig)
+      // em vez de deixar implícito — senão ele volta pro default (1) a
+      // cada novo registro/atualização do GUID.
+      final existing = await getInventoryGuidByGuid(_deviceId!);
+
+      guidModel = await createInventoryGuid(
+        InventoryGuidModel(
+          inventGuid: _deviceId!,
+          inventExpSeq: existing?.inventExpSeq ?? 0,
+          inventHeaderId: existing?.inventHeaderId ?? 1,
+        ),
       );
       debugPrint('✅ GUID registrado: $_deviceId');
     } catch (e) {
       debugPrint('⚠️ Falha ao registrar GUID (continuando offline): $e');
+    }
+
+    // Resolve o inventory_header vinculado a este GUID e cacheia localmente
+    // (salesChannelOnly, nome e id) — assim, ao criar um novo inventário
+    // para contagem, o app já tem essa informação disponível sem precisar
+    // de uma chamada extra à API (ex.: pré-preencher o nome do inventário
+    // com o invent_name do header, que é sempre a fonte da verdade).
+    if (guidModel != null) {
+      try {
+        final headerResponse = await inventoryRepository.getInventoryHeaderById(guidModel.inventHeaderId);
+        final header = headerResponse.data;
+        await prefs.setBool('inventory_header', header?.salesChannelOnly ?? false);
+        await prefs.setString('inventory_header_name', header?.inventName ?? '');
+        await prefs.setInt('inventory_header_id', header?.id ?? guidModel.inventHeaderId);
+      } catch (e) {
+        debugPrint('⚠️ Falha ao resolver o inventory_header do device: $e');
+      }
     }
 
     notifyListeners();
@@ -321,15 +355,16 @@ class InventoryService with ChangeNotifier {
   Future<StatusResult> createInventory(InventoryModel inventory) async {
     try {
       await recordsRepository.upsertInventory(
-        inventCode:    inventory.inventCode,
-        inventGuid:    inventory.inventGuid,
-        inventName:    inventory.inventName,
-        inventStatus:  inventory.inventStatus,
-        operation:     SyncOperation.insert,
-        inventSector:  inventory.inventSector,
-        inventUser:    inventory.inventUser,
-        inventCreated: inventory.inventCreated,
-        inventTotal:   inventory.inventTotal,
+        inventCode:     inventory.inventCode,
+        inventGuid:     inventory.inventGuid,
+        inventName:     inventory.inventName,
+        inventStatus:   inventory.inventStatus,
+        operation:      SyncOperation.insert,
+        inventHeaderId: inventory.inventHeaderId,
+        inventSector:   inventory.inventSector,
+        inventUser:     inventory.inventUser,
+        inventCreated:  inventory.inventCreated,
+        inventTotal:    inventory.inventTotal,
       );
       debugPrint('****** INSERIU ***** : ${inventory.inventCode}}');
     } catch (e) {
@@ -596,6 +631,38 @@ class InventoryService with ChangeNotifier {
       notifyListeners();
       return [];
     }
+  }
+
+  // =========================================================================
+  // HEADER (cadastro de Name_inventory/description/sales_channel_only)
+  // =========================================================================
+
+  Future<void> fetchRecentInventoryHeaders() async {
+    final response = await inventoryRepository.getRecentInventoryHeaders();
+
+    if (response.success && response.data != null) {
+      _inventoryHeaders = response.data!;
+    } else {
+      debugPrint('⚠️ fetchRecentInventoryHeaders: ${response.message}');
+      _inventoryHeaders = [];
+    }
+
+    notifyListeners();
+  }
+
+  /// Cria (id == 0) ou atualiza (id existente) um cabeçalho de inventário.
+  /// Em caso de sucesso, recarrega a lista a partir da API para refletir
+  /// o id definitivo atribuído pelo servidor.
+  Future<bool> createOrUpdateInventoryHeader(InventoryHeaderModel header) async {
+    final response = await inventoryRepository.createOrUpdateInventoryHeader(header);
+
+    if (!response.success) {
+      debugPrint('⚠️ createOrUpdateInventoryHeader: ${response.message}');
+      return false;
+    }
+
+    await fetchRecentInventoryHeaders();
+    return true;
   }
 
   // =========================================================================

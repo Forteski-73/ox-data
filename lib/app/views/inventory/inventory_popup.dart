@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NewInventoryPopup extends StatefulWidget {
   const NewInventoryPopup({super.key});
@@ -27,15 +28,12 @@ class _NewInventoryPopupState extends State<NewInventoryPopup> {
   AutovalidateMode _autoValidate = AutovalidateMode.disabled;
   
   final String _currentDate = DateFormat('dd/MM/yyyy').format(DateTime.now());
-  final FocusNode _nameFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadInventoryCode();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nameFocusNode.requestFocus();
-    });
+    _loadInventoryName();
   }
 
   @override
@@ -43,13 +41,22 @@ class _NewInventoryPopupState extends State<NewInventoryPopup> {
     _codeController.dispose();
     _nameController.dispose();
     _sectorController.dispose();
-    _nameFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _loadInventoryCode() async {
     String code = await DeviceService.getDeviceFineNumber();
     setState(() => _codeController.text = code);
+  }
+
+  /// Pré-preenche o nome com o `invent_name` do inventory_header vinculado
+  /// ao device (cacheado em `initializeDeviceId()`). Somente leitura porque
+  /// a API sempre sobrescreve o invent_name a partir do header ao salvar —
+  /// deixar editável aqui seria enganoso.
+  Future<void> _loadInventoryName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final headerName = prefs.getString('inventory_header_name') ?? '';
+    setState(() => _nameController.text = headerName);
   }
 
   Future<void> _handleSave() async {
@@ -67,10 +74,14 @@ class _NewInventoryPopupState extends State<NewInventoryPopup> {
       final userId = await _storage.read(key: 'username');
       final deviceGuid = await DeviceService.getDeviceId();
 
+      final prefs = await SharedPreferences.getInstance();
+      final inventHeaderId = prefs.getInt('inventory_header_id') ?? 1;
+
       final inventory = InventoryModel(
         inventCode: _codeController.text.trim(),
         inventName: _nameController.text.trim().toUpperCase(),
         inventGuid: deviceGuid,
+        inventHeaderId: inventHeaderId,
         inventSector: _sectorController.text.trim().toUpperCase(),
         inventCreated: DateTime.now(),
         inventUser: userId,
@@ -128,10 +139,8 @@ class _NewInventoryPopupState extends State<NewInventoryPopup> {
                   _buildModernField(
                     label: 'Nome Inventário',
                     controller: _nameController,
-                    focusNode: _nameFocusNode,
-                    textCapitalization: TextCapitalization.characters,
+                    enabled: false,
                     validator: (v) => v == null || v.isEmpty ? '' : null,
-                    onClear: () => _nameController.clear(),
                   ),
                   const SizedBox(height: 16),
 

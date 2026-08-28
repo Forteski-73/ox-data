@@ -201,6 +201,7 @@ class InventoryRecordsRepository {
     required String inventName,
     required InventoryStatus inventStatus,
     required SyncOperation operation,  // ← recebido por parâmetro
+    int inventHeaderId = 1,
     String? inventSector,
     String? inventUser,
     DateTime? inventCreated,
@@ -209,15 +210,16 @@ class InventoryRecordsRepository {
     return db.transaction(() async {
       final rowid = await db.into(db.inventory).insertOnConflictUpdate(
         InventoryCompanion.insert(
-          inventCode:    inventCode,
-          inventGuid:    inventGuid,
-          inventName:    inventName,
-          inventStatus:  inventStatus,
-          inventSector:  Value(inventSector),
-          inventUser:    Value(inventUser),
-          inventCreated: Value(inventCreated),
-          inventTotal:   Value(inventTotal),
-          isSynced:      const Value(false),
+          inventCode:      inventCode,
+          inventGuid:      inventGuid,
+          inventName:      inventName,
+          inventStatus:    inventStatus,
+          inventHeaderId:  Value(inventHeaderId),
+          inventSector:    Value(inventSector),
+          inventUser:      Value(inventUser),
+          inventCreated:   Value(inventCreated),
+          inventTotal:     Value(inventTotal),
+          isSynced:        const Value(false),
         ),
       );
 
