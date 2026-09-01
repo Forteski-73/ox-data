@@ -74,4 +74,7 @@ class ApiRoutes {
   // Rotas para o VIDEOS
   static const String video       = 'Video';
 
+  // Rotas para os KPIs
+  static const String kpiCompletude = 'Kpi/Completude';
+
 }

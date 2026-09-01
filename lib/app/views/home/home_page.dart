@@ -74,6 +74,7 @@ class _HomePageState extends State<HomePage> {
       case 'IA':            return RouteGenerator.aiPage;
       case 'FERRAMENTA':    return RouteGenerator.toolsPage;
       case 'ADMINISTRADOR': return RouteGenerator.adminPage;
+      case 'KPI':           return RouteGenerator.kpiPage;
       case 'GUIA':          return RouteGenerator.guidePage;
       case 'TV':            return RouteGenerator.tvPage;
       case 'DEV':           return RouteGenerator.devPage;

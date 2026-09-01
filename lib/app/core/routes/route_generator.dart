@@ -19,6 +19,7 @@ import 'package:oxdata/app/views/admin/AdminPage.dart';
 import 'package:oxdata/app/views/ai/AIPage.dart';
 import 'package:oxdata/app/views/developer/dev_page.dart';
 import 'package:oxdata/app/views/tools/tools_page.dart';
+import 'package:oxdata/app/views/kpi/kpi_page.dart';
 import 'package:oxdata/app/views/guide/guide_page.dart';
 import 'package:oxdata/app/views/setup/setup_inventory.dart';
 import 'package:oxdata/app/views/setup/setup_initial.dart';
@@ -46,6 +47,7 @@ class RouteGenerator {
   static const String palletReceivePage  = 'palletReceivePage';
   static const String loadPage           = 'CustomAnimatedPageView';
   static const String adminPage          = 'adminPage';
+  static const String kpiPage            = 'kpiPage';
   static const String aiPage             = 'aiPage';
   static const String toolsPage          = 'toolsPage';
   static const String guidePage          = 'guidePage';
@@ -74,6 +76,8 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const AdminPage());
       case aiPage:
         return MaterialPageRoute(builder: (context) => const AIPage());
+      case kpiPage:
+        return MaterialPageRoute(builder: (context) => const KpiPage());
       case toolsPage:
         return MaterialPageRoute(builder: (context) => const ToolsPage());
       case loadPage:

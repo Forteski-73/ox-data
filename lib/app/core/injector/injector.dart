@@ -17,6 +17,7 @@ import 'package:oxdata/app/core/repositories/ftp_repository.dart';
 import 'package:oxdata/app/core/repositories/device_repository.dart';
 import 'package:oxdata/app/core/repositories/image_repository.dart';
 import 'package:oxdata/app/core/repositories/video_repository.dart';
+import 'package:oxdata/app/core/repositories/kpi_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
@@ -31,6 +32,7 @@ import 'package:oxdata/app/core/services/device_service.dart';
 import 'package:oxdata/app/core/services/image_service.dart';
 import 'package:oxdata/app/core/services/sync_manager.dart';
 import 'package:oxdata/app/core/services/video_service.dart';
+import 'package:oxdata/app/core/services/kpi_service.dart';
 import 'package:oxdata/app/core/services/update_service.dart';
 import 'package:oxdata/app/core/sync/sync_api_client_impl.dart';
 import 'package:oxdata/db/app_database.dart';
@@ -227,6 +229,18 @@ class Injector {
       // 28. UpdateService
       ChangeNotifierProvider<UpdateService>(
         create: (_) => UpdateService(),
+      ),
+
+      // 29. KpiRepository
+      Provider<KpiRepository>(
+        create: (context) => KpiRepository(apiClient: context.read<ApiClient>()),
+      ),
+
+      // 30. KpiService
+      ChangeNotifierProvider<KpiService>(
+        create: (context) => KpiService(
+          kpiRepository: context.read<KpiRepository>(),
+        ),
       ),
 
     ];
