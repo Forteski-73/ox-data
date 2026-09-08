@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:oxdata/app/core/models/dto/inventory_header_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/services/message_service.dart';
+import 'package:oxdata/app/core/utils/upper_case_text.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 /// Aba "Header" da InventoryAdmPage.
@@ -327,6 +328,8 @@ class _InventoryTabHeaderState extends State<InventoryTabHeader> {
       focusNode: _formNameFocusNode,
       enabled: !_isSubmitting,
       maxLength: _nameMaxLength,
+      textCapitalization: TextCapitalization.characters,
+      inputFormatters: [UpperCaseTextFormatter()],
       decoration: _fieldDecoration('Nome do inventário'),
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
     );
@@ -338,6 +341,8 @@ class _InventoryTabHeaderState extends State<InventoryTabHeader> {
       focusNode: _formDescFocusNode,
       enabled: !_isSubmitting,
       maxLength: _descMaxLength,
+      textCapitalization: TextCapitalization.characters,
+      inputFormatters: [UpperCaseTextFormatter()],
       decoration: _fieldDecoration('Descrição'),
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
     );
@@ -399,6 +404,8 @@ class _InventoryTabHeaderState extends State<InventoryTabHeader> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: (value) => setState(() => _searchQuery = value),
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: 'Buscar por nome ou descrição...',
