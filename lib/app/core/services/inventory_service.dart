@@ -800,6 +800,8 @@ class InventoryService with ChangeNotifier {
         final response = await inventoryRepository
             .createOrUpdateInventory(InventoryModel.fromLocal(item));
         if (response.success) await database.markInventoryAsSynced(item.inventCode);
+
+        debugPrint('${response.success ? "✅" : "❌"} SINCRONIZADO : ${response.success}');
       }
 
       // Records agrupados por inventCode
@@ -813,7 +815,7 @@ class InventoryService with ChangeNotifier {
       return StatusResult(status: 0, message: 'Erro inesperado: $e');
     } finally {
       await Future.delayed(const Duration(seconds: 1));
-      //isSyncing = false; ************ sincronização  ************
+      isSyncing = false; //sincronização não desabilita mais
       notifyListeners();
     }
   }

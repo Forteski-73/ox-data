@@ -78,8 +78,8 @@ class _InventoryTabConfigState extends State<InventoryTabConfig> {
     }
   }
 
-  /// Filtra por nome (device/usuário) e ordena com os ativos sempre
-  /// primeiro, preservando a ordem original dentro de cada grupo.
+  /// Filtra por nome (device/usuário/inventário) e ordena com os ativos
+  /// sempre primeiro, preservando a ordem original dentro de cada grupo.
   List<DeviceInventoryGuidModel> get _visibleDevices {
     final query = _searchQuery.trim().toLowerCase();
 
@@ -88,7 +88,8 @@ class _InventoryTabConfigState extends State<InventoryTabConfig> {
         : _devices.where((d) {
             final deviceName = (d.customDeviceName ?? d.deviceName ?? '').toLowerCase();
             final username = d.username.toLowerCase();
-            return deviceName.contains(query) || username.contains(query);
+            final inventName = (d.header?.inventName ?? '').toLowerCase();
+            return deviceName.contains(query) || username.contains(query) || inventName.contains(query);
           }).toList();
 
     final active = filtered.where((d) => d.isActive).toList();
@@ -417,7 +418,7 @@ class _InventoryTabConfigState extends State<InventoryTabConfig> {
                     controller: _searchController,
                     onChanged: (value) => setState(() => _searchQuery = value),
                     decoration: InputDecoration(
-                      hintText: 'Buscar por nome do device ou usuário...',
+                      hintText: 'Buscar..',
                       hintStyle: TextStyle(
                         color: Colors.blueGrey[300],
                         fontSize: 15,
