@@ -647,16 +647,16 @@ Widget _buildSearchField() {
     // 3. Verificação de Segurança (Inventário nulo)
     if (currentInventory == null) {
       return Scaffold(
-        appBar: AppBar(
+        /*appBar: AppBar(
           title: const Text('Inventário'),
           backgroundColor: Colors.blue.shade700,
           foregroundColor: Colors.white,
-        ),
+        ),*/
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(32.0),
             child: Text(
-              'Nenhum inventário selecionado. Por favor, selecione um na lista.',
+              'Nenhum inventário selecionado.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
