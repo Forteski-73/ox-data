@@ -77,4 +77,7 @@ class ApiRoutes {
   // Rotas para os KPIs
   static const String kpiCompletude = 'Kpi/Completude';
 
+  // Rotas para a GESTÃO DE QUEBRAS
+  static const String breakage      = 'Breakage';
+
 }

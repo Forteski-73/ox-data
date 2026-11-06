@@ -65,7 +65,7 @@ class _HomePageState extends State<HomePage> {
   String getRealRoute(String dbRoute) {
     switch (dbRoute) {
       case 'PRODUTO':       return RouteGenerator.productsPage;
-      case 'EMBALAGEM':      return RouteGenerator.packagingPage;
+      case 'EMBALAGEM':     return RouteGenerator.packagingPage;
       case 'PALLET':        return RouteGenerator.palletsPage;
       case 'PALETIZACAO':   return RouteGenerator.palletizingPage;
       case 'CARGA':         return RouteGenerator.loadPage;
@@ -77,6 +77,7 @@ class _HomePageState extends State<HomePage> {
       case 'KPI':           return RouteGenerator.kpiPage;
       case 'GUIA':          return RouteGenerator.guidePage;
       case 'TV':            return RouteGenerator.tvPage;
+      case 'QUEBRA':        return RouteGenerator.breakagePage;
       case 'DEV':           return RouteGenerator.devPage;
       default:              return '/'; // Rota padrão caso dê ruim
     }
@@ -127,8 +128,7 @@ class _HomePageState extends State<HomePage> {
 
                       return GridView.builder(
                         padding: const EdgeInsets.all(8.0),
-                        gridDelegate:
-                            SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           crossAxisSpacing: 16.0,
                           mainAxisSpacing: 16.0,

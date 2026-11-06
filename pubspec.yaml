@@ -95,13 +95,24 @@ flutter_native_splash:
   fullscreen: true
   web: false
 
-flutter_icons:
-  android: true
-  ios: true
-  image_path: "assets/images/ic_launcher.png"
+
+#flutter_icons:
+#  android: true
+#  ios: true
+#  image_path: "assets/images/ic_launcher.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/ic_launcher.png"
+  web:
+    generate: true
+    image_path: "assets/images/ic_launcher.png"
+    background_color: "#000000"
+    theme_color: "#000000"
 
 # The following section is specific to Flutter packages.
 flutter:
@@ -123,6 +134,7 @@ flutter:
     - assets/images/oxford-background1.jpg
     - assets/images/oxford-box-background.png
     - assets/images/tools.png
+    - assets/images/breakage.png
     - assets/images/guide.png
     - assets/images/oxford-tv.png
     - assets/images/developer.png

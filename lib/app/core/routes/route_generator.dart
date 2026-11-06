@@ -25,6 +25,7 @@ import 'package:oxdata/app/views/setup/setup_inventory.dart';
 import 'package:oxdata/app/views/setup/setup_initial.dart';
 import 'package:oxdata/app/views/load/load.dart';
 import 'package:oxdata/app/views/assembly/tv-popup.dart';
+import 'package:oxdata/app/views/breakage/breakage_page.dart';
 import 'package:oxdata/app/core/models/pallet_model.dart';
 import 'package:oxdata/app/core/services/inventory_service.dart';
 import 'package:oxdata/app/core/repositories/admin_repository.dart';
@@ -54,6 +55,7 @@ class RouteGenerator {
   static const String setupPage          = 'setupPage';
   static const String setupInitPage      = 'setupInitPage';
   static const String tvPage             = 'tvPage';
+  static const String breakagePage       = 'breakagePage';
   static const String devPage            = 'devPage';
 
   static Route<dynamic> controller(RouteSettings settings) {
@@ -80,6 +82,8 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (context) => const KpiPage());
       case toolsPage:
         return MaterialPageRoute(builder: (context) => const ToolsPage());
+      case breakagePage:
+        return MaterialPageRoute(builder: (context) => const BreakagePage());
       case loadPage:
         return MaterialPageRoute(builder: (context) => CustomAnimatedPageView());
       case tvPage:

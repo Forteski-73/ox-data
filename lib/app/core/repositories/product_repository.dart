@@ -37,16 +37,21 @@ class ProductRepository {
 
     // Preenche o corpo da requisição com os filtros ativos
     filters.forEach((key, value) {
-      if (requestBody.containsKey(key)) {
-        // Para 'name', atribui diretamente o valor da string
-        if (key == 'name' || key == 'offset' || key == 'limit') {
-          requestBody[key] = value;
-        } else {
-          // Para os outros campos (List<String>), atribui a lista
-          if (value is List<String>) {
-            requestBody[key] = value;
-          }
-        }
+      // barcode é enviado no campo productId (a API busca nos dois)
+      final targetKey = key == 'barcode' ? 'productId' : key;
+
+      if (!requestBody.containsKey(targetKey)) return;
+
+      if (targetKey == 'name' || targetKey == 'offset' || targetKey == 'limit') {
+        requestBody[targetKey] = value;
+      } else if (value is List<String>) {
+        // Junta com o que já existe (ex.: productId + barcode), sem duplicar
+        final current = List<String>.from(requestBody[targetKey] as List);
+        requestBody[targetKey] = {...current, ...value}.toList();
+      } else if (value is String && value.trim().isNotEmpty) {
+        // Aceita barcode vindo como String simples (ex.: leitura do scanner)
+        final current = List<String>.from(requestBody[targetKey] as List);
+        requestBody[targetKey] = {...current, value.trim()}.toList();
       }
     });
 
