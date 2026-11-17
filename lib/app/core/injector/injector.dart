@@ -19,6 +19,7 @@ import 'package:oxdata/app/core/repositories/image_repository.dart';
 import 'package:oxdata/app/core/repositories/video_repository.dart';
 import 'package:oxdata/app/core/repositories/kpi_repository.dart';
 import 'package:oxdata/app/core/repositories/breakage_repository.dart';
+import 'package:oxdata/app/core/repositories/store_repository.dart';
 import 'package:oxdata/app/core/services/ftp_service.dart';
 import 'package:oxdata/app/core/services/auth_service.dart';
 import 'package:oxdata/app/core/services/loading_service.dart';
@@ -250,10 +251,17 @@ class Injector {
         create: (context) => BreakageRepository(apiClient: context.read<ApiClient>()),
       ),
 
-      // 32. BreakageService
+      // 32. StoreRepository
+      Provider<StoreRepository>(
+        create: (context) => StoreRepository(apiClient: context.read<ApiClient>()),
+      ),
+
+      // 33. BreakageService
       ChangeNotifierProvider<BreakageService>(
         create: (context) => BreakageService(
           breakageRepository: context.read<BreakageRepository>(),
+          storeRepository:    context.read<StoreRepository>(),
+          adminRepository:    context.read<AdminRepository>(),
           ftpRepository:      context.read<FtpRepository>(),
           productRepository:  context.read<ProductRepository>(),
         ),

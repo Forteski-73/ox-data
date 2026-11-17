@@ -78,6 +78,11 @@ class ApiRoutes {
   static const String kpiCompletude = 'Kpi/Completude';
 
   // Rotas para a GESTÃO DE QUEBRAS
-  static const String breakage      = 'Breakage';
+  static const String breakage         = 'Breakage';
+  static const String breakageWriteOff = 'Breakage/writeoff';
+  static const String store            = 'Store';
+
+  /// Rotas de ação de um registro: Breakage/{id}/approve | reject | return | resubmit | edit | history
+  static String breakageAction(int breakageId, String action) => '$breakage/$breakageId/$action';
 
 }
